@@ -67,7 +67,10 @@ class TimerEngineBasicTest {
         val r = e.snapshot.value!!
         assertEquals(EngineStatus.RUNNING, r.status)
         assertEquals(t.el + 60_000L, r.endElapsed)
-        assertEquals(3_000_000L, r.timeSpentPaused)
+        // resume 采用重锚方案:startElapsed 回退冻结 accrued,timeSpentPaused 归零;
+        // 暂停时长改由锚点差隐式表达,公共不变量 accruedWork 保持连续
+        assertEquals(0L, r.timeSpentPaused)
+        assertEquals(40_000L, r.accruedWork(t.el))
         assertEquals(60_000L, r.remaining(t.el))
         assertTrue(e.events.replayCache.last() is EngineEvent.Resumed)
     }
@@ -113,5 +116,36 @@ class TimerEngineBasicTest {
         val s = e.snapshot.value!!
         assertEquals("2026-08-31", s.ckptDate)
         assertEquals(42_000L, s.ckptAccum)
+    }
+
+    /** Task 7 review 缺陷回归:重启期间 PAUSED,resume 后 accruedWork 必须从冻结值继续,
+     *  不得坍缩导致 ckptAccum 游标倒退、已落库工作量重复计数 */
+    @Test fun resumeAfterBootReanchorsAccruedWork() = runTest {
+        val t = FakeTime()
+        val e = engine(t, mutableListOf())
+        e.restore(null)
+        e.start(1, 100_000L, 50_000L) // WORK 100s,起始 el=10_000
+        t.el += 40_000               // 已工作 40s
+        e.pause()                    // 冻结 accrued=40_000
+        e.onCheckpointFlushed("2026-08-31", 40_000L) // 模拟已 flush 40s
+        // 模拟设备重启:elapsedRealtime 清零为小值,墙钟前移
+        t.el = 2_000L
+        t.nowMs += 120_000L
+        val restored = StateRestorer.afterBoot(e.snapshot.value!!, t.nowMs, t.el)
+        e.adoptRestored(restored)
+        e.resume()
+        // 恢复瞬间 accrued 必须保持在冻结值 40s(坍缩即游标倒退)
+        assertEquals(40_000L, e.snapshot.value!!.accruedWork(t.el))
+        // 再过 10s:accrued 从冻结值连续增长到 50s
+        t.el += 10_000
+        assertEquals(50_000L, e.snapshot.value!!.accruedWork(t.el))
+        // 游标永不倒退:任意采样点 accrued 不低于已 flush 的 40s 且单调不减
+        var prev = 50_000L
+        repeat(20) {
+            t.el += 100
+            val a = e.snapshot.value!!.accruedWork(t.el)
+            assertTrue("accrued regressed: $a < $prev", a >= prev)
+            prev = a
+        }
     }
 }

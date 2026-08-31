@@ -74,13 +74,18 @@ class TimerEngine(
         val cur = _snapshot.value ?: return
         if (cur.status != EngineStatus.PAUSED) return
         val e = el; val w = wall
-        val pausedFor = (e - cur.lastPauseTime).coerceAtLeast(0)
+        // 重锚 elapsed 时钟:先冻结已累计的工作量,再重设 startElapsed。
+        // 设备重启后旧 startElapsed/lastPauseTime 锚点已失效(单调钟清零),若只平移 end,
+        // accruedWork 会坍缩向 0,导致 ckptAccum 游标倒退、已落库工作量被重复计数。
+        val frozenAccrued = (cur.lastPauseTime - cur.startElapsed - cur.timeSpentPaused)
+            .coerceIn(0, cur.durationMillis)
         val newEnd = e + cur.timeAtPause
         val newEndWall = w + cur.timeAtPause
         _snapshot.value = cur.copy(
             status = EngineStatus.RUNNING,
+            startElapsed = e - frozenAccrued,
             endElapsed = newEnd, endWall = newEndWall,
-            timeSpentPaused = cur.timeSpentPaused + pausedFor,
+            timeSpentPaused = 0,
             lastPauseTime = 0, timeAtPause = 0,
         )
         save()
