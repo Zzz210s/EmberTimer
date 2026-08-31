@@ -53,6 +53,9 @@ class AppGraph(
 
     val engine = TimerEngine(time, appScope, persist = { runtimeStore.save(it) })
 
+    val alarmScheduler = com.embertimer.service.AlarmScheduler(context, time)
+    val reminderPlayer = com.embertimer.service.ReminderPlayer(context)
+
     val vmFactory = viewModelFactory {
         // graph 即 this@AppGraph,闭包捕获(字面 graph 无成员可解析,需显式标签)
         initializer { HomeViewModel(this@AppGraph) }
