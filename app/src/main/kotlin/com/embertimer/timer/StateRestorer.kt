@@ -1,0 +1,23 @@
+package com.embertimer.timer
+
+/** 设备重启后的双时钟换算(goodtime 方案) */
+object StateRestorer {
+    fun afterBoot(s: RuntimeSnapshot, nowWall: Long, nowElapsed: Long): RuntimeSnapshot {
+        if (nowElapsed >= s.startElapsed) return s // 未重启,elapsed 仍有效
+        return when (s.status) {
+            EngineStatus.PAUSED -> s.copy(savedAtWall = nowWall, savedAtElapsed = nowElapsed)
+            EngineStatus.RUNNING -> {
+                val remainingWall = s.endWall - nowWall // 可为负:关机期间已到期
+                val newEnd = nowElapsed + remainingWall
+                val span = s.endElapsed - s.startElapsed // 阶段总跨度(含暂停前部分)
+                s.copy(
+                    startElapsed = newEnd - span,
+                    endElapsed = newEnd,
+                    savedAtWall = nowWall,
+                    savedAtElapsed = nowElapsed,
+                )
+            }
+            EngineStatus.IDLE -> s
+        }
+    }
+}
