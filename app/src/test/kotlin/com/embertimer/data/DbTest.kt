@@ -17,7 +17,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34])
+@Config(sdk = [34], application = android.app.Application::class) // 绕过 EmberApp 真实装配,保持测试封闭
 class DbTest {
     private lateinit var db: EmberDatabase
     private lateinit var profiles: ProfileRepository

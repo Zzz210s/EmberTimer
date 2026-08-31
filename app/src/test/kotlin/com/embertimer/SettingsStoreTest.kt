@@ -24,7 +24,7 @@ import org.robolectric.annotation.Config
 import java.io.File
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34])
+@Config(sdk = [34], application = android.app.Application::class) // 绕过 EmberApp 真实装配,保持测试封闭
 class SettingsStoreTest {
     private val ctx = ApplicationProvider.getApplicationContext<Context>()
 
