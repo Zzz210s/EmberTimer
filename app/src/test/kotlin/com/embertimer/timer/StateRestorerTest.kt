@@ -35,4 +35,17 @@ class StateRestorerTest {
         // endElapsed < nowElapsed? 不:剩余为负,Reconciler/onExpired 负责结算
         org.junit.Assert.assertTrue(s.endElapsed - 1_000 < 0)
     }
+
+    @Test fun secondRebootAfterReAnchorStillDetected() {
+        // Task 8 resume() 重锚后 startElapsed = elapsed - frozenAccrued 可为负
+        // (-38_000 = 22_000 - 60_000),旧守卫 nowElapsed >= startElapsed 恒真,二次重启被漏判。
+        // savedAtElapsed=60_000 是本次开机最近一次持久化时的单调钟,二次开机后 nowElapsed=1_000 更小
+        val s = snap(EngineStatus.RUNNING).copy(startElapsed = -38_000, savedAtElapsed = 60_000)
+        val r = StateRestorer.afterBoot(s, nowWall = 1_980_000, nowElapsed = 1_000)
+        // 剩余墙钟 = endWall(2_000_000) - nowWall(1_980_000) = 20_000
+        assertEquals(1_000 + 20_000L, r.endElapsed)
+        // span = 110_000 - (-38_000) = 148_000,新锚点 = 21_000 - 148_000
+        assertEquals(-127_000L, r.startElapsed)
+        assertEquals(1_000L, r.savedAtElapsed)
+    }
 }
