@@ -44,4 +44,12 @@ class NotificationsTest {
         val n = TimerNotifications.phaseDone(ctx, workFinished = true)
         assertEquals(true, (n.flags and android.app.Notification.FLAG_AUTO_CANCEL) != 0)
     }
+
+    /** 占位通知契约:走 CH_PROGRESS 且 ongoing(前台服务通知不可滑动清除) */
+    @Test fun minimalPlaceholderIsOngoing() {
+        TimerNotifications.ensureChannels(ctx)
+        val n = TimerNotifications.minimal(ctx)
+        assertEquals(TimerNotifications.CH_PROGRESS, n.channelId)
+        assertEquals(true, (n.flags and android.app.Notification.FLAG_ONGOING_EVENT) != 0)
+    }
 }

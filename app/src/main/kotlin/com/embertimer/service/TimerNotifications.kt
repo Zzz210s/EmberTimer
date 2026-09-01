@@ -34,6 +34,17 @@ object TimerNotifications {
         )
     }
 
+    /** 引擎快照未就绪时的最小占位通知:onStartCommand 同步前台化先顶上,异步收集器稍后用真实快照替换 */
+    fun minimal(context: Context): Notification =
+        NotificationCompat.Builder(context, CH_PROGRESS)
+            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+            .setContentTitle("EmberTimer")
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setCategory(NotificationCompat.CATEGORY_PROGRESS)
+            .setContentIntent(activityIntent(context))
+            .build()
+
     fun inProgress(context: Context, snap: RuntimeSnapshot): Notification {
         val phaseText = when {
             snap.phase == Phase.WORK -> "工作中"
