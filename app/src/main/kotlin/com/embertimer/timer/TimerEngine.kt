@@ -27,7 +27,15 @@ class TimerEngine(
     private val _ready = MutableStateFlow(false)
     val ready: StateFlow<Boolean> = _ready.asStateFlow()
 
-    private val _events = MutableSharedFlow<EngineEvent>(replay = 64, extraBufferCapacity = 64)
+    private val _events = MutableSharedFlow<EngineEvent>(replay = 0, extraBufferCapacity = 64)
+    /**
+     * 引擎事件流。replay=0:事件仅投递给已订阅的收集器 —— 订阅之前发出的变更事件
+     * (含上一会话、跨服务实例的旧事件)不会重放,订阅后也不会补发;因此服务侧
+     * (TimerService)必须先完成订阅握手(事件收集器挂上后才开始驱动引擎),
+     * 否则事件会被静默丢弃。extraBufferCapacity=64 保证订阅者在处理前一条事件期间
+     * 新到的入队不丢。原计划(Task 5)为 replay=64,Fix Round 1 改为 0:
+     * 重放缓存会把旧会话的 settle/提醒事件重投给新服务实例,导致工作量重复落库。
+     */
     val events: SharedFlow<EngineEvent> = _events.asSharedFlow()
 
     private val el get() = time.elapsedRealtime()
@@ -147,7 +155,8 @@ class TimerEngine(
             savedAtWall = w, savedAtElapsed = e, ckptDate = null, ckptAccum = 0,
         )
         save()
-        emit(EngineEvent.PhaseRestarted(cur.phase, settle, e + dur, w + dur))
+        // 结算归属旧 profile(cur.profileId):换 profile 重开时已累计工作量不跟新 profile 走
+        emit(EngineEvent.PhaseRestarted(cur.phase, settle, cur.profileId, e + dur, w + dur))
     }
 
     private fun finishAndAdvance(cur: RuntimeSnapshot, settleAtElapsed: Long, auto: Boolean) {

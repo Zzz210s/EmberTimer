@@ -15,17 +15,30 @@ import com.embertimer.timer.ReconcileAction
 import com.embertimer.timer.Reconciler
 import com.embertimer.timer.RuntimeSnapshot
 import java.time.LocalDate
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.onSubscription
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
- * 前台计时服务:唯一负责通知/闹钟/提醒/落库反应的一方。
+ * 前台计时服务:唯一负责通知/闹钟/提醒/落库反应的一方,也是唯一的引擎驱动者
+ * (接收器不再直接改引擎,到期推进统一走本服务的对账/ticker)。
+ *
+ * 引擎事件流 replay=0(Fix Round 1):订阅之前发出的事件不会被补发,因此本服务用
+ * 订阅握手保证顺序 —— 事件收集器挂上订阅(onSubscription 时完成 eventsSubscribed)
+ * 之后,任何命令派发/ticker/对账才允许驱动引擎;5 秒超时兜底,防死收集器挂死命令。
+ *
+ * 所有引擎驱动逻辑(ticker 迭代、事件处理、命令派发、进程死亡对账)由单一
+ * engineMutex 串行化,消除 checkpoint flush 与 settle 的交错双写(Concern 2)。
  *
  * 前台化纪律(路由发现,Task 9 评审):所有 startForegroundService 入口 —— 含随后决定
  * 停止的路径(对账 STOP_SELF)—— 都必须在约 5 秒内调用 startForeground(API 31+ 超时抛
@@ -37,6 +50,12 @@ class TimerService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var lastFlushElapsed = 0L
     private var lastFlushDate: String? = null
+
+    /** 订阅握手:事件收集器挂上订阅后完成一次;命令派发/ticker/对账先等它(replay=0) */
+    private val eventsSubscribed = CompletableDeferred<Unit>()
+
+    /** 串行化全部引擎驱动逻辑;flushCheckpoint/flushSettle 由调用方持锁调用(勿嵌套加锁) */
+    private val engineMutex = Mutex()
 
     /**
      * START 命令已收到但引擎快照尚未落地期间,快照收集器不应因初始 null 拆除服务
@@ -51,7 +70,14 @@ class TimerService : Service() {
         scope.launch {
             g.engine.awaitReady()
             launch { g.engine.snapshot.collect { onSnapshot(it) } }
-            launch { g.engine.events.collect { onEvent(it) } }
+            launch {
+                g.engine.events
+                    // onSubscription 在订阅注册完成后执行:此刻起后续事件必达本收集器
+                    .onSubscription { eventsSubscribed.complete(Unit) }
+                    .collect { onEvent(it) }
+            }
+            // ticker 首轮即可能触发 onExpired(引擎变更),必须等订阅握手完成后再启动
+            awaitEventsSubscribed()
             tickerLoop()
         }
     }
@@ -62,35 +88,47 @@ class TimerService : Service() {
         goForeground(g.engine.snapshot.value)
         val action = intent?.action
         if (action == null) {
-            scope.launch { reconcileAfterProcessDeath() }
+            scope.launch {
+                g.engine.awaitReady()
+                awaitEventsSubscribed()
+                reconcileAfterProcessDeath()
+            }
             return START_STICKY
         }
         val createsSnapshot = action == ACTION_START
         if (createsSnapshot) awaitingSnapshot = true
         scope.launch {
             g.engine.awaitReady()
+            awaitEventsSubscribed()
             try {
-                when (action) {
-                    ACTION_START -> g.engine.start(
-                        intent.getLongExtra(EXTRA_PROFILE_ID, -1),
-                        intent.getLongExtra(EXTRA_WORK_MILLIS, 0),
-                        intent.getLongExtra(EXTRA_REST_MILLIS, 0),
-                    )
-                    ACTION_PAUSE -> g.engine.pause()
-                    ACTION_RESUME -> g.engine.resume()
-                    ACTION_RESET -> g.engine.reset()
-                    ACTION_SKIP -> g.engine.skip()
-                    ACTION_RESTART_PHASE -> g.engine.restartPhase(
-                        intent.getLongExtra(EXTRA_PROFILE_ID, -1),
-                        intent.getLongExtra(EXTRA_WORK_MILLIS, 0),
-                        intent.getLongExtra(EXTRA_REST_MILLIS, 0),
-                    )
+                engineMutex.withLock {
+                    when (action) {
+                        ACTION_START -> g.engine.start(
+                            intent.getLongExtra(EXTRA_PROFILE_ID, -1),
+                            intent.getLongExtra(EXTRA_WORK_MILLIS, 0),
+                            intent.getLongExtra(EXTRA_REST_MILLIS, 0),
+                        )
+                        ACTION_PAUSE -> g.engine.pause()
+                        ACTION_RESUME -> g.engine.resume()
+                        ACTION_RESET -> g.engine.reset()
+                        ACTION_SKIP -> g.engine.skip()
+                        ACTION_RESTART_PHASE -> g.engine.restartPhase(
+                            intent.getLongExtra(EXTRA_PROFILE_ID, -1),
+                            intent.getLongExtra(EXTRA_WORK_MILLIS, 0),
+                            intent.getLongExtra(EXTRA_REST_MILLIS, 0),
+                        )
+                    }
                 }
             } finally {
                 if (createsSnapshot) awaitingSnapshot = false
             }
         }
         return START_STICKY
+    }
+
+    /** 握手等待:5 秒兜底,超时则放弃保证继续执行(死收集器不挂死命令) */
+    private suspend fun awaitEventsSubscribed() {
+        withTimeoutOrNull(5_000) { eventsSubscribed.await() }
     }
 
     override fun onDestroy() {
@@ -125,26 +163,29 @@ class TimerService : Service() {
     }
 
     private suspend fun onEvent(ev: EngineEvent) {
-        when (ev) {
-            is EngineEvent.PhaseStarted -> {
-                g.alarmScheduler.arm(ev.endElapsed)
-                flushCheckpoint(force = true)
-            }
-            is EngineEvent.Resumed -> g.alarmScheduler.arm(ev.endElapsed)
-            is EngineEvent.PhaseFinished -> {
-                g.alarmScheduler.cancel()
-                g.engine.snapshot.value?.let { flushSettle(ev.settleMillis, it.profileId) }
-                if (ev.auto) remind(ev.finished == Phase.WORK)
-            }
-            is EngineEvent.PhaseRestarted -> {
-                g.alarmScheduler.cancel()
-                g.engine.snapshot.value?.let { flushSettle(ev.settleMillis, it.profileId) }
-                g.alarmScheduler.arm(ev.endElapsed)
-            }
-            is EngineEvent.Paused -> g.alarmScheduler.cancel()
-            is EngineEvent.Reset -> {
-                g.alarmScheduler.cancel()
-                flushSettle(ev.settleMillis, ev.profileId)
+        engineMutex.withLock {
+            when (ev) {
+                is EngineEvent.PhaseStarted -> {
+                    g.alarmScheduler.arm(ev.endElapsed)
+                    flushCheckpoint(force = true)
+                }
+                is EngineEvent.Resumed -> g.alarmScheduler.arm(ev.endElapsed)
+                is EngineEvent.PhaseFinished -> {
+                    g.alarmScheduler.cancel()
+                    g.engine.snapshot.value?.let { flushSettle(ev.settleMillis, it.profileId) }
+                    if (ev.auto) remind(ev.finished == Phase.WORK)
+                }
+                is EngineEvent.PhaseRestarted -> {
+                    g.alarmScheduler.cancel()
+                    // 结算归属旧 profile:换 profile 重开时已累计工作量不跟新 profile 走(Concern 3)
+                    flushSettle(ev.settleMillis, ev.profileId)
+                    g.alarmScheduler.arm(ev.endElapsed)
+                }
+                is EngineEvent.Paused -> g.alarmScheduler.cancel()
+                is EngineEvent.Reset -> {
+                    g.alarmScheduler.cancel()
+                    flushSettle(ev.settleMillis, ev.profileId)
+                }
             }
         }
     }
@@ -167,22 +208,27 @@ class TimerService : Service() {
 
     private fun tickerLoop() = scope.launch {
         while (isActive) {
-            val snap = g.engine.snapshot.value
-            if (snap != null && snap.status == EngineStatus.RUNNING &&
-                snap.endElapsed <= g.time.elapsedRealtime()
-            ) {
-                g.engine.onExpired()
-            }
-            val now = g.time.elapsedRealtime()
-            val today = LocalDate.now().toString()
-            if (lastFlushDate != today || now - lastFlushElapsed >= 60_000) {
-                flushCheckpoint(force = false)
+            engineMutex.withLock {
+                val snap = g.engine.snapshot.value
+                if (snap != null && snap.status == EngineStatus.RUNNING &&
+                    snap.endElapsed <= g.time.elapsedRealtime()
+                ) {
+                    g.engine.onExpired()
+                }
+                val now = g.time.elapsedRealtime()
+                val today = LocalDate.now().toString()
+                if (lastFlushDate != today || now - lastFlushElapsed >= 60_000) {
+                    flushCheckpoint(force = false)
+                }
             }
             delay(1_000)
         }
     }
 
-    /** 60 秒增量落库;force 用于阶段切换/启动时 */
+    /**
+     * 60 秒增量落库;force 用于阶段切换/启动时。
+     * 调用方必须已持有 engineMutex(内部不再加锁,嵌套加锁会死锁)。
+     */
     private suspend fun flushCheckpoint(force: Boolean) {
         val snap = g.engine.snapshot.value ?: return
         val now = g.time.elapsedRealtime()
@@ -197,8 +243,10 @@ class TimerService : Service() {
     }
 
     /**
-     * settle(重置/跳过/阶段结束)直接落库。reset 后快照已空,profileId 由事件携带;
-     * 阶段结束/重启时快照仍指向同一 profile(finishAndAdvance 复制 profileId)。
+     * settle(重置/跳过/阶段结束)直接落库。调用方必须已持有 engineMutex。
+     * profileId 语义:Reset/PhaseRestarted 由事件携带(快照已空/已指向新 profile ——
+     * PhaseRestarted 携带重启前快照的旧 profileId);PhaseFinished 用后继快照的
+     * profileId(finishAndAdvance 复制 profileId,语义不变)。
      */
     private suspend fun flushSettle(settleMillis: Long, profileId: Long) {
         if (settleMillis <= 0) return
@@ -207,19 +255,21 @@ class TimerService : Service() {
 
     private suspend fun reconcileAfterProcessDeath() {
         g.engine.awaitReady()
-        when (Reconciler.decide(g.engine.snapshot.value, g.time.elapsedRealtime())) {
-            ReconcileAction.STOP_SELF -> {
-                // 同步前台化已在 onStartCommand 完成,此处停止不会触发
-                // ForegroundServiceDidNotStartInTimeException
-                stopForeground(STOP_FOREGROUND_REMOVE)
-                stopSelf()
+        engineMutex.withLock {
+            when (Reconciler.decide(g.engine.snapshot.value, g.time.elapsedRealtime())) {
+                ReconcileAction.STOP_SELF -> {
+                    // 同步前台化已在 onStartCommand 完成,此处停止不会触发
+                    // ForegroundServiceDidNotStartInTimeException
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                    stopSelf()
+                }
+                ReconcileAction.FINISH_EXPIRED -> g.engine.onExpired()
+                ReconcileAction.RESUME_ACTIVE -> g.engine.snapshot.value?.let {
+                    goForeground(it)
+                    g.alarmScheduler.arm(it.endElapsed)
+                }
+                ReconcileAction.SHOW_PAUSED -> g.engine.snapshot.value?.let { goForeground(it) }
             }
-            ReconcileAction.FINISH_EXPIRED -> g.engine.onExpired()
-            ReconcileAction.RESUME_ACTIVE -> g.engine.snapshot.value?.let {
-                goForeground(it)
-                g.alarmScheduler.arm(it.endElapsed)
-            }
-            ReconcileAction.SHOW_PAUSED -> g.engine.snapshot.value?.let { goForeground(it) }
         }
     }
 

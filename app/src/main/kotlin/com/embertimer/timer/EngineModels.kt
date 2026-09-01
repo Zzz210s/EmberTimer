@@ -50,7 +50,12 @@ sealed interface EngineEvent {
     data class PhaseStarted(val phase: Phase, val endElapsed: Long, val endWall: Long) : EngineEvent
     /** settleMillis = 待落库的工作增量(已扣除 checkpoint 游标) */
     data class PhaseFinished(val finished: Phase, val settleMillis: Long, val next: Phase, val auto: Boolean) : EngineEvent
-    data class PhaseRestarted(val phase: Phase, val settleMillis: Long, val endElapsed: Long, val endWall: Long) : EngineEvent
+    /**
+     * settleMillis = 待落库的工作增量(已扣除 checkpoint 游标);
+     * profileId = 结算归属的 profile —— 重启前快照的 profileId。restartPhase 可换 profile,
+     * 已累计的工作量仍归属旧 profile,携带方式镜像 Reset(事件发出时快照已指向新 profile)。
+     */
+    data class PhaseRestarted(val phase: Phase, val settleMillis: Long, val profileId: Long, val endElapsed: Long, val endWall: Long) : EngineEvent
     data class Paused(val timeAtPause: Long) : EngineEvent
     data class Resumed(val endElapsed: Long, val endWall: Long) : EngineEvent
     /** reset 后快照已清空,事件必须自带 profileId 供 settle 落库 */
