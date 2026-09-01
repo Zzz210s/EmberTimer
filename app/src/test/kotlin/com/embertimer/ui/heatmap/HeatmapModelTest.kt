@@ -2,6 +2,7 @@ package com.embertimer.ui.heatmap
 
 import java.time.LocalDate
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Test
 
@@ -23,6 +24,7 @@ class HeatmapModelTest {
         assertEquals(today.minusWeeks(4), first)
         val count = m.columns.sumOf { c -> c.count { it != null } }
         assertEquals(29, count) // 8/3..8/31 共 29 天,过去日期即使无数据也有格子
+        assertEquals(0L, m.columns.first()[0]!!.millis) // 过去日期无数据 -> millis 0(未来日期才是 null)
     }
 
     @Test fun valuesCarriedThrough() {
@@ -48,5 +50,17 @@ class HeatmapModelTest {
             val cell = m.columns[col].firstOrNull { it != null }!!.date
             assertEquals(cell.monthValue.toString() + "月", label)
         }
+    }
+
+    @Test fun monthStartsNeverMarksFirstColumn() {
+        // weeks=6:col 0 是 7 月周(2026-07-27 起),col 1 是 8 月周(2026-08-03 起);首列永不标记
+        val m = buildHeatmapModel(emptyMap(), today, weeks = 6)
+        assertFalse(m.monthStarts.containsKey(0))
+        assertEquals(setOf(1), m.monthStarts.keys)
+    }
+
+    @Test fun defaultWeeksIs53() {
+        // Task 13 依赖默认 weeks=53(HomeScreen 调用不传 weeks)
+        assertEquals(53, buildHeatmapModel(emptyMap(), today).columns.size)
     }
 }

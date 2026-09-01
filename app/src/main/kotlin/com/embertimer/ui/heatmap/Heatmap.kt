@@ -1,6 +1,7 @@
 package com.embertimer.ui.heatmap
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -52,7 +53,7 @@ fun Heatmap(model: HeatmapModel, selected: LocalDate?, onSelect: (LocalDate?) ->
     }
     val labelStyle = MaterialTheme.typography.labelSmall
     Column {
-        // 月份标签行
+        // 月份标签行;与下方格子行共用 scroll,需保持标签 Box 宽 COL_STEP == 格子 13dp + 列尾 padding 2dp,两边滚动范围才一致
         Row(Modifier.horizontalScroll(scroll, enabled = false)) {
             model.columns.forEachIndexed { i, _ ->
                 Box(Modifier.width(COL_STEP).height(14.dp)) {
@@ -75,7 +76,7 @@ fun Heatmap(model: HeatmapModel, selected: LocalDate?, onSelect: (LocalDate?) ->
                 }
             }
             Row(Modifier.horizontalScroll(scroll).fillMaxWidth()) {
-                model.columns.forEachIndexed { ci, week ->
+                model.columns.forEachIndexed { _, week ->
                     Column(
                         Modifier.padding(end = GAP),
                         verticalArrangement = Arrangement.spacedBy(GAP),
@@ -91,7 +92,11 @@ fun Heatmap(model: HeatmapModel, selected: LocalDate?, onSelect: (LocalDate?) ->
                                         if (cell == null) m
                                         else m.clickable { onSelect(if (sel) null else cell.date) }
                                     }
-                                    .let { m -> if (sel) m.padding(2.dp) else m },
+                                    // 选中态用边框:计划的内缩 padding 写在 background 之后且 Box 无内容,不产生任何绘制
+                                    .let { m ->
+                                        if (sel) m.border(1.dp, MaterialTheme.colorScheme.onSurface, RoundedCornerShape(3.dp))
+                                        else m
+                                    },
                             )
                         }
                     }
