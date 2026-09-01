@@ -52,6 +52,7 @@ class SettingsViewModelTest {
         val vm = SettingsViewModel(g)
         g.engine.restore(snap(EngineStatus.RUNNING))
         assertFalse(vm.editDurations(ProfileEntity(1, "a", 1, 1, 0), 30, 10)) // RUNNING 拒
+        assertEquals(25, g.profileRepo.byId(1)!!.workMinutes) // IGNORED 不写(种子 25 保持)
         g.engine.restore(snap(EngineStatus.PAUSED))
         assertTrue(vm.editDurations(ProfileEntity(1, "a", 1, 1, 0), 30, 10)) // PAUSED 重开
     }
