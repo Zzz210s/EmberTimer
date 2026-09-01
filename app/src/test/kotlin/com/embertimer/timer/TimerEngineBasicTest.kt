@@ -148,4 +148,68 @@ class TimerEngineBasicTest {
             prev = a
         }
     }
+
+    /** Fix Round 1 回归:pause()/resume()/onCheckpointFlushed() 必须刷新 savedAtElapsed/savedAtWall,
+     *  StateRestorer 的重启守卫(nowElapsed >= savedAtElapsed)依赖此不变量 */
+    @Test fun pauseResumeCheckpointRefreshSavedAtClocks() = runTest {
+        val t = FakeTime()
+        val saved = mutableListOf<RuntimeSnapshot?>()
+        val e = engine(t, saved)
+        e.restore(null)
+        e.start(1, 100_000L, 50_000L) // savedAtElapsed=10_000, savedAtWall=1_000_000
+        t.el += 40_000; t.nowMs += 40_000
+        e.pause()
+        var s = e.snapshot.value!!
+        assertEquals(50_000L, s.savedAtElapsed)
+        assertEquals(1_040_000L, s.savedAtWall)
+        t.el += 5_000; t.nowMs += 5_000
+        e.onCheckpointFlushed("2026-08-31", 40_000L)
+        s = e.snapshot.value!!
+        assertEquals(55_000L, s.savedAtElapsed)
+        assertEquals(1_045_000L, s.savedAtWall)
+        t.el += 10_000; t.nowMs += 10_000
+        e.resume()
+        s = e.snapshot.value!!
+        assertEquals(65_000L, s.savedAtElapsed)
+        assertEquals(1_055_000L, s.savedAtWall)
+        advanceUntilIdle()
+        // 持久化回调拿到的同样是刷新过游标的快照
+        assertEquals(65_000L, saved.last()!!.savedAtElapsed)
+        assertEquals(1_055_000L, saved.last()!!.savedAtWall)
+    }
+
+    /** Fix Round 1 回归(完整 stale-small 场景,经由引擎):
+     *  start -> pause -> 重启#1(PAUSED 分支,savedAtElapsed=N1) -> resume(startElapsed 重锚为负)
+     *  -> 重启#2(nowElapsed=N2 满足 N1 <= N2 < resume 时刻)必须仍被识别为重启。
+     *  旧代码 resume 不刷新游标,守卫 N2 >= N1 漏判 -> 不重锚,endElapsed 留在死时钟上 */
+    @Test fun secondRebootAfterResumeStillDetected() = runTest {
+        val t = FakeTime()
+        val e = engine(t, mutableListOf())
+        e.restore(null)
+        e.start(1, 100_000L, 50_000L) // el=10_000, wall=1_000_000; end=110_000 / 1_100_000
+        t.el += 40_000; t.nowMs += 40_000
+        e.pause()                     // 冻结 accrued=40_000, timeAtPause=60_000
+        // 重启#1:关机 2 分钟,BOOT_COMPLETED 在开机后 5s 送达
+        // (N1=5_000 < start 时刻的游标 10_000,新旧代码都能识别这次重启)
+        t.nowMs += 120_000; t.el = 5_000
+        e.adoptRestored(StateRestorer.afterBoot(e.snapshot.value!!, t.nowMs, t.el))
+        assertEquals(5_000L, e.snapshot.value!!.savedAtElapsed) // N1
+        // 开机 20s 后 resume:startElapsed 重锚 = 25_000 - 40_000 = -15_000(负值)
+        t.el += 20_000; t.nowMs += 20_000
+        e.resume()
+        assertEquals(-15_000L, e.snapshot.value!!.startElapsed)
+        // 重启#2:关机 30s,BOOT_COMPLETED 在开机后 15s 送达:
+        // N2=15_000 >= N1=5_000(旧代码守卫漏判)但 < resume 刷新的游标 25_000(修复后识别)
+        t.nowMs += 30_000; t.el = 15_000
+        val r = StateRestorer.afterBoot(e.snapshot.value!!, t.nowMs, t.el)
+        assertEquals(EngineStatus.RUNNING, r.status)
+        // 剩余墙钟 = endWall(1_240_000) - nowWall(1_210_000) = 30_000,折算到新单调钟
+        assertEquals(45_000L, r.endElapsed)
+        // span = 85_000 - (-15_000) = 100_000,重锚后 = 45_000 - 100_000
+        assertEquals(-55_000L, r.startElapsed)
+        assertEquals(15_000L, r.savedAtElapsed)
+        e.adoptRestored(r)
+        assertEquals(30_000L, e.snapshot.value!!.remaining(t.el))
+        assertEquals(70_000L, e.snapshot.value!!.accruedWork(t.el)) // 40s 冻结 + 关机期间 30s
+    }
 }

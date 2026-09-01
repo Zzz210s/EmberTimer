@@ -13,6 +13,8 @@ import kotlinx.coroutines.launch
 /**
  * 纯 Kotlin 事件驱动计时状态机。剩余时间恒由 endElapsed 推算,不维护 tick 权威计数。
  * 每次状态迁移后调用 persist(异步,scope 内)。
+ * 不变量:每次引擎状态迁移(含 pause/resume/onCheckpointFlushed)都刷新
+ * savedAtElapsed/savedAtWall —— StateRestorer 的重启判据依赖它。
  */
 class TimerEngine(
     private val time: TimeProvider,
@@ -63,9 +65,12 @@ class TimerEngine(
     fun pause() {
         val cur = _snapshot.value ?: return
         if (cur.status != EngineStatus.RUNNING) return
-        val e = el
+        val e = el; val w = wall
         val atPause = (cur.endElapsed - e).coerceAtLeast(0)
-        _snapshot.value = cur.copy(status = EngineStatus.PAUSED, timeAtPause = atPause, lastPauseTime = e)
+        _snapshot.value = cur.copy(
+            status = EngineStatus.PAUSED, timeAtPause = atPause, lastPauseTime = e,
+            savedAtWall = w, savedAtElapsed = e,
+        )
         save()
         emit(EngineEvent.Paused(atPause))
     }
@@ -87,6 +92,7 @@ class TimerEngine(
             endElapsed = newEnd, endWall = newEndWall,
             timeSpentPaused = 0,
             lastPauseTime = 0, timeAtPause = 0,
+            savedAtWall = w, savedAtElapsed = e,
         )
         save()
         emit(EngineEvent.Resumed(newEnd, newEndWall))
@@ -95,7 +101,8 @@ class TimerEngine(
     fun onCheckpointFlushed(date: String, accum: Long) {
         val cur = _snapshot.value ?: return
         if (cur.phase != Phase.WORK) return
-        _snapshot.value = cur.copy(ckptDate = date, ckptAccum = accum)
+        val e = el; val w = wall
+        _snapshot.value = cur.copy(ckptDate = date, ckptAccum = accum, savedAtWall = w, savedAtElapsed = e)
         save()
     }
 

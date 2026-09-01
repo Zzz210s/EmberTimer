@@ -3,7 +3,7 @@ package com.embertimer.timer
 /** 设备重启后的双时钟换算(goodtime 方案) */
 object StateRestorer {
     fun afterBoot(s: RuntimeSnapshot, nowWall: Long, nowElapsed: Long): RuntimeSnapshot {
-        if (nowElapsed >= s.savedAtElapsed) return s // 未重启:savedAtElapsed 每次持久化都会刷新,恒为本机单调钟(startElapsed 重锚后可为负,不可用作重启判据)
+        if (nowElapsed >= s.savedAtElapsed) return s // 未重启:savedAtElapsed 每次引擎状态迁移都会刷新(含 pause/resume/checkpoint),恒为本机单调钟(startElapsed 重锚后可为负,不可用作重启判据)
         return when (s.status) {
             EngineStatus.PAUSED -> s.copy(savedAtWall = nowWall, savedAtElapsed = nowElapsed)
             EngineStatus.RUNNING -> {
