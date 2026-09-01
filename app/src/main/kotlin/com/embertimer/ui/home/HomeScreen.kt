@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.embertimer.EmberApp
+import com.embertimer.service.ServiceLauncher
 import com.embertimer.service.TimerCommands
 import com.embertimer.timer.DurationFormat
 import com.embertimer.timer.EngineStatus
@@ -69,6 +70,14 @@ fun HomeScreen(onSettings: () -> Unit) {
             } ?: 0L
             delay(250)
         }
+    }
+
+    // 验收修复(用例 2):force-stop 会清除应用闹钟且 stopped state 拦截广播,重开应用后
+    // 若无人在跑,UI 只回显引擎快照会冻结在 00:00。快照非空时确保服务在跑:无 action
+    // 启动 -> 服务对账(过期推进落账/活跃重武装/空闲自停),幂等;服务已在跑时仅重复前台化。
+    // key 为存在性布尔:阶段推进不重复触发,仅 null->非null/首帧带快照时启动一次。
+    LaunchedEffect(ui.snap != null) {
+        if (ui.snap != null) ServiceLauncher.ensureServiceRunning(ctx)
     }
 
     Scaffold(
