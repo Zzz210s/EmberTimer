@@ -10,6 +10,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -120,7 +121,11 @@ fun HomeScreen(onSettings: () -> Unit) {
 @Composable
 private fun ProfileChips(ui: HomeUiState, onSelect: (com.embertimer.data.db.ProfileEntity) -> Unit) {
     val running = ui.snap?.status == EngineStatus.RUNNING
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    // 横向滚动:设置页可建多配置后 chips 可能超出屏宽(Task 13 评审 H5,路由到本任务)
+    Row(
+        Modifier.horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         ui.profiles.forEach { p ->
             FilterChip(
                 selected = p.id == ui.activeProfileId,
