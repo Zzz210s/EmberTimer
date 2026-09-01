@@ -4,7 +4,8 @@ import android.app.Application
 import com.embertimer.di.AppGraph
 import com.embertimer.service.TimerNotifications
 
-class EmberApp : Application() {
+/** open:测试用空 onCreate 子类注入受控 AppGraph(Robolectric 绕过真实装配) */
+open class EmberApp : Application() {
     lateinit var graph: AppGraph
 
     override fun onCreate() {

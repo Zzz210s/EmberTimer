@@ -20,6 +20,9 @@ class TimerEngine(
     private val time: TimeProvider,
     private val scope: CoroutineScope,
     private val persist: suspend (RuntimeSnapshot?) -> Unit,
+    /** 可选的事件丢弃回调(AppGraph 注入 Log.w):引擎包保持无 Android 依赖、
+     *  可在纯 JVM 测试中运行,故不直接用 android.util.Log(测试默认传 null 不回调) */
+    private val onEventDropped: ((EngineEvent) -> Unit)? = null,
 ) {
     private val _snapshot = MutableStateFlow<RuntimeSnapshot?>(null)
     val snapshot: StateFlow<RuntimeSnapshot?> = _snapshot.asStateFlow()
@@ -173,7 +176,7 @@ class TimerEngine(
             savedAtWall = w, savedAtElapsed = e, ckptDate = null, ckptAccum = 0,
         )
         save()
-        emit(EngineEvent.PhaseFinished(cur.phase, settle, next, auto))
+        emit(EngineEvent.PhaseFinished(cur.phase, settle, cur.profileId, next, auto))
         emit(EngineEvent.PhaseStarted(next, e + dur, w + dur))
     }
 
@@ -186,6 +189,8 @@ class TimerEngine(
     }
 
     private fun emit(ev: EngineEvent) {
-        _events.tryEmit(ev)
+        // 缓冲溢出(64)丢弃事件:驱动路径已串行化后几乎不可达,但丢弃正是本模块要消除的
+        // 静默失败,必须可观测(F7:回调注入,引擎不引入 Android 依赖)
+        if (!_events.tryEmit(ev)) onEventDropped?.invoke(ev)
     }
 }

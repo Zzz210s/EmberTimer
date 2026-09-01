@@ -1,6 +1,7 @@
 package com.embertimer.di
 
 import android.content.Context
+import android.util.Log
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.preferencesDataStoreFile
 import androidx.lifecycle.viewmodel.initializer
@@ -51,7 +52,12 @@ class AppGraph(
     val settingsRepo = SettingsRepository(ds)
     val runtimeStore = RuntimeStateStore(ds)
 
-    val engine = TimerEngine(time, appScope, persist = { runtimeStore.save(it) })
+    val engine = TimerEngine(
+        time, appScope,
+        persist = { runtimeStore.save(it) },
+        // F7:事件缓冲溢出丢弃必须可观测;引擎自身保持无 Android 依赖(纯 JVM 可测)
+        onEventDropped = { Log.w("TimerEngine", "engine event dropped: $it") },
+    )
 
     val alarmScheduler = com.embertimer.service.AlarmScheduler(context, time)
     val reminderPlayer = com.embertimer.service.ReminderPlayer(context)

@@ -173,6 +173,21 @@ class TimerEngineAdvanceTest {
         assertEquals(1L, ev.profileId) // 结算归属旧 profile(重启前快照的 profileId)
     }
 
+    /** Fix Round 2(F2): PhaseFinished 自带 profileId —— 结算归属完成推进前的快照,
+     *  与后继快照解耦(后继正常流复制同一 profileId,RESET 交错时快照已空) */
+    @Test fun phaseFinishedCarriesPreAdvanceProfileId() = runTest {
+        val t = FT()
+        val e = engine(t, mutableListOf())
+        e.restore(null)
+        val seen = recordEvents(e)
+        e.start(7, 100_000L, 40_000L) // 在 profile 7 下跑完工作阶段
+        t.el += 100_000
+        e.onExpired()
+        val fin = seen.filterIsInstance<EngineEvent.PhaseFinished>().single()
+        assertEquals(7L, fin.profileId)
+        assertEquals(7L, e.snapshot.value!!.profileId) // 后继复制同一 profile(正常流快照仍可佐证)
+    }
+
     @Test fun restartPhaseIgnoredWhileRunning() = runTest {
         val t = FT()
         val e = engine(t, mutableListOf())

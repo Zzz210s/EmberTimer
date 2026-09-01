@@ -5,6 +5,7 @@ import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
+import android.util.Log
 import com.embertimer.EmberApp
 import com.embertimer.di.AppGraph
 import com.embertimer.timer.Checkpointer
@@ -39,6 +40,8 @@ import kotlinx.coroutines.withTimeoutOrNull
  *
  * 所有引擎驱动逻辑(ticker 迭代、事件处理、命令派发、进程死亡对账)由单一
  * engineMutex 串行化,消除 checkpoint flush 与 settle 的交错双写(Concern 2)。
+ * 事件 -> 服务反应的决策抽在 EventPolicy(纯 JVM 可测):settle 一律归属事件携带的
+ * profileId;RESET 的拆除走排空感知路径(等 Reset 事件含 settle 落库处理完再停)。
  *
  * 前台化纪律(路由发现,Task 9 评审):所有 startForegroundService 入口 —— 含随后决定
  * 停止的路径(对账 STOP_SELF)—— 都必须在约 5 秒内调用 startForeground(API 31+ 超时抛
@@ -63,6 +66,19 @@ class TimerService : Service() {
      * 命令派发协程结束时清零。RESTART_PHASE 仅在 PAUSED(快照非空)时有意义,无需保护。
      */
     @Volatile private var awaitingSnapshot = false
+
+    /**
+     * RESET 命令的排空等待(F3a):ACTION_RESET 派发协程在 reset 前创建,
+     * onEvent(Reset) 在 settle 落库后完成;派发协程限时等待后才允许拆除服务。
+     */
+    private var resetDrained: CompletableDeferred<Unit>? = null
+
+    /**
+     * RESET 已派发、事件尚未排空期间(F3a)。置位于 engineMutex 内 reset() 之前:
+     * 引擎把快照置 null 的写发生在标志置位之后,快照收集器观察到 null 即能观察到本标志。
+     * onSnapshot(null) 据此让位(拆除改由派发协程负责),派发协程 finally 清零。
+     */
+    private var resetDraining = false
 
     override fun onCreate() {
         super.onCreate()
@@ -110,7 +126,13 @@ class TimerService : Service() {
                         )
                         ACTION_PAUSE -> g.engine.pause()
                         ACTION_RESUME -> g.engine.resume()
-                        ACTION_RESET -> g.engine.reset()
+                        ACTION_RESET -> {
+                            // F3a:排空标志在锁内置位(reset 之前):onSnapshot(null) 看到它
+                            // 就让位,拆除由本派发协程在 settle 落库后统一负责
+                            resetDraining = true
+                            resetDrained = CompletableDeferred()
+                            g.engine.reset()
+                        }
                         ACTION_SKIP -> g.engine.skip()
                         ACTION_RESTART_PHASE -> g.engine.restartPhase(
                             intent.getLongExtra(EXTRA_PROFILE_ID, -1),
@@ -119,16 +141,38 @@ class TimerService : Service() {
                         )
                     }
                 }
+                if (action == ACTION_RESET) awaitResetDrainedAndTearDown()
             } finally {
                 if (createsSnapshot) awaitingSnapshot = false
+                if (action == ACTION_RESET) resetDraining = false
             }
         }
         return START_STICKY
     }
 
-    /** 握手等待:5 秒兜底,超时则放弃保证继续执行(死收集器不挂死命令) */
+    /**
+     * RESET 的排空感知拆除(F3a):等 Reset 事件(含 settle 落库)处理完再停服,
+     * 否则 onSnapshot(null) 的立即 stopSelf 会在事件处理前取消作用域、丢 settle。
+     * 3 秒上限:收集器死亡/DB 挂死时不无限等待(超时仅记日志,settle 可能丢失,有界)。
+     * 等待期间可能有新 START 落地,仅当快照仍为空才真正拆除。
+     */
+    private suspend fun awaitResetDrainedAndTearDown() {
+        val drained = resetDrained ?: return
+        if (withTimeoutOrNull(3_000) { drained.await() } == null) {
+            Log.w(TAG, "reset settle drain timed out (bounded 3s); settle may be lost")
+        }
+        if (g.engine.snapshot.value == null) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+        }
+    }
+
+    /** 握手等待:5 秒兜底,超时则放弃保证继续执行(死收集器不挂死命令);
+     *  超时必须大声降级(F6):此后引擎事件将无订阅者而静默丢弃 */
     private suspend fun awaitEventsSubscribed() {
-        withTimeoutOrNull(5_000) { eventsSubscribed.await() }
+        if (withTimeoutOrNull(5_000) { eventsSubscribed.await() } == null) {
+            Log.w(TAG, "events subscriber handshake timed out; engine events will be dropped")
+        }
     }
 
     override fun onDestroy() {
@@ -139,13 +183,20 @@ class TimerService : Service() {
     override fun onBind(intent: Intent?) = null
 
     private fun onSnapshot(snap: RuntimeSnapshot?) {
-        if (snap == null) {
-            if (awaitingSnapshot) return // START 在途:初始 null 不是终态,勿拆除
-            stopForeground(STOP_FOREGROUND_REMOVE)
-            stopSelf()
-            return
-        }
-        goForeground(snap)
+        // F4:快照收集器同样不允许异常杀死(异常杀死后服务失去前台化/拆除反应)
+        runCatching {
+            when {
+                snap != null -> goForeground(snap)
+                awaitingSnapshot -> {} // START 在途:初始 null 不是终态,勿拆除
+                // F3a:RESET 排空中,拆除由 ACTION_RESET 派发协程在 settle 落库后负责;
+                // 此处立即 stopSelf 会在 Reset 事件处理前取消作用域、丢 settle
+                resetDraining -> {}
+                else -> {
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                    stopSelf()
+                }
+            }
+        }.onFailure { Log.w(TAG, "snapshot handler failed for $snap", it) }
     }
 
     /** 前台化:快照可用时用进行中通知,否则(引擎未就绪/IDLE)用最小占位 */
@@ -164,45 +215,42 @@ class TimerService : Service() {
 
     private suspend fun onEvent(ev: EngineEvent) {
         engineMutex.withLock {
-            when (ev) {
-                is EngineEvent.PhaseStarted -> {
-                    g.alarmScheduler.arm(ev.endElapsed)
-                    flushCheckpoint(force = true)
+            // F4:单个事件处理失败(如 Room 写异常)不得杀死收集器 —— replay=0 下收集器挂掉
+            // 意味着后续全部事件静默丢失。捕获记日志保持存活;不自动重试 flush:落库是增量式的,
+            // 盲目重试可能重复计数,留待下一 checkpoint 对账
+            runCatching {
+                for (fx in EventPolicy.decide(ev, g.engine.snapshot.value)) {
+                    when (fx) {
+                        is EventEffect.Settle -> flushSettle(fx.millis, fx.profileId)
+                        is EventEffect.Arm -> g.alarmScheduler.arm(fx.endElapsed)
+                        EventEffect.CancelAlarm -> g.alarmScheduler.cancel()
+                        EventEffect.ForceCheckpoint -> flushCheckpoint(force = true)
+                        is EventEffect.Remind -> remind(fx.workFinished)
+                    }
                 }
-                is EngineEvent.Resumed -> g.alarmScheduler.arm(ev.endElapsed)
-                is EngineEvent.PhaseFinished -> {
-                    g.alarmScheduler.cancel()
-                    g.engine.snapshot.value?.let { flushSettle(ev.settleMillis, it.profileId) }
-                    if (ev.auto) remind(ev.finished == Phase.WORK)
-                }
-                is EngineEvent.PhaseRestarted -> {
-                    g.alarmScheduler.cancel()
-                    // 结算归属旧 profile:换 profile 重开时已累计工作量不跟新 profile 走(Concern 3)
-                    flushSettle(ev.settleMillis, ev.profileId)
-                    g.alarmScheduler.arm(ev.endElapsed)
-                }
-                is EngineEvent.Paused -> g.alarmScheduler.cancel()
-                is EngineEvent.Reset -> {
-                    g.alarmScheduler.cancel()
-                    flushSettle(ev.settleMillis, ev.profileId)
-                }
-            }
+                // F3a:RESET 的 settle 已(尝试)落库,派发协程据此继续拆除
+                if (ev is EngineEvent.Reset) resetDrained?.complete(Unit)
+            }.onFailure { Log.w(TAG, "event handler failed for $ev", it) }
         }
     }
 
-    /** 播放强提醒并发 heads-up 通知,数秒自停,无需交互 */
+    /**
+     * 播放强提醒并发 heads-up 通知,数秒自停,无需交互。
+     * 通知与播放均在锁外协程内执行(F8):ensureChannels/nm.notify 是同步 binder 调用,
+     * 原先在 engineMutex 临界区内直接调用会拖长持锁时间
+     */
     private fun remind(workFinished: Boolean) {
         scope.launch {
             val intensity = g.settingsRepo.reminderIntensity.first()
             g.reminderPlayer.play(intensity)
-        }
-        if (Build.VERSION.SDK_INT >= 33 &&
-            checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED
-        ) return
-        val nm = getSystemService(NotificationManager::class.java) ?: return
-        TimerNotifications.ensureChannels(this)
-        runCatching {
-            nm.notify(TimerNotifications.ID_REMINDER, TimerNotifications.phaseDone(this, workFinished))
+            if (Build.VERSION.SDK_INT >= 33 &&
+                checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED
+            ) return@launch
+            val nm = getSystemService(NotificationManager::class.java) ?: return@launch
+            TimerNotifications.ensureChannels(this@TimerService)
+            runCatching {
+                nm.notify(TimerNotifications.ID_REMINDER, TimerNotifications.phaseDone(this@TimerService, workFinished))
+            }
         }
     }
 
@@ -244,9 +292,8 @@ class TimerService : Service() {
 
     /**
      * settle(重置/跳过/阶段结束)直接落库。调用方必须已持有 engineMutex。
-     * profileId 语义:Reset/PhaseRestarted 由事件携带(快照已空/已指向新 profile ——
-     * PhaseRestarted 携带重启前快照的旧 profileId);PhaseFinished 用后继快照的
-     * profileId(finishAndAdvance 复制 profileId,语义不变)。
+     * profileId 一律由事件携带(Concern 3/F2):事件发出与处理之间快照可能已被
+     * RESET/换 profile 重启清空或替换,不得事后读快照取归属。
      */
     private suspend fun flushSettle(settleMillis: Long, profileId: Long) {
         if (settleMillis <= 0) return
@@ -254,14 +301,18 @@ class TimerService : Service() {
     }
 
     private suspend fun reconcileAfterProcessDeath() {
-        g.engine.awaitReady()
+        // 调用方(null intent 派发)已 awaitReady + 订阅握手后才进入,此处不再重复等待(F9)
         engineMutex.withLock {
             when (Reconciler.decide(g.engine.snapshot.value, g.time.elapsedRealtime())) {
                 ReconcileAction.STOP_SELF -> {
-                    // 同步前台化已在 onStartCommand 完成,此处停止不会触发
-                    // ForegroundServiceDidNotStartInTimeException
-                    stopForeground(STOP_FOREGROUND_REMOVE)
-                    stopSelf()
+                    // START 在途时不拆(F3b):null 对账可能抢在 START 落地前看到旧 null,
+                    // 无条件 stopSelf 会把服务从 START 派发下抽走(取消闹钟武装/强制 checkpoint)
+                    if (!awaitingSnapshot) {
+                        // 同步前台化已在 onStartCommand 完成,此处停止不会触发
+                        // ForegroundServiceDidNotStartInTimeException
+                        stopForeground(STOP_FOREGROUND_REMOVE)
+                        stopSelf()
+                    }
                 }
                 ReconcileAction.FINISH_EXPIRED -> g.engine.onExpired()
                 ReconcileAction.RESUME_ACTIVE -> g.engine.snapshot.value?.let {
@@ -274,6 +325,7 @@ class TimerService : Service() {
     }
 
     companion object {
+        private const val TAG = "TimerService"
         const val ACTION_START = "com.embertimer.action.START"
         const val ACTION_PAUSE = "com.embertimer.action.PAUSE"
         const val ACTION_RESUME = "com.embertimer.action.RESUME"

@@ -48,8 +48,14 @@ data class RuntimeSnapshot(
 
 sealed interface EngineEvent {
     data class PhaseStarted(val phase: Phase, val endElapsed: Long, val endWall: Long) : EngineEvent
-    /** settleMillis = 待落库的工作增量(已扣除 checkpoint 游标) */
-    data class PhaseFinished(val finished: Phase, val settleMillis: Long, val next: Phase, val auto: Boolean) : EngineEvent
+    /**
+     * settleMillis = 待落库的工作增量(已扣除 checkpoint 游标);
+     * profileId = 结算归属的 profile —— 完成推进前(finishAndAdvance 之前)快照的 profileId。
+     * finishAndAdvance 目前把同一 profileId 复制给后继,但事件发出与收集器处理之间,排队的
+     * RESET/restartPhase 可能已清空或替换快照,事后读快照会错归属或整个丢 settle,
+     * 因此事件必须自带(携带方式镜像 Reset/PhaseRestarted)。
+     */
+    data class PhaseFinished(val finished: Phase, val settleMillis: Long, val profileId: Long, val next: Phase, val auto: Boolean) : EngineEvent
     /**
      * settleMillis = 待落库的工作增量(已扣除 checkpoint 游标);
      * profileId = 结算归属的 profile —— 重启前快照的 profileId。restartPhase 可换 profile,
