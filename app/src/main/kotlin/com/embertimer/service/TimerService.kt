@@ -57,6 +57,18 @@ class TimerService : Service() {
     /** 订阅握手:事件收集器挂上订阅后完成一次;命令派发/ticker/对账先等它(replay=0) */
     private val eventsSubscribed = CompletableDeferred<Unit>()
 
+    /**
+     * 首个 onStartCommand 已到达(验收发现,冷启动竞态):onCreate 启动的快照收集器在
+     * Default 线程上可能在主线程尚未执行 onStartCommand 时就收到引擎的初始 null 快照,
+     * 此时 awaitingSnapshot 仍为 false → 会走 IDLE 兜底 stopSelf() —— 而服务尚处于
+     * startForegroundService 的 5 秒窗口内,从未 startForeground 就自停会被系统以
+     * ForegroundServiceDidNotStartInTimeException 拉杀(每次点开始必现崩溃)。
+     * 门控:快照收集器先等本 Deferred;onStartCommand 在设置完 awaitingSnapshot 之后
+     * 再 complete(CompletableDeferred 的完成与等待有 happens-before,收集器必然
+     * 观察到最终标志状态)。
+     */
+    private val firstCommandReceived = CompletableDeferred<Unit>()
+
     /** 串行化全部引擎驱动逻辑;flushCheckpoint/flushSettle 由调用方持锁调用(勿嵌套加锁) */
     private val engineMutex = Mutex()
 
@@ -85,7 +97,11 @@ class TimerService : Service() {
         g = (application as EmberApp).graph
         scope.launch {
             g.engine.awaitReady()
-            launch { g.engine.snapshot.collect { onSnapshot(it) } }
+            // 门控见 firstCommandReceived:初始 null 快照必须等首个 onStartCommand 的标志写完
+            launch {
+                firstCommandReceived.await()
+                g.engine.snapshot.collect { onSnapshot(it) }
+            }
             launch {
                 g.engine.events
                     // onSubscription 在订阅注册完成后执行:此刻起后续事件必达本收集器
@@ -99,6 +115,11 @@ class TimerService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // 门控标志先行(快照收集器在等 firstCommandReceived,完成后它看到的必是最终状态):
+        // START 在途标志在前,再放行初始快照发射,最后才同步前台化与异步处理
+        val action0 = intent?.action
+        if (action0 == ACTION_START) awaitingSnapshot = true
+        firstCommandReceived.complete(Unit)
         // 先同步前台化(见类注释),再异步处理;null intent(START_STICKY 重启)与
         // 无 action intent(ServiceLauncher)同走对账。
         goForeground(g.engine.snapshot.value)
@@ -112,7 +133,6 @@ class TimerService : Service() {
             return START_STICKY
         }
         val createsSnapshot = action == ACTION_START
-        if (createsSnapshot) awaitingSnapshot = true
         scope.launch {
             g.engine.awaitReady()
             awaitEventsSubscribed()
