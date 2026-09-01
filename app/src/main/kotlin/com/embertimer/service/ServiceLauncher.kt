@@ -48,13 +48,15 @@ fun BroadcastReceiver.goAsyncWithGraph(
     body: suspend (AppGraph) -> Unit,
 ) {
     val pending = goAsync()
+    // 直调 onReceive(测试)时 mPendingResult 为 null:finish 判空,否则 finally 里的 NPE
+    // 会以未捕获异常泄漏到全局收集器,砸中其后第一个 runTest(UncaughtExceptionsBeforeTest)
     val app = context.applicationContext as EmberApp
     CoroutineScope(SupervisorJob() + Dispatchers.Default).launch {
         try {
             withTimeout(8_000) { app.graph.engine.awaitReady() }
             body(app.graph)
         } finally {
-            pending.finish()
+            pending?.finish()
         }
     }
 }
