@@ -26,7 +26,9 @@ data class HomeUiState(
 class HomeViewModel(val graph: AppGraph) : ViewModel() {
     val time: TimeProvider get() = graph.time
     private val today: LocalDate = LocalDate.now()
-    private val from: String = today.minusWeeks(52).toString()
+
+    /** D2:全历史数据窗口 —— 热力图 v2 从最早记录渲染到 today,不再按周数截断 */
+    private val from: String = LocalDate.ofEpochDay(0).toString()
 
     val ui: StateFlow<HomeUiState> = combine(
         graph.engine.ready,

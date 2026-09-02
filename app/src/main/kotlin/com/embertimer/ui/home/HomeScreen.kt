@@ -111,7 +111,7 @@ fun HomeScreen(onSettings: () -> Unit) {
             Card {
                 Column(Modifier.padding(12.dp)) {
                     // R8:模型只依赖 ui.days,remember 键控在 days 上 —— remaining 每 250ms 刷新
-                    // 触发整棵重组,若每次内联重建会每秒 4 次重算 53 周格子模型
+                    // 触发整棵重组,若每次内联重建会每秒 4 次重算全历史格子模型
                     val heatmapModel = remember(ui.days) { buildHeatmapModel(ui.days, LocalDate.now()) }
                     Heatmap(heatmapModel, selected) { selected = it }
                     selected?.let { d ->

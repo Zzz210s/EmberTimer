@@ -2,38 +2,30 @@ package com.embertimer.ui.heatmap
 
 import java.time.LocalDate
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
+/** 2026-09-07 是周一;2026-09-01 是周二 */
 class HeatmapModelTest {
-    // 2026-08-31 是周一
-    private val today = LocalDate.of(2026, 8, 31)
+    private val today = LocalDate.of(2026, 9, 9) // 周三
 
-    @Test fun singleWeekStartsMonday() {
-        val m = buildHeatmapModel(emptyMap(), today, weeks = 1)
+    @Test fun emptyDataYieldsCurrentWeekUpToToday() {
+        val m = buildHeatmapModel(emptyMap(), today)
         assertEquals(1, m.columns.size)
-        assertEquals(7, m.columns[0].size)
-        assertEquals(LocalDate.of(2026, 8, 31), m.columns[0][0]!!.date) // 周一
-        assertNull(m.columns[0][6]) // 未来日期为空
+        assertEquals(3, m.columns[0].cells.size) // 周一..周三
+        assertEquals(listOf("1", "", "3", "", "5", "", ""), m.weekLabels)
     }
 
-    @Test fun fullDataKeepsAllCells() {
-        val m = buildHeatmapModel(emptyMap(), today, weeks = 5)
-        val first = m.columns.first()[0]!!.date // 第一列周一
-        assertEquals(today.minusWeeks(4), first)
-        val count = m.columns.sumOf { c -> c.count { it != null } }
-        assertEquals(29, count) // 8/3..8/31 共 29 天,过去日期即使无数据也有格子
-        assertEquals(0L, m.columns.first()[0]!!.millis) // 过去日期无数据 -> millis 0(未来日期才是 null)
+    @Test fun unusedDaysAreCellsWithNoneNotMissing() {
+        val m = buildHeatmapModel(mapOf(today to 3_600_000L), today)
+        val cells = m.columns[0].cells
+        assertEquals(3, cells.size)
+        assertEquals(HeatLevel.NONE, cells[0].level) // 周一无数据,仍渲染
+        assertEquals(0L, cells[0].millis)
+        assertEquals(HeatLevel.L2, cells[2].level)
     }
 
-    @Test fun valuesCarriedThrough() {
-        val d = today.minusDays(1)
-        val m = buildHeatmapModel(mapOf(d to 3_600_000L), today, weeks = 2)
-        assertEquals(3_600_000L, m.columns[0][6]!!.millis)
-    }
-
-    @Test fun levels() {
+    @Test fun levelsThresholdsUnchanged() {
         assertEquals(HeatLevel.NONE, HeatmapLevels.of(0))
         assertEquals(HeatLevel.L1, HeatmapLevels.of(29 * 60_000L))
         assertEquals(HeatLevel.L2, HeatmapLevels.of(30 * 60_000L))
@@ -41,26 +33,47 @@ class HeatmapModelTest {
         assertEquals(HeatLevel.L4, HeatmapLevels.of(4 * 3_600_000L))
     }
 
-    @Test fun monthStartMarksNewMonth() {
-        // 6 周窗口(2026-07-27 周一起)覆盖 7 月底 -> 8 月,8 月首列应标记
-        val m = buildHeatmapModel(emptyMap(), today, weeks = 6)
-        val marks = m.monthStarts
-        org.junit.Assert.assertTrue(marks.isNotEmpty())
-        marks.forEach { (col, label) ->
-            val cell = m.columns[col].firstOrNull { it != null }!!.date
-            assertEquals(cell.monthValue.toString() + "月", label)
-        }
+    @Test fun monthLabelsAreEnglishAbbreviations() {
+        val d = LocalDate.of(2026, 8, 15) // 有数据的最早日,所在周周一是 8/10
+        val m = buildHeatmapModel(mapOf(d to 60_000L), today)
+        val idx = m.columns.indexOfFirst { it.weekStart == LocalDate.of(2026, 8, 31) }
+        assertTrue(idx > 0)
+        assertEquals(mapOf(idx to "Sep"), m.monthLabels) // 首列(8月)不标;跨月首列标 Sep
     }
 
-    @Test fun monthStartsNeverMarksFirstColumn() {
-        // weeks=6:col 0 是 7 月周(2026-07-27 起),col 1 是 8 月周(2026-08-03 起);首列永不标记
-        val m = buildHeatmapModel(emptyMap(), today, weeks = 6)
-        assertFalse(m.monthStarts.containsKey(0))
-        assertEquals(setOf(1), m.monthStarts.keys)
+    @Test fun monthLabelCrossesYearBoundary() {
+        val m = buildHeatmapModel(
+            mapOf(LocalDate.of(2026, 12, 20) to 60_000L),
+            LocalDate.of(2027, 1, 6), // 周三
+        )
+        assertTrue(m.monthLabels.values.contains("Jan"))
+        assertTrue(m.monthLabels.values.containsAll(m.monthLabels.values))
     }
 
-    @Test fun defaultWeeksIs53() {
-        // Task 13 依赖默认 weeks=53(HomeScreen 调用不传 weeks)
-        assertEquals(53, buildHeatmapModel(emptyMap(), today).columns.size)
+    @Test fun joinFlagsFollowSameLevelContiguity() {
+        // 周二 9/1、周三 9/2、下周二 9/8 同为 1h(L2);周四 9/3 无数据
+        val days = mapOf(
+            LocalDate.of(2026, 9, 1) to 3_600_000L,
+            LocalDate.of(2026, 9, 2) to 3_600_000L,
+            LocalDate.of(2026, 9, 8) to 3_600_000L,
+        )
+        val m = buildHeatmapModel(days, today)
+        fun cell(d: LocalDate) = m.columns.flatMap { it.cells }.first { it.date == d }
+        val tue = cell(LocalDate.of(2026, 9, 1))
+        assertEquals(HeatLevel.L2, tue.level)
+        assertEquals(false, tue.joinTop)   // 周一 NONE
+        assertEquals(true, tue.joinBottom) // 周三 L2
+        assertEquals(false, tue.joinStart) // 上周二 8/25 早于首列(8/31)且无数据 NONE -> 不融合
+        val wed = cell(LocalDate.of(2026, 9, 2))
+        assertEquals(false, wed.joinBottom) // 周四 NONE
+        val nextTue = cell(LocalDate.of(2026, 9, 8))
+        assertEquals(true, nextTue.joinStart) // 9/1 同级
+    }
+
+    @Test fun firstHistoryColumnNeverJoinsStart() {
+        val m = buildHeatmapModel(mapOf(LocalDate.of(2026, 8, 31) to 0L, today to 0L), today)
+        // 8/31 是数据最早周的周一(实际首列为 8/31 所在周):其左侧越界不得融合
+        val first = m.columns.first().cells.first()
+        assertEquals(false, first.joinStart)
     }
 }
