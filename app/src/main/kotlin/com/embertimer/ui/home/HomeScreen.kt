@@ -33,7 +33,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.embertimer.EmberApp
@@ -165,8 +164,7 @@ private fun TimerCard(
             Text(phaseText, style = MaterialTheme.typography.titleMedium)
             Text(
                 DurationFormat.ms(remaining),
-                fontSize = 56.sp,
-                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                style = MaterialTheme.typography.displayMedium,
             )
             Text("循环 ${snap?.cycleCount ?: 0}")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
