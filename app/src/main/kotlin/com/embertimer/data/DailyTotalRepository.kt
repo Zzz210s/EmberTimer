@@ -25,4 +25,6 @@ class DailyTotalRepository(
 
     fun dayTotals(from: String): Flow<List<DayTotal>> = dao.observeDayTotals(from)
     fun profileTotals(): Flow<List<ProfileTotal>> = dao.observeProfileTotals()
+
+    suspend fun breakdownByDate(date: String): List<ProfileTotal> = dao.breakdownByDate(date)
 }

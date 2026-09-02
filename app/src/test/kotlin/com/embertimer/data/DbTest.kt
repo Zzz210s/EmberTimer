@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.embertimer.data.db.EmberDatabase
+import com.embertimer.di.AppGraph
 import com.embertimer.timer.TimeProvider
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -15,6 +16,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import java.time.LocalDate
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], application = android.app.Application::class) // 绕过 EmberApp 真实装配,保持测试封闭
@@ -93,5 +95,19 @@ class DbTest {
         val days = totals.dayTotals("2026-06-01").first()
         assertEquals(1, days.size)
         assertTrue(days[0].date >= "2026-06-01")
+    }
+
+    @Test fun breakdownByDateAggregatesPerProfile() = runTest {
+        val ctx = ApplicationProvider.getApplicationContext<Context>()
+        val g = AppGraph(ctx, useInMemoryDb = true, storeFileName = "db_breakdown")
+        val d = LocalDate.of(2026, 9, 2).toString()
+        g.totalsRepo.addWork(d, 1, 30 * 60_000L)
+        g.totalsRepo.addWork(d, 1, 15 * 60_000L) // 同日同 profile 增量累加
+        g.totalsRepo.addWork(d, 2, 60 * 60_000L)
+        g.totalsRepo.addWork(LocalDate.of(2026, 9, 1).toString(), 1, 60 * 60_000L) // 其他日期不计
+        val rows = g.totalsRepo.breakdownByDate(d).sortedBy { it.profileId }
+        assertEquals(2, rows.size)
+        assertEquals(45 * 60_000L, rows[0].total) // profile 1
+        assertEquals(60 * 60_000L, rows[1].total) // profile 2
     }
 }

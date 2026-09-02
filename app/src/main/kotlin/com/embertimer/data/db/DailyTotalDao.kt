@@ -22,4 +22,7 @@ interface DailyTotalDao {
 
     @Query("SELECT profileId, SUM(workMillis) AS total FROM daily_total GROUP BY profileId")
     fun observeProfileTotals(): Flow<List<ProfileTotal>>
+
+    @Query("SELECT profileId, SUM(workMillis) AS total FROM daily_total WHERE date = :date GROUP BY profileId")
+    suspend fun breakdownByDate(date: String): List<ProfileTotal>
 }
