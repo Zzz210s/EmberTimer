@@ -15,9 +15,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
 data class HomeUiState(
@@ -65,7 +66,12 @@ class HomeViewModel(val graph: AppGraph) : ViewModel() {
         .flatMapLatest { day ->
             if (day == null) flowOf(null)
             else graph.totalsRepo.let { repo ->
-                flow { emit(repo.breakdownByDate(day.toString())) }
+                // 以选中日总额为键驱动重查:dayTotals 是 Room 失效通知流,新增记录后会重发,
+                // 每次变化重新查询 breakdownByDate,避免选中期间卡片停留在旧总额上
+                repo.dayTotals(from)
+                    .map { totals -> totals.firstOrNull { it.date == day.toString() }?.total ?: 0L }
+                    .distinctUntilChanged()
+                    .map { repo.breakdownByDate(day.toString()) }
                     .combine(graph.profileRepo.profiles) { rows, profiles ->
                         DayDetailUi(
                             date = day,

@@ -71,4 +71,24 @@ class HomeViewModelTest {
         shadowOf(Looper.getMainLooper()).idle() // Robolectric 主 looper 暂停,Main 上的状态流恢复需手动泵
         assertNull(vm.dayDetail.value)
     }
+
+    @Test fun dayDetailRefreshesWhenTotalsChange() = runTest {
+        val g = AppGraph(ctx, useInMemoryDb = true, storeFileName = "hv_daydetail_live")
+        g.bootstrap()
+        val today = java.time.LocalDate.now()
+        g.totalsRepo.addWork(today.toString(), 1, 30 * 60_000L)
+        val vm = HomeViewModel(g)
+        vm.selectDay(today)
+        assertEquals(30 * 60_000L, vm.dayDetail.first { it != null }!!.totalMillis)
+        // 不重新 selectDay:Room 失效通知驱动 dayTotals 重发,detail 应自动反映新总额。
+        // 失效链路在 Room 后台线程间逐跳推进,每跳回暂停的 Main looper 都需手动泵(同上
+        // selectDay(null) 后 idle 的既有模式);泵多轮直到状态流换新值。
+        g.totalsRepo.addWork(today.toString(), 1, 20 * 60_000L)
+        val deadline = System.currentTimeMillis() + 10_000
+        while (vm.dayDetail.value?.totalMillis != 50 * 60_000L && System.currentTimeMillis() < deadline) {
+            shadowOf(Looper.getMainLooper()).idle()
+            Thread.sleep(20)
+        }
+        assertEquals(50 * 60_000L, vm.dayDetail.value?.totalMillis)
+    }
 }

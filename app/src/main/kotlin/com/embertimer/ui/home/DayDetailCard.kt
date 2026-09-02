@@ -19,6 +19,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -29,13 +33,17 @@ import java.time.format.FormatStyle
 
 @Composable
 fun DayDetailCard(detail: DayDetailUi?, modifier: Modifier = Modifier) {
+    // 退出动画期间保留最后一份非空 detail:detail 变 null 的同帧内容会先重组为空,
+    // shrink/fade 若作用于空布局则视觉上瞬间消失。写入必须与 null 过渡同一组合帧生效。
+    var lastDetail by remember { mutableStateOf<DayDetailUi?>(null) }
+    if (detail != null) lastDetail = detail
     AnimatedVisibility(
         visible = detail != null,
         enter = expandVertically() + fadeIn(),
         exit = shrinkVertically() + fadeOut(),
         modifier = modifier,
     ) {
-        val d = detail ?: return@AnimatedVisibility
+        val d = lastDetail ?: return@AnimatedVisibility
         Column(
             Modifier.fillMaxWidth().padding(top = 12.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
