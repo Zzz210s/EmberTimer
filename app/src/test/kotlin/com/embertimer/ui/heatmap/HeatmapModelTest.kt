@@ -47,7 +47,8 @@ class HeatmapModelTest {
             LocalDate.of(2027, 1, 6), // 周三
         )
         assertTrue(m.monthLabels.values.contains("Jan"))
-        assertTrue(m.monthLabels.values.containsAll(m.monthLabels.values))
+        // weekStarts: 12/14, 12/21, 12/28, 1/4 -> 1/1 落在第 3 列(col 2);首列不标,Dec 全程不标
+        assertEquals(mapOf(2 to "Jan"), m.monthLabels)
     }
 
     @Test fun joinFlagsFollowSameLevelContiguity() {

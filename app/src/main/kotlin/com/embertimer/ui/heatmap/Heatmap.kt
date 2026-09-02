@@ -133,7 +133,8 @@ private fun MonthLabels(model: HeatmapModel, state: LazyGridState) {
                     Text(
                         label,
                         style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.offset(x = with(density) { item.offset.x.toDp() }),
+                        // item.offset.x 相对网格视口;网格位于周标签列(宽 CELL)右侧,而本叠加层从父级左缘起算,需补 CELL
+                        modifier = Modifier.offset(x = CELL + with(density) { item.offset.x.toDp() }),
                     )
                 }
             }
