@@ -62,6 +62,7 @@ object TimerNotifications {
             .addAction(0, if (paused) "恢复" else "暂停",
                 serviceIntent(context, if (paused) TimerService.ACTION_RESUME else TimerService.ACTION_PAUSE))
             .addAction(0, "跳过", serviceIntent(context, TimerService.ACTION_SKIP))
+            .addAction(0, "重置", serviceIntent(context, TimerService.ACTION_RESET))
         if (!paused) {
             builder.setUsesChronometer(true)
             builder.setChronometerCountDown(true)

@@ -2,6 +2,7 @@ package com.embertimer.service
 
 import android.app.NotificationManager
 import android.content.Context
+import androidx.core.app.NotificationCompat
 import androidx.test.core.app.ApplicationProvider
 import com.embertimer.timer.EngineStatus
 import com.embertimer.timer.Phase
@@ -11,6 +12,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
@@ -33,10 +35,18 @@ class NotificationsTest {
         assertNotNull(nm.getNotificationChannel(TimerNotifications.CH_REMINDER))
     }
 
-    @Test fun inProgressHasTwoActions() {
+    /** 进行/暂停两态固定三动作;运行态倒计时:when 指向阶段结束墙钟,chronometer 递减开关已设 */
+    @Test fun inProgressThreeActionsAndCountdown() {
         TimerNotifications.ensureChannels(ctx)
-        val n = TimerNotifications.inProgress(ctx, snap)
-        assertEquals(2, n.actions.size)
+        val running = TimerNotifications.inProgress(ctx, snap)
+        val paused = TimerNotifications.inProgress(ctx, snap.copy(status = EngineStatus.PAUSED))
+        assertEquals(listOf("暂停", "跳过", "重置"), running.actions.map { it.title.toString() })
+        assertEquals(listOf("恢复", "跳过", "重置"), paused.actions.map { it.title.toString() })
+        // PendingIntent 无公开 Intent 访问器,Robolectric 下经 shadow 读回封装的 service Intent
+        assertEquals("com.embertimer.action.RESET", shadowOf(paused.actions[2].actionIntent).savedIntent.action)
+        // 倒计时(D4):when 指向阶段结束墙钟,chronometer 递减开关已设
+        assertEquals(snap.endWall, running.`when`)
+        assertEquals(true, running.extras.getBoolean(NotificationCompat.EXTRA_CHRONOMETER_COUNT_DOWN))
     }
 
     @Test fun phaseDoneIsAutoCancel() {
