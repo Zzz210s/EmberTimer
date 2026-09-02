@@ -9,9 +9,15 @@ import com.embertimer.timer.PolicyAction
 import com.embertimer.timer.RuntimeSnapshot
 import com.embertimer.timer.TimeProvider
 import java.time.LocalDate
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 
 data class HomeUiState(
@@ -22,6 +28,9 @@ data class HomeUiState(
     val todayMillis: Long = 0,
     val days: Map<LocalDate, Long> = emptyMap(),
 )
+
+data class DayDetailRow(val profileName: String, val millis: Long, val index: Int)
+data class DayDetailUi(val date: LocalDate, val totalMillis: Long, val rows: List<DayDetailRow>)
 
 class HomeViewModel(val graph: AppGraph) : ViewModel() {
     val time: TimeProvider get() = graph.time
@@ -46,6 +55,33 @@ class HomeViewModel(val graph: AppGraph) : ViewModel() {
             days = totals.associate { LocalDate.parse(it.date) to it.total },
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
+
+    private val _selectedDay = MutableStateFlow<LocalDate?>(null)
+    val selectedDay: StateFlow<LocalDate?> = _selectedDay.asStateFlow()
+    fun selectDay(d: LocalDate?) { _selectedDay.value = d }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val dayDetail: StateFlow<DayDetailUi?> = _selectedDay
+        .flatMapLatest { day ->
+            if (day == null) flowOf(null)
+            else graph.totalsRepo.let { repo ->
+                flow { emit(repo.breakdownByDate(day.toString())) }
+                    .combine(graph.profileRepo.profiles) { rows, profiles ->
+                        DayDetailUi(
+                            date = day,
+                            totalMillis = rows.sumOf { it.total },
+                            rows = rows.sortedByDescending { it.total }.mapIndexed { i, r ->
+                                DayDetailRow(
+                                    profileName = profiles.firstOrNull { it.id == r.profileId }?.name ?: "?",
+                                    millis = r.total,
+                                    index = i,
+                                )
+                            },
+                        )
+                    }
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** @return true 时调用方需发 TimerCommands.restartPhase */
     suspend fun selectProfile(p: ProfileEntity): Boolean {

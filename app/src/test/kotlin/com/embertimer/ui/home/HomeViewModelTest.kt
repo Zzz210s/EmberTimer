@@ -1,6 +1,7 @@
 package com.embertimer.ui.home
 
 import android.content.Context
+import android.os.Looper
 import androidx.test.core.app.ApplicationProvider
 import com.embertimer.data.db.ProfileEntity
 import com.embertimer.di.AppGraph
@@ -12,10 +13,12 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
@@ -48,5 +51,24 @@ class HomeViewModelTest {
         g.engine.restore(null)
         assertFalse(vm.selectProfile(ProfileEntity(8, "Y", 25, 5, 0)))
         assertEquals(8L, g.settingsRepo.activeProfileId.first()) // SET_ACTIVE 确实落库
+    }
+
+    @Test fun dayDetailBreaksDownPerProfile() = runTest {
+        val g = AppGraph(ctx, useInMemoryDb = true, storeFileName = "hv_daydetail")
+        g.bootstrap()
+        g.profileRepo.create("深度", 50, 10) // id 2
+        val today = java.time.LocalDate.now()
+        g.totalsRepo.addWork(today.toString(), 1, 30 * 60_000L)
+        g.totalsRepo.addWork(today.toString(), 2, 90 * 60_000L)
+        val vm = HomeViewModel(g)
+        vm.selectDay(today)
+        val d = vm.dayDetail.first { it != null }!!
+        assertEquals(2, d.rows.size)
+        assertEquals(2 * 3_600_000L, d.totalMillis)
+        assertEquals(90 * 60_000L, d.rows[0].millis)           // 按时长降序
+        assertEquals("深度", d.rows[0].profileName)
+        vm.selectDay(null)
+        shadowOf(Looper.getMainLooper()).idle() // Robolectric 主 looper 暂停,Main 上的状态流恢复需手动泵
+        assertNull(vm.dayDetail.value)
     }
 }

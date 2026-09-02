@@ -26,7 +26,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -54,9 +53,10 @@ fun HomeScreen(onSettings: () -> Unit) {
     val app = LocalContext.current.applicationContext as EmberApp
     val vm: HomeViewModel = viewModel(factory = app.graph.vmFactory)
     val ui by vm.ui.collectAsStateWithLifecycle()
+    val selectedDay by vm.selectedDay.collectAsStateWithLifecycle()
+    val dayDetail by vm.dayDetail.collectAsStateWithLifecycle()
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
-    var selected by remember { mutableStateOf<LocalDate?>(null) }
     var remaining by remember { mutableLongStateOf(0L) }
 
     LaunchedEffect(ui.snap?.status, ui.snap?.endElapsed, ui.snap?.timeAtPause) {
@@ -113,14 +113,8 @@ fun HomeScreen(onSettings: () -> Unit) {
                     // R8:模型只依赖 ui.days,remember 键控在 days 上 —— remaining 每 250ms 刷新
                     // 触发整棵重组,若每次内联重建会每秒 4 次重算全历史格子模型
                     val heatmapModel = remember(ui.days) { buildHeatmapModel(ui.days, LocalDate.now()) }
-                    Heatmap(heatmapModel, selected) { selected = it }
-                    selected?.let { d ->
-                        Text(
-                            d.toString() + "：" + DurationFormat.hm(ui.days[d] ?: 0L),
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.padding(top = 8.dp),
-                        )
-                    }
+                    Heatmap(heatmapModel, selectedDay) { vm.selectDay(it) }
+                    DayDetailCard(dayDetail)
                 }
             }
         }
