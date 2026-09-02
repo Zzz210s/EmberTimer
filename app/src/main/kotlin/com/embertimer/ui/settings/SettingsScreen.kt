@@ -17,12 +17,14 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -116,13 +118,24 @@ fun SettingsScreen(onBack: () -> Unit) {
             }
             item {
                 Text("提醒强度", style = MaterialTheme.typography.titleMedium)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ReminderIntensity.entries.forEach { i ->
-                        FilterChip(
-                            selected = ui.intensity == i,
-                            onClick = { scope.launch { vm.setIntensity(i) } },
-                            label = { Text(when (i) { ReminderIntensity.LIGHT -> "轻"; ReminderIntensity.STANDARD -> "标准"; ReminderIntensity.STRONG -> "强" }) },
-                        )
+                SingleChoiceSegmentedButtonRow {
+                    ReminderIntensity.entries.forEachIndexed { index, intensity ->
+                        SegmentedButton(
+                            selected = ui.intensity == intensity,
+                            onClick = { scope.launch { vm.setIntensity(intensity) } },
+                            shape = SegmentedButtonDefaults.itemShape(
+                                index = index,
+                                count = ReminderIntensity.entries.size,
+                            ),
+                        ) {
+                            Text(
+                                when (intensity) {
+                                    ReminderIntensity.LIGHT -> "轻"
+                                    ReminderIntensity.STANDARD -> "标准"
+                                    ReminderIntensity.STRONG -> "强"
+                                },
+                            )
+                        }
                     }
                 }
             }
