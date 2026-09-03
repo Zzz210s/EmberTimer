@@ -35,18 +35,27 @@ class NotificationsTest {
         assertNotNull(nm.getNotificationChannel(TimerNotifications.CH_REMINDER))
     }
 
-    /** 进行/暂停两态固定三动作;运行态倒计时:when 指向阶段结束墙钟,chronometer 递减开关已设 */
-    @Test fun inProgressThreeActionsAndCountdown() {
+    /** 三态通知契约:title 为阶段;text 承载循环;运行态 chronometer 倒计时 + 进度条;动作图标 + STOP intent */
+    @Test fun inProgressLayoutAndActions() {
         TimerNotifications.ensureChannels(ctx)
         val running = TimerNotifications.inProgress(ctx, snap)
         val paused = TimerNotifications.inProgress(ctx, snap.copy(status = EngineStatus.PAUSED))
-        assertEquals(listOf("暂停", "跳过", "重置"), running.actions.map { it.title.toString() })
-        assertEquals(listOf("恢复", "跳过", "重置"), paused.actions.map { it.title.toString() })
-        // PendingIntent 无公开 Intent 访问器,Robolectric 下经 shadow 读回封装的 service Intent
-        assertEquals("com.embertimer.action.RESET", shadowOf(paused.actions[2].actionIntent).savedIntent.action)
+        assertEquals(listOf("暂停", "跳过", "终止"), running.actions.map { it.title.toString() })
+        assertEquals(listOf("恢复", "跳过", "终止"), paused.actions.map { it.title.toString() })
+        assertEquals("com.embertimer.action.STOP", shadowOf(paused.actions[2].actionIntent).savedIntent.action)
+        // D2:title 只剩阶段文案(倒计时由 chronometer 占标题行时间位)
+        assertEquals("工作中", running.extras.getCharSequence(NotificationCompat.EXTRA_TITLE).toString())
+        assertEquals("循环 1", running.extras.getCharSequence(NotificationCompat.EXTRA_TEXT).toString())
+        assertEquals("已暂停 · 循环 1", paused.extras.getCharSequence(NotificationCompat.EXTRA_TEXT).toString())
         // 倒计时(D4):when 指向阶段结束墙钟,chronometer 递减开关已设
         assertEquals(snap.endWall, running.`when`)
         assertEquals(true, running.extras.getBoolean(NotificationCompat.EXTRA_CHRONOMETER_COUNT_DOWN))
+        // 进度条:阶段总量 + 已进行量(RUNNING 态)
+        assertEquals(snap.durationMillis.toInt(), running.extras.getInt(NotificationCompat.EXTRA_PROGRESS_MAX))
+        assertEquals(true, running.extras.getInt(NotificationCompat.EXTRA_PROGRESS) >= 0)
+        // 暂停态:无 chronometer、无进度
+        assertEquals(false, paused.extras.getBoolean(NotificationCompat.EXTRA_SHOW_CHRONOMETER, false))
+        assertEquals(0, paused.extras.getInt(NotificationCompat.EXTRA_PROGRESS_MAX))
     }
 
     @Test fun phaseDoneIsAutoCancel() {

@@ -102,7 +102,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                                 enabled = !runningActive && ui.profiles.size > 1,
                                 onClick = {
                                     scope.launch {
-                                        if (vm.deleteProfile(p)) TimerCommands.reset(ctx)
+                                        if (vm.deleteProfile(p)) TimerCommands.stop(ctx)
                                     }
                                 },
                             ) { Text("删除") }

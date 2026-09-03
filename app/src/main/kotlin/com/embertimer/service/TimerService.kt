@@ -41,7 +41,7 @@ import kotlinx.coroutines.withTimeoutOrNull
  * 所有引擎驱动逻辑(ticker 迭代、事件处理、命令派发、进程死亡对账)由单一
  * engineMutex 串行化,消除 checkpoint flush 与 settle 的交错双写(Concern 2)。
  * 事件 -> 服务反应的决策抽在 EventPolicy(纯 JVM 可测):settle 一律归属事件携带的
- * profileId;RESET 的拆除走排空感知路径(等 Reset 事件含 settle 落库处理完再停)。
+ * profileId;STOP 的拆除走排空感知路径(等 Reset 事件含 settle 落库处理完再停)。
  *
  * 前台化纪律(路由发现,Task 9 评审):所有 startForegroundService 入口 —— 含随后决定
  * 停止的路径(对账 STOP_SELF)—— 都必须在约 5 秒内调用 startForeground(API 31+ 超时抛
@@ -80,17 +80,17 @@ class TimerService : Service() {
     @Volatile private var awaitingSnapshot = false
 
     /**
-     * RESET 命令的排空等待(F3a):ACTION_RESET 派发协程在 reset 前创建,
+     * STOP 命令的排空等待(F3a):ACTION_STOP 派发协程在 reset 前创建,
      * onEvent(Reset) 在 settle 落库后完成;派发协程限时等待后才允许拆除服务。
      */
-    private var resetDrained: CompletableDeferred<Unit>? = null
+    private var stopDrained: CompletableDeferred<Unit>? = null
 
     /**
-     * RESET 已派发、事件尚未排空期间(F3a)。置位于 engineMutex 内 reset() 之前:
+     * STOP 已派发、事件尚未排空期间(F3a)。置位于 engineMutex 内 reset() 之前:
      * 引擎把快照置 null 的写发生在标志置位之后,快照收集器观察到 null 即能观察到本标志。
      * onSnapshot(null) 据此让位(拆除改由派发协程负责),派发协程 finally 清零。
      */
-    private var resetDraining = false
+    private var stopDraining = false
 
     override fun onCreate() {
         super.onCreate()
@@ -146,11 +146,11 @@ class TimerService : Service() {
                         )
                         ACTION_PAUSE -> g.engine.pause()
                         ACTION_RESUME -> g.engine.resume()
-                        ACTION_RESET -> {
+                        ACTION_STOP -> {
                             // F3a:排空标志在锁内置位(reset 之前):onSnapshot(null) 看到它
                             // 就让位,拆除由本派发协程在 settle 落库后统一负责
-                            resetDraining = true
-                            resetDrained = CompletableDeferred()
+                            stopDraining = true
+                            stopDrained = CompletableDeferred()
                             g.engine.reset()
                         }
                         ACTION_SKIP -> g.engine.skip()
@@ -161,23 +161,23 @@ class TimerService : Service() {
                         )
                     }
                 }
-                if (action == ACTION_RESET) awaitResetDrainedAndTearDown()
+                if (action == ACTION_STOP) awaitStopDrainedAndTearDown()
             } finally {
                 if (createsSnapshot) awaitingSnapshot = false
-                if (action == ACTION_RESET) resetDraining = false
+                if (action == ACTION_STOP) stopDraining = false
             }
         }
         return START_STICKY
     }
 
     /**
-     * RESET 的排空感知拆除(F3a):等 Reset 事件(含 settle 落库)处理完再停服,
+     * STOP 的排空感知拆除(F3a):等 Reset 事件(含 settle 落库)处理完再停服,
      * 否则 onSnapshot(null) 的立即 stopSelf 会在事件处理前取消作用域、丢 settle。
      * 3 秒上限:收集器死亡/DB 挂死时不无限等待(超时仅记日志,settle 可能丢失,有界)。
      * 等待期间可能有新 START 落地,仅当快照仍为空才真正拆除。
      */
-    private suspend fun awaitResetDrainedAndTearDown() {
-        val drained = resetDrained ?: return
+    private suspend fun awaitStopDrainedAndTearDown() {
+        val drained = stopDrained ?: return
         if (withTimeoutOrNull(3_000) { drained.await() } == null) {
             Log.w(TAG, "reset settle drain timed out (bounded 3s); settle may be lost")
         }
@@ -208,9 +208,9 @@ class TimerService : Service() {
             when {
                 snap != null -> goForeground(snap)
                 awaitingSnapshot -> {} // START 在途:初始 null 不是终态,勿拆除
-                // F3a:RESET 排空中,拆除由 ACTION_RESET 派发协程在 settle 落库后负责;
+                // F3a:STOP 排空中,拆除由 ACTION_STOP 派发协程在 settle 落库后负责;
                 // 此处立即 stopSelf 会在 Reset 事件处理前取消作用域、丢 settle
-                resetDraining -> {}
+                stopDraining -> {}
                 else -> {
                     stopForeground(STOP_FOREGROUND_REMOVE)
                     stopSelf()
@@ -248,8 +248,8 @@ class TimerService : Service() {
                         is EventEffect.Remind -> remind(fx.workFinished)
                     }
                 }
-                // F3a:RESET 的 settle 已(尝试)落库,派发协程据此继续拆除
-                if (ev is EngineEvent.Reset) resetDrained?.complete(Unit)
+                // F3a:Reset 事件的 settle 已(尝试)落库,派发协程据此继续拆除
+                if (ev is EngineEvent.Reset) stopDrained?.complete(Unit)
             }.onFailure { Log.w(TAG, "event handler failed for $ev", it) }
         }
     }
@@ -313,7 +313,7 @@ class TimerService : Service() {
     /**
      * settle(重置/跳过/阶段结束)直接落库。调用方必须已持有 engineMutex。
      * profileId 一律由事件携带(Concern 3/F2):事件发出与处理之间快照可能已被
-     * RESET/换 profile 重启清空或替换,不得事后读快照取归属。
+     * STOP/换 profile 重启清空或替换,不得事后读快照取归属。
      */
     private suspend fun flushSettle(settleMillis: Long, profileId: Long) {
         if (settleMillis <= 0) return
@@ -349,7 +349,7 @@ class TimerService : Service() {
         const val ACTION_START = "com.embertimer.action.START"
         const val ACTION_PAUSE = "com.embertimer.action.PAUSE"
         const val ACTION_RESUME = "com.embertimer.action.RESUME"
-        const val ACTION_RESET = "com.embertimer.action.RESET"
+        const val ACTION_STOP = "com.embertimer.action.STOP"
         const val ACTION_SKIP = "com.embertimer.action.SKIP"
         const val ACTION_RESTART_PHASE = "com.embertimer.action.RESTART_PHASE"
         const val EXTRA_PROFILE_ID = "profile_id"

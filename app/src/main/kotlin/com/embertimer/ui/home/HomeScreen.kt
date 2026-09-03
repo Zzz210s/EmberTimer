@@ -105,7 +105,7 @@ fun HomeScreen(onSettings: () -> Unit) {
                     TimerCommands.start(ctx, p.id, p.workMinutes * 60_000L, p.restMinutes * 60_000L)
                 }
             }, onPause = { TimerCommands.pause(ctx) }, onResume = { TimerCommands.resume(ctx) },
-                onSkip = { TimerCommands.skip(ctx) }, onReset = { TimerCommands.reset(ctx) })
+                onSkip = { TimerCommands.skip(ctx) }, onStop = { TimerCommands.stop(ctx) })
             Text("今日 " + DurationFormat.hm(ui.todayMillis), style = MaterialTheme.typography.titleMedium)
             Card {
                 Column(Modifier.padding(12.dp)) {
@@ -147,7 +147,7 @@ private fun TimerCard(
     onPause: () -> Unit,
     onResume: () -> Unit,
     onSkip: () -> Unit,
-    onReset: () -> Unit,
+    onStop: () -> Unit,
 ) {
     val snap = ui.snap
     Card(Modifier.fillMaxWidth()) {
@@ -175,7 +175,7 @@ private fun TimerCard(
                 }
                 if (snap != null && snap.status != EngineStatus.IDLE) {
                     OutlinedButton(onClick = onSkip) { Text("跳过") }
-                    TextButton(onClick = onReset) { Text("重置") }
+                    TextButton(onClick = onStop) { Text("终止") }
                 }
             }
         }

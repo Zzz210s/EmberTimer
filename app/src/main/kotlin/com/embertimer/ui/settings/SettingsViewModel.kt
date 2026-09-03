@@ -60,14 +60,14 @@ class SettingsViewModel(val graph: AppGraph) : ViewModel() {
         return action == PolicyAction.RESTART_PHASE
     }
 
-    /** @return true 时调用方需先发 TimerCommands.reset 再删除 */
+    /** @return true 时调用方需先发 TimerCommands.stop 再删除 */
     suspend fun deleteProfile(p: ProfileEntity): Boolean {
         val action = EnginePolicy.onDelete(graph.engine.snapshot.value, p.id, graph.profileRepo.count().toInt())
         when (action) {
             PolicyAction.IGNORED -> return false
             PolicyAction.RESET_THEN_DELETE -> {
                 graph.profileRepo.delete(p)
-                return true // 调用方发 reset(顺序:reset 引擎结算后清快照;DB 行已删)
+                return true // 调用方发 stop(顺序:reset 引擎结算后清快照;DB 行已删)
             }
             PolicyAction.DELETE -> { graph.profileRepo.delete(p); return false }
             else -> return false

@@ -16,7 +16,7 @@ object TimerCommands {
 
     fun pause(context: Context) = context.startService(intent(context, TimerService.ACTION_PAUSE))
     fun resume(context: Context) = context.startService(intent(context, TimerService.ACTION_RESUME))
-    fun reset(context: Context) = context.startService(intent(context, TimerService.ACTION_RESET))
+    fun stop(context: Context) = context.startService(intent(context, TimerService.ACTION_STOP))
     fun skip(context: Context) = context.startService(intent(context, TimerService.ACTION_SKIP))
 
     fun restartPhase(context: Context, profileId: Long, workMillis: Long, restMillis: Long) {
