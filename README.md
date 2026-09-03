@@ -21,13 +21,14 @@ The core problem of pomodoro-style apps is background reliability: lock screen, 
 
 ## Features
 
-- Work/rest dual durations cycle automatically; keeps running in the background (notification includes pause/skip controls).
-- Daily work-time heatmap (53-week window; tap a day to see its total).
+- Work/rest dual durations cycle automatically; keeps running in the background (notification includes pause/skip/reset actions and a live countdown).
+- Full-history daily focus heatmap: virtualized lazy grid with month labels, legend and fused corners; tap any day for a detail card with a per-profile breakdown.
 - Multiple named duration profiles, each accumulating its own total.
 - Pause/resume/skip/reset; after a pause, changing the duration restarts immediately with the new one.
 - On timeout: sound + vibration alert, stops automatically, no manual dismiss needed.
 - Re-opens with automatic reconciliation after a force-kill; resumes timing automatically after a device reboot.
 - Daily totals settle on a 60-second cadence with cross-midnight split-day bookkeeping (error <= 60 seconds).
+- Material You dynamic color (Android 12+, ember-orange fallback below) with edge-to-edge layout.
 
 ## Install
 
@@ -49,7 +50,7 @@ cd EmberTimer
 2. (Optional) create your own duration profiles on the settings page.
 3. Tap "Start" on the home screen to enter the work/rest cycle.
 4. Phase endings play a sound and show a notification; pause/skip/reset work both in-app and from the notification.
-5. Tap any day on the home-screen heatmap to see that day's total.
+5. Tap any day on the home-screen heatmap to see its total and per-profile breakdown.
 
 ## Architecture
 
