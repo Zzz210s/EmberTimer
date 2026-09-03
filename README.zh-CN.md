@@ -34,7 +34,7 @@
 
 要求:Android 8.0(API 26)及以上。
 
-- 从 [Releases](https://github.com/Zzz210s/EmberTimer/releases) 下载 APK 安装(调试签名版可直接安装)
+- 从 [Releases](https://github.com/Zzz210s/EmberTimer/releases) 下载 APK 安装(v0.3.0 起为正式签名版可直接安装;注意从 v0.2.0 调试签名版升级需先卸载)
 - 或从源码构建:
 
 ```bash
@@ -43,6 +43,8 @@ cd EmberTimer
 ./gradlew :app:assembleDebug
 # 产物: app/build/outputs/apk/debug/app-debug.apk
 ```
+
+构建签名 release:生成 keystore 后在 `local.properties` 配置 `storeFile`/`storePassword`/`keyAlias`/`keyPassword` 四键;缺省时 release 构建回落 debug 签名。
 
 ## 使用
 

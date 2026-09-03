@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -17,9 +19,30 @@ android {
         versionCode = 2
         versionName = "0.2.0"
     }
-    buildTypes {
-        release { isMinifyEnabled = false }
+    val keystoreProps = rootProject.file("local.properties").let { f ->
+        if (f.exists()) Properties().apply { f.inputStream().use { load(it) } } else null
     }
+    val storeFilePath = keystoreProps?.getProperty("storeFile")
+    signingConfigs {
+        if (storeFilePath != null) {
+            create("release") {
+                storeFile = rootProject.file(storeFilePath)
+                storePassword = keystoreProps!!.getProperty("storePassword")
+                keyAlias = keystoreProps.getProperty("keyAlias")
+                keyPassword = keystoreProps.getProperty("keyPassword")
+            }
+        }
+    }
+    buildTypes {
+        release {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = if (storeFilePath != null) signingConfigs.getByName("release")
+            else signingConfigs.getByName("debug")
+        }
+    }
+    androidResources { localeFilters += listOf("zh") }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

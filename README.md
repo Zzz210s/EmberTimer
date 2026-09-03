@@ -34,7 +34,7 @@ The core problem of pomodoro-style apps is background reliability: lock screen, 
 
 Requires Android 8.0 (API 26) or newer.
 
-- Download the APK from [Releases](https://github.com/Zzz210s/EmberTimer/releases) (the debug-signed build installs directly).
+- Download the APK from [Releases](https://github.com/Zzz210s/EmberTimer/releases) (v0.3.0+ is release-signed and installs directly; note that upgrading over a debug-signed v0.2.0 install requires uninstalling first).
 - Or build from source:
 
 ```bash
@@ -43,6 +43,8 @@ cd EmberTimer
 ./gradlew :app:assembleDebug
 # output: app/build/outputs/apk/debug/app-debug.apk
 ```
+
+For a signed release build: generate a keystore and set the four keys (`storeFile`/`storePassword`/`keyAlias`/`keyPassword`) in `local.properties`; without them the release build falls back to the debug keystore.
 
 ## Usage
 
