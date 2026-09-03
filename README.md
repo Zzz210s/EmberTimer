@@ -21,10 +21,10 @@ The core problem of pomodoro-style apps is background reliability: lock screen, 
 
 ## Features
 
-- Work/rest dual durations cycle automatically; keeps running in the background (notification includes pause/skip/reset actions and a live countdown).
+- Work/rest dual durations cycle automatically; keeps running in the background (notification carries a live countdown chronometer, phase progress bar and icon pause/skip/stop actions).
 - Full-history daily focus heatmap: virtualized lazy grid with month labels, legend and fused corners; tap any day for a detail card with a per-profile breakdown.
 - Multiple named duration profiles, each accumulating its own total.
-- Pause/resume/skip/reset; after a pause, changing the duration restarts immediately with the new one.
+- Pause/resume/skip/stop; stopping ends the whole cycle and zeroes the loop counter; after a pause, changing the duration restarts immediately with the new one.
 - On timeout: sound + vibration alert, stops automatically, no manual dismiss needed.
 - Re-opens with automatic reconciliation after a force-kill; resumes timing automatically after a device reboot.
 - Daily totals settle on a 60-second cadence with cross-midnight split-day bookkeeping (error <= 60 seconds).
