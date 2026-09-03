@@ -51,7 +51,7 @@ For a signed release build: generate a keystore and set the four keys (`storeFil
 1. Grant the notification permission on first launch.
 2. (Optional) create your own duration profiles on the settings page.
 3. Tap "Start" on the home screen to enter the work/rest cycle.
-4. Phase endings play a sound and show a notification; pause/skip/reset work both in-app and from the notification.
+4. Phase endings play a sound and show a notification; pause/skip/stop work both in-app and from the notification.
 5. Tap any day on the home-screen heatmap to see its total and per-profile breakdown.
 
 ## Architecture

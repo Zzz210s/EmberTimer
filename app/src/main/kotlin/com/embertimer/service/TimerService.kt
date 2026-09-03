@@ -179,7 +179,7 @@ class TimerService : Service() {
     private suspend fun awaitStopDrainedAndTearDown() {
         val drained = stopDrained ?: return
         if (withTimeoutOrNull(3_000) { drained.await() } == null) {
-            Log.w(TAG, "reset settle drain timed out (bounded 3s); settle may be lost")
+            Log.w(TAG, "stop/Reset-event settle drain timed out (bounded 3s); settle may be lost")
         }
         if (g.engine.snapshot.value == null) {
             stopForeground(STOP_FOREGROUND_REMOVE)
