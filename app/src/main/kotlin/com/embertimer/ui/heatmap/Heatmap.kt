@@ -20,7 +20,6 @@ import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -98,12 +97,14 @@ fun Heatmap(model: HeatmapModel, selected: LocalDate?, onSelect: (LocalDate?) ->
 @Composable
 private fun HeatmapCell(cell: DayCell, isSelected: Boolean, onClick: () -> Unit) {
     val color by animateColorAsState(levelColor(cell.level), label = "cellColor")
-    val shape = if (isSelected) CircleShape else RoundedCornerShape(
+    val shape = RoundedCornerShape(
         topStart = if (cell.joinTop || cell.joinStart) FUSED_CORNER else CORNER,
         topEnd = if (cell.joinTop || cell.joinEnd) FUSED_CORNER else CORNER,
         bottomStart = if (cell.joinBottom || cell.joinStart) FUSED_CORNER else CORNER,
         bottomEnd = if (cell.joinBottom || cell.joinEnd) FUSED_CORNER else CORNER,
     )
+    // D4:常态极浅描边(onSurface 12%);选中改边框加深(60%),不再变形为圆
+    val borderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = if (isSelected) 0.6f else 0.12f)
     val desc = if (cell.millis > 0) "${cell.date}, ${DurationFormat.hm(cell.millis)}"
     else "${cell.date}, 无记录"
     Box(
@@ -111,8 +112,8 @@ private fun HeatmapCell(cell: DayCell, isSelected: Boolean, onClick: () -> Unit)
             .size(CELL)
             .clip(shape)
             .background(color)
+            .border(if (isSelected) 1.5.dp else 0.5.dp, borderColor, shape)
             .clickable(onClick = onClick, onClickLabel = desc)
-            .let { m -> if (isSelected) m.border(1.dp, MaterialTheme.colorScheme.onSurface, CircleShape) else m }
             .semantics {
                 contentDescription = desc
                 this.selected = isSelected
@@ -133,8 +134,11 @@ private fun MonthLabels(model: HeatmapModel, state: LazyGridState) {
                     Text(
                         label,
                         style = MaterialTheme.typography.labelSmall,
-                        // item.offset.x 相对网格视口;网格位于周标签列(宽 CELL)右侧,而本叠加层从父级左缘起算,需补 CELL
-                        modifier = Modifier.offset(x = CELL + with(density) { item.offset.x.toDp() }),
+                        // item.offset.x 相对网格视口;网格位于周标签列(宽 CELL)右侧,而本叠加层从父级左缘起算,需补 CELL;
+                        // 列首滚出视口左侧时标签钉在周标签列右缘,不压星期列
+                        modifier = Modifier.offset(
+                            x = (CELL + with(density) { item.offset.x.toDp() }).coerceAtLeast(CELL),
+                        ),
                     )
                 }
             }
