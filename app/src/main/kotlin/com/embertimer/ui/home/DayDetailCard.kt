@@ -60,7 +60,7 @@ fun DayDetailCard(detail: DayDetailUi?, modifier: Modifier = Modifier) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(
                             Modifier.size(10.dp).clip(CircleShape).background(
-                                MaterialTheme.colorScheme.primary.copy(alpha = 1f - row.index * 0.2f),
+                                MaterialTheme.colorScheme.primary.copy(alpha = (1f - row.index * 0.2f).coerceIn(0f, 1f)),
                             ),
                         )
                         Spacer(Modifier.width(8.dp))

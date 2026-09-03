@@ -78,7 +78,9 @@ class HomeViewModel(val graph: AppGraph) : ViewModel() {
                             totalMillis = rows.sumOf { it.total },
                             rows = rows.sortedByDescending { it.total }.mapIndexed { i, r ->
                                 DayDetailRow(
-                                    profileName = profiles.firstOrNull { it.id == r.profileId }?.name ?: "?",
+                                    // daily_total 与 profile 无 FK(设计上保留热力图历史):
+                                    // 配置删除后行成孤儿,名称以固定文案占位而非 "?"
+                                    profileName = profiles.firstOrNull { it.id == r.profileId }?.name ?: "已删除配置",
                                     millis = r.total,
                                     index = i,
                                 )

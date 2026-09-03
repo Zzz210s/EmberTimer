@@ -91,4 +91,26 @@ class HomeViewModelTest {
         }
         assertEquals(50 * 60_000L, vm.dayDetail.value?.totalMillis)
     }
+
+    @Test fun dayDetailLabelsDeletedProfile() = runTest {
+        // 配置删除后 daily_total 行成孤儿(无 FK,热力图历史保留):
+        // 孤儿行应显示固定文案而非 "?",时长与存活配置行均照实保留
+        val g = AppGraph(ctx, useInMemoryDb = true, storeFileName = "hv_deleted")
+        g.bootstrap()
+        val deletedId = g.profileRepo.create("临时", 25, 5) // id 2(bootstrap 种入 番茄 id 1)
+        assertTrue(deletedId > 0)
+        val today = java.time.LocalDate.now()
+        g.totalsRepo.addWork(today.toString(), 1, 30 * 60_000L)
+        g.totalsRepo.addWork(today.toString(), deletedId, 90 * 60_000L)
+        g.profileRepo.delete(g.profileRepo.byId(deletedId)!!)
+        val vm = HomeViewModel(g)
+        vm.selectDay(today)
+        val d = vm.dayDetail.first { it != null }!!
+        assertEquals(2, d.rows.size)
+        assertEquals(120 * 60_000L, d.totalMillis) // 总额含孤儿行
+        assertEquals("已删除配置", d.rows[0].profileName) // 孤儿行 90 分钟,降序居首
+        assertEquals(90 * 60_000L, d.rows[0].millis)
+        assertEquals("番茄", d.rows[1].profileName) // 存活配置显示真实名称
+        assertEquals(30 * 60_000L, d.rows[1].millis)
+    }
 }
