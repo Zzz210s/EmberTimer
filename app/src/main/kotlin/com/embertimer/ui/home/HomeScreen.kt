@@ -7,18 +7,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Card
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
@@ -135,49 +132,6 @@ private fun ProfileChips(ui: HomeUiState, onSelect: (com.embertimer.data.db.Prof
                 onClick = { onSelect(p) },
                 label = { Text(p.name + " " + p.workMinutes + "/" + p.restMinutes) },
             )
-        }
-    }
-}
-
-@Composable
-private fun TimerCard(
-    ui: HomeUiState,
-    remaining: Long,
-    onStart: () -> Unit,
-    onPause: () -> Unit,
-    onResume: () -> Unit,
-    onSkip: () -> Unit,
-    onStop: () -> Unit,
-) {
-    val snap = ui.snap
-    Card(Modifier.fillMaxWidth()) {
-        Column(
-            Modifier.padding(16.dp).fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            val phaseText = when {
-                snap == null -> "空闲"
-                snap.phase == com.embertimer.timer.Phase.WORK -> "工作中"
-                else -> "休息中"
-            }
-            Text(phaseText, style = MaterialTheme.typography.titleMedium)
-            Text(
-                DurationFormat.ms(remaining),
-                style = MaterialTheme.typography.displayMedium,
-            )
-            Text("循环 ${snap?.cycleCount ?: 0}")
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                when (snap?.status) {
-                    null, EngineStatus.IDLE -> Button(onClick = onStart, enabled = ui.ready && ui.activeProfileId != -1L) { Text("开始") }
-                    EngineStatus.RUNNING -> Button(onClick = onPause) { Text("暂停") }
-                    EngineStatus.PAUSED -> Button(onClick = onResume) { Text("恢复") }
-                }
-                if (snap != null && snap.status != EngineStatus.IDLE) {
-                    OutlinedButton(onClick = onSkip) { Text("跳过") }
-                    TextButton(onClick = onStop) { Text("终止") }
-                }
-            }
         }
     }
 }
