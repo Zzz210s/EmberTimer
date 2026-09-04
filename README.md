@@ -31,6 +31,9 @@ The core problem of pomodoro-style apps is background reliability: lock screen, 
 - Material You dynamic color (Android 12+, ember-orange fallback below) with edge-to-edge layout.
 - Stroke icon system (Lucide geometry) with a spring play/pause morph, press micro-scale and cycle-badge bump; respects the system "remove animations" setting.
 - Real path-level icon morphing (play to pause triangle-bars split) on a pure-Kotlin engine (SVG arc-length resampling, Procrustes alignment, polar interpolation), with staggered action-zone reflow and phase-text transitions.
+- Per-profile count-up mode (stopwatch semantics: manual pause/stop, no auto phase rotation) alongside the default countdown, selected when creating or editing a profile.
+- Weekly and monthly focus reports (per-day or per-week buckets plus per-profile totals) reachable from settings.
+- Fresh installs start empty with guidance to create the first profile (no seeded demo data); upgrades preserve all data via a non-destructive schema migration. Square heatmap cells with always-visible per-column month labels; icon-only start button and unified 56dp action keys.
 
 ## Install
 
