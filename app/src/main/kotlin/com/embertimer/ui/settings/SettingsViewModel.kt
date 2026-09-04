@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.embertimer.data.ReminderIntensity
 import com.embertimer.data.db.ProfileEntity
+import com.embertimer.data.db.ProfileMode
 import com.embertimer.di.AppGraph
 import com.embertimer.timer.EnginePolicy
 import com.embertimer.timer.PolicyAction
@@ -48,7 +49,8 @@ class SettingsViewModel(val graph: AppGraph) : ViewModel() {
     }
 
     suspend fun createProfile(name: String, workMinutes: Int, restMinutes: Int): Long =
-        graph.profileRepo.create(name, workMinutes, restMinutes)
+        // Task 7 起对话框带模式选择;当前无选择器,显式 COUNTDOWN 保持既有行为
+        graph.profileRepo.create(name, workMinutes, restMinutes, ProfileMode.COUNTDOWN)
 
     suspend fun renameProfile(id: Long, name: String) = graph.profileRepo.rename(id, name)
 
@@ -56,7 +58,7 @@ class SettingsViewModel(val graph: AppGraph) : ViewModel() {
     suspend fun editDurations(p: ProfileEntity, workMinutes: Int, restMinutes: Int): Boolean {
         val action = EnginePolicy.onEditDurations(graph.engine.snapshot.value, p.id)
         if (action == PolicyAction.IGNORED) return false
-        graph.profileRepo.updateDurations(p.id, workMinutes, restMinutes)
+        graph.profileRepo.updateDurations(p.id, workMinutes, restMinutes, p.mode)
         return action == PolicyAction.RESTART_PHASE
     }
 

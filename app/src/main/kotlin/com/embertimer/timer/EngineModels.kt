@@ -27,23 +27,34 @@ data class RuntimeSnapshot(
     val savedAtElapsed: Long,
     val ckptDate: String?,
     val ckptAccum: Long,
+    /** 正计时模式:phase 恒为 WORK 且永不到期(Task 6 / #10);缺省 false = 倒计时路径逐字节不变 */
+    val countUp: Boolean = false,
 ) {
     val durationMillis: Long get() = if (phase == Phase.WORK) workMillis else restMillis
 
-    fun remaining(nowElapsed: Long): Long = when (status) {
-        EngineStatus.RUNNING -> (endElapsed - nowElapsed).coerceAtLeast(0)
-        EngineStatus.PAUSED -> timeAtPause
-        EngineStatus.IDLE -> 0L
-    }
-
-    /** 本阶段(仅 WORK)已流逝的工作毫秒,扣除暂停 */
-    fun accruedWork(nowElapsed: Long): Long = when {
-        phase == Phase.WORK && status == EngineStatus.RUNNING ->
-            (nowElapsed - startElapsed - timeSpentPaused).coerceIn(0, workMillis)
-        phase == Phase.WORK && status == EngineStatus.PAUSED ->
-            (lastPauseTime - startElapsed - timeSpentPaused).coerceIn(0, workMillis)
+    /** 剩余毫秒。countUp 无到期概念,恒 0(展示由 accruedWork 换算,不依赖本字段) */
+    fun remaining(nowElapsed: Long): Long = when {
+        countUp -> 0L
+        EngineStatus.RUNNING == status -> (endElapsed - nowElapsed).coerceAtLeast(0)
+        EngineStatus.PAUSED == status -> timeAtPause
         else -> 0L
     }
+
+    /**
+     * 本阶段(仅 WORK)已流逝的工作毫秒,扣除暂停。
+     * countUp 不封顶于 workMillis(正计时可无限累计到 elapsed;暂停后 PAUSED 分支取暂停时刻)。
+     * 倒计时维持 0..workMillis 封顶 —— 字节等价回归网依赖此分支。
+     */
+    fun accruedWork(nowElapsed: Long): Long = when {
+        phase == Phase.WORK && status == EngineStatus.RUNNING ->
+            accruedRaw(nowElapsed - startElapsed - timeSpentPaused)
+        phase == Phase.WORK && status == EngineStatus.PAUSED ->
+            accruedRaw(lastPauseTime - startElapsed - timeSpentPaused)
+        else -> 0L
+    }
+
+    private fun accruedRaw(raw: Long): Long =
+        if (countUp) raw.coerceAtLeast(0) else raw.coerceIn(0, workMillis)
 }
 
 sealed interface EngineEvent {

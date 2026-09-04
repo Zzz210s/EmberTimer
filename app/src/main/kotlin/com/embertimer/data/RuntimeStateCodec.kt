@@ -22,6 +22,7 @@ object RuntimeStateCodec {
     private const val SAVED_EL = "rt_saved_at_elapsed"
     private const val CKPT_DATE = "rt_ckpt_date"
     private const val CKPT_ACCUM = "rt_ckpt_accum"
+    private const val COUNT_UP = "rt_count_up"
 
     fun toMap(s: RuntimeSnapshot?): Map<String, String> {
         if (s == null) return emptyMap()
@@ -34,7 +35,9 @@ object RuntimeStateCodec {
             LAST_PAUSE to s.lastPauseTime.toString(), AT_PAUSE to s.timeAtPause.toString(),
             SAVED_WALL to s.savedAtWall.toString(), SAVED_EL to s.savedAtElapsed.toString(),
             CKPT_ACCUM to s.ckptAccum.toString(),
-        ) + if (s.ckptDate != null) mapOf(CKPT_DATE to s.ckptDate) else emptyMap()
+        ) + (if (s.ckptDate != null) mapOf(CKPT_DATE to s.ckptDate) else emptyMap()) +
+            // countUp 仅在 true 时写入:false 省略键,旧会话快照序列化逐字节不变,旧库解析缺省 false
+            (if (s.countUp) mapOf(COUNT_UP to "true") else emptyMap())
     }
 
     fun fromMap(m: Map<String, String>): RuntimeSnapshot? {
@@ -56,6 +59,7 @@ object RuntimeStateCodec {
             savedAtElapsed = m[SAVED_EL]?.toLongOrNull() ?: 0,
             ckptDate = m[CKPT_DATE],
             ckptAccum = m[CKPT_ACCUM]?.toLongOrNull() ?: 0,
+            countUp = m[COUNT_UP]?.toBooleanStrictOrNull() ?: false,
         )
     }
 }

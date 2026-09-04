@@ -37,6 +37,7 @@ class AppGraph(
         // Robolectric legacy SQLite 影子按线程登记连接指针,Room 池化连接跨 arch_disk_io 线程
         // 复用会触发 Illegal connection pointer;测试路径用直通执行器把查询钉在调用线程上
         Room.inMemoryDatabaseBuilder(context, EmberDatabase::class.java)
+            .addMigrations(EmberDatabase.MIGRATION_1_2)
             .allowMainThreadQueries()
             .setQueryExecutor(directExecutor)
             .setTransactionExecutor(directExecutor)
