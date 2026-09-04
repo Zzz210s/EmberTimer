@@ -5,6 +5,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 
+/** D6:animator 缩放为 0 = 系统"关闭动画",所有动效退化为瞬时切换 */
+fun animationsEnabledFor(animatorScale: Float): Boolean = animatorScale != 0f
+
 /**
  * 尊重系统"关闭动画"(D6):animator 时长缩放为 0 时返回 false,
  * 本应用全部动效(morph/按压缩放/徽标弹跳)退化为瞬时切换。
@@ -22,6 +25,6 @@ fun rememberAnimationsEnabled(): Boolean {
         } catch (_: Exception) {
             1f
         }
-        scale != 0f
+        animationsEnabledFor(scale)
     }
 }

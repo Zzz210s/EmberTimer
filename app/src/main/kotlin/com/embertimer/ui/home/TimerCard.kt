@@ -1,6 +1,7 @@
 package com.embertimer.ui.home
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -27,8 +28,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
@@ -107,16 +111,7 @@ internal fun TimerCard(
                 DurationFormat.ms(remaining),
                 style = MaterialTheme.typography.displayMedium,
             )
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    painterResource(R.drawable.ic_repeat),
-                    contentDescription = null, // 装饰性:数值紧随其后,语义由 Text 承载
-                    modifier = Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.width(4.dp))
-                Text("循环 ${snap?.cycleCount ?: 0}", style = MaterialTheme.typography.bodyMedium)
-            }
+            CycleBadge(count = snap?.cycleCount ?: 0, animationsOn = animationsOn)
             val haptic = LocalHapticFeedback.current
             fun act(perform: () -> Unit) {
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -161,5 +156,33 @@ internal fun TimerCard(
                 }
             }
         }
+    }
+}
+
+/** D4:循环徽标;count 递增时 repeat 图标弹跳一次(scale 1->1.25->1,约 220ms),animationsOn=false 时无动画 */
+@Composable
+internal fun CycleBadge(count: Int, animationsOn: Boolean, modifier: Modifier = Modifier) {
+    val scale = remember { Animatable(1f) }
+    var lastCount by remember { mutableIntStateOf(count) }
+    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            painterResource(R.drawable.ic_repeat),
+            contentDescription = null, // 装饰性:数值紧随其后,语义由 Text 承载
+            modifier = Modifier
+                .size(16.dp)
+                .graphicsLayer { scaleX = scale.value; scaleY = scale.value },
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.width(4.dp))
+        Text("循环 $count", style = MaterialTheme.typography.bodyMedium)
+    }
+    LaunchedEffect(count) {
+        if (count > lastCount) {
+            if (animationsOn) {
+                scale.snapTo(1.25f)
+                scale.animateTo(1f, spring(dampingRatio = 0.5f))
+            }
+        }
+        lastCount = count
     }
 }
