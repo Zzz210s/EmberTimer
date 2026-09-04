@@ -11,7 +11,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Card
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -27,18 +26,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.embertimer.EmberApp
-import com.embertimer.R
 import com.embertimer.service.ServiceLauncher
 import com.embertimer.service.TimerCommands
 import com.embertimer.timer.DurationFormat
 import com.embertimer.timer.EngineStatus
 import com.embertimer.ui.heatmap.Heatmap
 import com.embertimer.ui.heatmap.buildHeatmapModel
+import com.embertimer.ui.morph.IconPaths
+import com.embertimer.ui.morph.PathIcon
 import java.time.LocalDate
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -81,7 +80,7 @@ fun HomeScreen(onSettings: () -> Unit) {
             TopAppBar(
                 title = { Text("EmberTimer") },
                 navigationIcon = {
-                    IconButton(onClick = onSettings) { Icon(painterResource(R.drawable.ic_settings), "设置") }
+                    IconButton(onClick = onSettings) { PathIcon(IconPaths.SETTINGS, size = 24.dp, contentDescription = "设置") }
                 },
             )
         },
