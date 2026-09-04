@@ -8,13 +8,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
@@ -90,7 +87,6 @@ fun Heatmap(model: HeatmapModel, selected: LocalDate?, onSelect: (LocalDate?) ->
                 }
             }
         }
-        Legend()
     }
 }
 
@@ -143,22 +139,5 @@ private fun MonthLabels(model: HeatmapModel, state: LazyGridState) {
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun Legend() {
-    Row(
-        Modifier.fillMaxWidth().padding(top = 4.dp),
-        horizontalArrangement = Arrangement.End,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text("少", style = MaterialTheme.typography.labelSmall)
-        Spacer(Modifier.width(4.dp))
-        HeatLevel.entries.forEach { level ->
-            Box(Modifier.size(12.dp).clip(RoundedCornerShape(3.dp)).background(levelColor(level)))
-            Spacer(Modifier.width(3.dp))
-        }
-        Text("多", style = MaterialTheme.typography.labelSmall)
     }
 }

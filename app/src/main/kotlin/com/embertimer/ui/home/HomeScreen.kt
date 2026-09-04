@@ -78,7 +78,7 @@ fun HomeScreen(onSettings: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("EmberTimer") },
+                title = {},
                 navigationIcon = {
                     IconButton(onClick = onSettings) { PathIcon(IconPaths.SETTINGS, size = 24.dp, contentDescription = "设置") }
                 },

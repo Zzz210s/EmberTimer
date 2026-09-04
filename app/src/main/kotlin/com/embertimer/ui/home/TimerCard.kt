@@ -13,10 +13,8 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -110,7 +108,8 @@ internal fun TimerCard(
     }
 }
 
-/** D4:循环徽标;count 递增时 repeat 图标弹跳一次(scale 1->1.25->1,约 220ms),animationsOn=false 时无动画 */
+/** D4:循环徽标(仅图标);count 递增时 repeat 图标弹跳一次(scale 1->1.25->1,约 220ms),animationsOn=false 时无动画。
+ * 数字由 PathIcon 的 contentDescription 承载(TalkBack 可读),不渲染可见文本。 */
 @Composable
 internal fun CycleBadge(count: Int, animationsOn: Boolean, modifier: Modifier = Modifier) {
     val scale = remember { Animatable(1f) }
@@ -119,12 +118,10 @@ internal fun CycleBadge(count: Int, animationsOn: Boolean, modifier: Modifier = 
         PathIcon(
             d = IconPaths.REPEAT,
             size = 16.dp,
-            contentDescription = null, // 装饰性:数值紧随其后,语义由 Text 承载
+            contentDescription = "循环 $count",
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.graphicsLayer { scaleX = scale.value; scaleY = scale.value },
         )
-        Spacer(Modifier.width(4.dp))
-        Text("循环 $count", style = MaterialTheme.typography.bodyMedium)
     }
     LaunchedEffect(count) {
         if (count > lastCount) {
