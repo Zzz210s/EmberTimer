@@ -38,11 +38,12 @@ import com.embertimer.timer.Phase
 import com.embertimer.ui.morph.IconPaths
 import com.embertimer.ui.morph.MorphIcon
 import com.embertimer.ui.morph.PathIcon
+import com.embertimer.ui.theme.MotionTokens
 import com.embertimer.ui.theme.rememberAnimationsEnabled
 
 /** D3:按压时图标微缩至 92%,释放弹簧回弹(曲线 = MotionTokens.PressSpring) */
 private fun Modifier.pressScale(pressed: Boolean): Modifier = composed {
-    val scale by animateFloatAsState(if (pressed) 0.92f else 1f, spring(dampingRatio = 0.6f), label = "pressScale")
+    val scale by animateFloatAsState(if (pressed) 0.92f else 1f, MotionTokens.PressSpring, label = "pressScale")
     graphicsLayer { scaleX = scale; scaleY = scale }
 }
 

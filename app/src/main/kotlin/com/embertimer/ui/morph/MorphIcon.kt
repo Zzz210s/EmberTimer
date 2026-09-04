@@ -54,9 +54,11 @@ fun MorphIcon(
     val progress = remember { Animatable(1f) }
 
     // 飞行完成才提交 current;被打断(新 target)时 current 仍是上一目标,
-    // 新计划自然从上一目标典型形状重建(见类 KDoc 打断语义)
+    // 新计划自然从上一目标典型形状重建(见类 KDoc 打断语义)。旧协程在
+    // animateTo 处被取消,flight 可能滞留非空:target 折返(==current)的
+    // 早退分支必须清除滞留 flight,否则冻结的中间形态被永久绘制(评审 R1)。
     LaunchedEffect(target) {
-        if (target == current) return@LaunchedEffect
+        if (target == current) { flight = null; return@LaunchedEffect }
         if (!animationsOn) {
             current = target
             return@LaunchedEffect
