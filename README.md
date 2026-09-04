@@ -29,6 +29,7 @@ The core problem of pomodoro-style apps is background reliability: lock screen, 
 - Re-opens with automatic reconciliation after a force-kill; resumes timing automatically after a device reboot.
 - Daily totals settle on a 60-second cadence with cross-midnight split-day bookkeeping (error <= 60 seconds).
 - Material You dynamic color (Android 12+, ember-orange fallback below) with edge-to-edge layout.
+- Stroke icon system (Lucide geometry) with a spring play/pause morph, press micro-scale and cycle-badge bump; respects the system "remove animations" setting.
 
 ## Install
 
