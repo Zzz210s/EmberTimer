@@ -48,7 +48,7 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(onBack: () -> Unit) {
+fun SettingsScreen(onBack: () -> Unit, onOpenReport: () -> Unit) {
     val app = LocalContext.current.applicationContext as EmberApp
     val vm: SettingsViewModel = viewModel(factory = app.graph.vmFactory)
     val ui by vm.ui.collectAsStateWithLifecycle()
@@ -117,6 +117,9 @@ fun SettingsScreen(onBack: () -> Unit) {
             }
             item {
                 Button(onClick = { creating = true }) { Text("新建配置") }
+            }
+            item {
+                Button(onClick = onOpenReport) { Text("周报/月报") }
             }
             item {
                 Text("提醒强度", style = MaterialTheme.typography.titleMedium)

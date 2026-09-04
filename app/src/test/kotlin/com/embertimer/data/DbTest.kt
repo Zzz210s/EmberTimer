@@ -102,4 +102,36 @@ class DbTest {
         assertEquals(45 * 60_000L, rows[0].total) // profile 1
         assertEquals(60 * 60_000L, rows[1].total) // profile 2
     }
+
+    @Test fun rangeBreakdownGroupsByDateAndProfileWithInclusiveBounds() = runTest {
+        val ctx = ApplicationProvider.getApplicationContext<Context>()
+        val g = AppGraph(ctx, useInMemoryDb = true, storeFileName = "db_range")
+        val a = g.profileRepo.create("A", 25, 5)
+        val b = g.profileRepo.create("B", 50, 10)
+        // 边界日(from/to)都应计入;区间外日期不计
+        g.totalsRepo.addWork("2026-09-01", a, 30 * 60_000L) // = from
+        g.totalsRepo.addWork("2026-09-01", a, 15 * 60_000L) // 同日同配置累加
+        g.totalsRepo.addWork("2026-09-01", b, 60 * 60_000L)
+        g.totalsRepo.addWork("2026-09-03", b, 25 * 60_000L)
+        g.totalsRepo.addWork("2026-09-05", a, 45 * 60_000L) // = to
+        g.totalsRepo.addWork("2026-08-31", a, 60 * 60_000L) // < from 不计
+        g.totalsRepo.addWork("2026-09-06", b, 60 * 60_000L) // > to 不计
+        val rows = g.totalsRepo.rangeBreakdown("2026-09-01", "2026-09-05")
+        assertEquals(4, rows.size)
+        val byKey = rows.associateBy { it.date to it.profileId }
+        assertEquals(45 * 60_000L, byKey["2026-09-01" to a]?.total) // A 30+15
+        assertEquals(60 * 60_000L, byKey["2026-09-01" to b]?.total)
+        assertEquals(25 * 60_000L, byKey["2026-09-03" to b]?.total)
+        assertEquals(45 * 60_000L, byKey["2026-09-05" to a]?.total)
+        // ORDER BY date, profileId 语义
+        assertTrue(rows.zipWithNext().all { (x, y) -> x.date <= y.date })
+    }
+
+    @Test fun rangeBreakdownEmptyWindow() = runTest {
+        val ctx = ApplicationProvider.getApplicationContext<Context>()
+        val g = AppGraph(ctx, useInMemoryDb = true, storeFileName = "db_range_empty")
+        g.profileRepo.create("A", 25, 5)
+        g.totalsRepo.addWork("2026-09-10", 1L, 60_000)
+        assertTrue(g.totalsRepo.rangeBreakdown("2026-09-01", "2026-09-09").isEmpty())
+    }
 }

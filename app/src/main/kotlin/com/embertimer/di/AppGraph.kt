@@ -15,6 +15,7 @@ import com.embertimer.data.db.EmberDatabase
 import com.embertimer.timer.SystemTimeProvider
 import com.embertimer.timer.TimerEngine
 import com.embertimer.ui.home.HomeViewModel
+import com.embertimer.ui.report.ReportViewModel
 import com.embertimer.ui.settings.SettingsViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -67,6 +68,7 @@ class AppGraph(
         // graph 即 this@AppGraph,闭包捕获(字面 graph 无成员可解析,需显式标签)
         initializer { HomeViewModel(this@AppGraph) }
         initializer { SettingsViewModel(this@AppGraph) }
+        initializer { ReportViewModel(this@AppGraph) }
     }
 
     // #3:首装不再种默认配置,空库由主页空态引导;bootstrap 只负责引擎冷启动恢复
