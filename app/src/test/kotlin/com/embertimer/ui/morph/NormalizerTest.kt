@@ -50,6 +50,28 @@ class NormalizerTest {
     }
 
     @Test
+    fun afterCloseNewDrawingStartsAtSubpathStart() {
+        // "M0,0 L10,0 Z l0,10":Z 后相对 l 相对子路径起点(0,0)转绝对 -> L(0,10)。
+        // 归一化后末段 cubic 须从 (0,0) 起笔,而非修复前从 (10,0) 起笔的错位段。
+        val s = sub("M0,0 L10,0 Z l0,10")
+        assertTrue(s.closed)
+        assertEquals(2, s.cubics.size)
+        val last = s.cubics.last()
+        assertEquals(0f, last.x0, 1e-4f); assertEquals(0f, last.y0, 1e-4f)
+        assertEquals(0f, last.x1, 1e-4f); assertEquals(10f, last.y1, 1e-4f)
+    }
+
+    @Test
+    fun smoothAfterCloseDoesNotReflectPreCloseControl() {
+        // Z 复位反射状态:S 不反射 Z 前 C 的 c2(20,0);退回控制点 = 当前点 (0,0)。
+        val s = sub("M0,0 C10,0 20,0 20,10 Z S30,20 40,10")
+        val after = s.cubics.last()
+        assertEquals(0f, after.x0, 1e-4f); assertEquals(0f, after.y0, 1e-4f)
+        assertEquals(0f, after.c1x, 1e-4f); assertEquals(0f, after.c1y, 1e-4f)
+        assertEquals(40f, after.x1, 1e-4f); assertEquals(10f, after.y1, 1e-4f)
+    }
+
+    @Test
     fun smoothQuadraticReflectsPreviousControl() {
         val s = sub("M0,0 Q10,20 20,0 T40,0")
         assertEquals(2, s.cubics.size)

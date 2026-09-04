@@ -30,11 +30,14 @@ data class SubPath(val cubics: List<Cubic>, val closed: Boolean)
 fun normalize(path: List<List<PathCmd>>): List<SubPath> =
     path.map { SubPath(chainCubics(it), it.any { c -> c.verb == 'Z' }) }
 
-/** 单条链逐命令产出 cubic;维护当前点与上一曲线命令的末端控制点(供反射)。 */
+/** 单条链逐命令产出 cubic;维护当前点与上一曲线命令的末端控制点(供反射)。
+ * Z 复位当前点与反射状态至子路径起点(与 parsePathData 的 px/py 语义一致)。 */
 private fun chainCubics(cmds: List<PathCmd>): List<Cubic> {
     val out = ArrayList<Cubic>()
     var x = 0f
     var y = 0f
+    var sx = 0f // 子路径起点(M 落笔点,Z 复位处)
+    var sy = 0f
     var curve = ' ' // 上一 C/S/Q/T 类别,决定 S/T 是否反射
     var lx = 0f // 其末端控制点(C/S 的 c2,或 Q/T 的二次控制点)
     var ly = 0f
@@ -42,7 +45,7 @@ private fun chainCubics(cmds: List<PathCmd>): List<Cubic> {
         val a = cmd.args
         when (cmd.verb) {
             'M' -> {
-                x = a[0]; y = a[1]; curve = ' '
+                x = a[0]; y = a[1]; sx = a[0]; sy = a[1]; curve = ' '
             }
             'L' -> {
                 val dx3 = (a[0] - x) / 3f
@@ -84,7 +87,9 @@ private fun chainCubics(cmds: List<PathCmd>): List<Cubic> {
                 arcCubics(x, y, a[0], a[1], a[2], a[3] == 1f, a[4] == 1f, a[5], a[6], out)
                 x = a[5]; y = a[6]; curve = ' '
             }
-            'Z' -> Unit
+            'Z' -> { // 闭合不产出 cubic;画笔回到子路径起点并清除反射(链可能继续绘图)
+                x = sx; y = sy; curve = ' '; lx = sx; ly = sy
+            }
             else -> throw IllegalArgumentException("normalize 不支持命令 '${cmd.verb}'")
         }
     }
