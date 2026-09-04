@@ -39,15 +39,17 @@ class InterpolateTest {
     }
 
     @Test fun morphPreservesGeometryNotChordCollapse() {
-        // 90 度旋转的直线:极坐标插值 t=0.5 处应保持全长(旋转 45 度),
-        // 裸 lerp 才会走弦。原线全长 20,brief 首末点版量的是单采样间距
-        // (N=64 时恒 ~0.3)不可用,按其注释意图改量端到端跨度。
+        // 90 度旋转的直线:极坐标插值 t=0.5 处应保持全长(旋转 45 度,跨度 20),
+        // 裸 lerp 才会走弦(端点中点距 14.14)。原线全长 20,brief 首末点版量的是
+        // 单采样间距(N=64 时恒 ~0.3)不可用,按其注释意图改量端到端跨度。
+        // 阈值 16 同时 discriminate 两种插值:极坐标 20.0 过,弦塌缩 14.14 不过。
         val a = resample(SubPath(listOf(Cubic(2f, 12f, 10f, 12f, 16f, 12f, 22f, 12f)), false))
         val b = resample(SubPath(listOf(Cubic(12f, 2f, 12f, 10f, 12f, 16f, 12f, 22f)), false))
         val p = buildPlan(a, b)
         val mid = interpolate(p, 0.5f)[0]
+        mid.forEach { assertTrue(!it.isNaN()); assertTrue(!it.isInfinite()) }
         val span = hypot(mid[mid.size - 2] - mid[0], mid[mid.size - 1] - mid[1])
-        assertTrue("mid 跨度 $span 塌缩", span > 5f)
+        assertTrue("mid 跨度 $span 塌缩", span > 16f)
     }
 
     @Test fun nanBatterySelfAndRoundTrip() {
