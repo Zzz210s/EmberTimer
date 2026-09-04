@@ -16,6 +16,7 @@ import com.embertimer.timer.ReconcileAction
 import com.embertimer.timer.Reconciler
 import com.embertimer.timer.RuntimeSnapshot
 import java.time.LocalDate
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -274,20 +275,33 @@ class TimerService : Service() {
         }
     }
 
+    /**
+     * 到期驱动主腿(1s 轮询 + 60s 检查点)。#4 加固:单次迭代内任何异常(onExpired 或
+     * flushCheckpoint 的瞬时失败)都不得杀死循环 —— ticker 一旦死亡,到期推进只剩
+     * 闹钟/对账两条腿;闹钟未授权退化为 inexact 时在 Doze 下可被大幅推迟,用户将看到
+     * “倒计时完成卡住,需手动触发”。捕获记日志后继续调度(自愈);CancellationException
+     * 必须原样上抛(onDestroy 取消作用域的正常退出路径)。
+     */
     private fun tickerLoop() = scope.launch {
         while (isActive) {
-            engineMutex.withLock {
-                val snap = g.engine.snapshot.value
-                if (snap != null && snap.status == EngineStatus.RUNNING &&
-                    snap.endElapsed <= g.time.elapsedRealtime()
-                ) {
-                    g.engine.onExpired()
+            try {
+                engineMutex.withLock {
+                    val snap = g.engine.snapshot.value
+                    if (snap != null && snap.status == EngineStatus.RUNNING &&
+                        snap.endElapsed <= g.time.elapsedRealtime()
+                    ) {
+                        g.engine.onExpired()
+                    }
+                    val now = g.time.elapsedRealtime()
+                    val today = LocalDate.now().toString()
+                    if (lastFlushDate != today || now - lastFlushElapsed >= 60_000) {
+                        flushCheckpoint(force = false)
+                    }
                 }
-                val now = g.time.elapsedRealtime()
-                val today = LocalDate.now().toString()
-                if (lastFlushDate != today || now - lastFlushElapsed >= 60_000) {
-                    flushCheckpoint(force = false)
-                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "ticker iteration failed; continuing (self-heal)", e)
             }
             delay(1_000)
         }
@@ -321,27 +335,31 @@ class TimerService : Service() {
     }
 
     private suspend fun reconcileAfterProcessDeath() {
-        // 调用方(null intent 派发)已 awaitReady + 订阅握手后才进入,此处不再重复等待(F9)
-        engineMutex.withLock {
-            when (Reconciler.decide(g.engine.snapshot.value, g.time.elapsedRealtime())) {
-                ReconcileAction.STOP_SELF -> {
-                    // START 在途时不拆(F3b):null 对账可能抢在 START 落地前看到旧 null,
-                    // 无条件 stopSelf 会把服务从 START 派发下抽走(取消闹钟武装/强制 checkpoint)
-                    if (!awaitingSnapshot) {
-                        // 同步前台化已在 onStartCommand 完成,此处停止不会触发
-                        // ForegroundServiceDidNotStartInTimeException
-                        stopForeground(STOP_FOREGROUND_REMOVE)
-                        stopSelf()
+        // #4 加固:进程死亡/冷启动后的到期推进主腿,异常不得上抛 —— 派发协程无捕获时,
+        // SupervisorJob 下未捕获异常虽不取消兄弟协程,但会直达线程默认 handler 拉崩进程;
+        // 捕获记日志保活本腿(进程活着时 ticker 也会在 1s 内兜底推进)
+        runCatching {
+            engineMutex.withLock {
+                when (Reconciler.decide(g.engine.snapshot.value, g.time.elapsedRealtime())) {
+                    ReconcileAction.STOP_SELF -> {
+                        // START 在途时不拆(F3b):null 对账可能抢在 START 落地前看到旧 null,
+                        // 无条件 stopSelf 会把服务从 START 派发下抽走(取消闹钟武装/强制 checkpoint)
+                        if (!awaitingSnapshot) {
+                            // 同步前台化已在 onStartCommand 完成,此处停止不会触发
+                            // ForegroundServiceDidNotStartInTimeException
+                            stopForeground(STOP_FOREGROUND_REMOVE)
+                            stopSelf()
+                        }
                     }
+                    ReconcileAction.FINISH_EXPIRED -> g.engine.onExpired()
+                    ReconcileAction.RESUME_ACTIVE -> g.engine.snapshot.value?.let {
+                        goForeground(it)
+                        g.alarmScheduler.arm(it.endElapsed)
+                    }
+                    ReconcileAction.SHOW_PAUSED -> g.engine.snapshot.value?.let { goForeground(it) }
                 }
-                ReconcileAction.FINISH_EXPIRED -> g.engine.onExpired()
-                ReconcileAction.RESUME_ACTIVE -> g.engine.snapshot.value?.let {
-                    goForeground(it)
-                    g.alarmScheduler.arm(it.endElapsed)
-                }
-                ReconcileAction.SHOW_PAUSED -> g.engine.snapshot.value?.let { goForeground(it) }
             }
-        }
+        }.onFailure { Log.w(TAG, "reconcile after process death failed", it) }
     }
 
     companion object {
