@@ -1,6 +1,7 @@
 package com.embertimer.ui.report
 
 import android.content.Context
+import android.os.Looper
 import androidx.test.core.app.ApplicationProvider
 import com.embertimer.di.AppGraph
 import kotlinx.coroutines.test.runTest
@@ -8,6 +9,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import java.time.LocalDate
 
@@ -131,5 +133,53 @@ class ReportViewModelTest {
         v.refresh()
         assertEquals(listOf("已删除配置"), v.ui.value.profileTotals.map { it.profileName })
         assertEquals(60 * 60_000L, v.ui.value.profileTotals[0].millis)
+    }
+
+    // ---- 生产自动刷新路径(init 的 combine/auto collect,不经显式 refresh)----
+    // Robolectric 下测试线程即主线程,viewModelScope 的 Main.immediate + 直通 executor 使
+    // Room 失效通知内联完成;idle() 兜底任何经主 looper 的派发(约定见 review R1 之二)。
+
+    @Test fun autoRefreshShowsNewRecordWithoutExplicitRefresh() = runTest {
+        val g = graph("auto_record")
+        val a = g.profileRepo.create("番茄", 25, 5)
+        val v = vm(g, "2026-09-06")
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(0, v.ui.value.rows.size)
+        // 记录落库后无任何 refresh() 调用:dayTotals 失效信号驱动自动重建
+        g.totalsRepo.addWork("2026-09-01", a, 30 * 60_000L)
+        g.totalsRepo.addWork("2026-09-02", a, 20 * 60_000L)
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(listOf("09-01", "09-02"), v.ui.value.rows.map { it.label })
+        assertEquals(rowMillis(30, 20), v.ui.value.rows.map { it.millis })
+        assertEquals(listOf("番茄"), v.ui.value.profileTotals.map { it.profileName })
+    }
+
+    @Test fun autoRefreshReResolvesRenamedProfile() = runTest {
+        val g = graph("auto_rename")
+        val a = g.profileRepo.create("番茄", 25, 5)
+        g.totalsRepo.addWork("2026-09-01", a, 30 * 60_000L)
+        val v = vm(g, "2026-09-06") // 常驻 VM:先开报表后 footer 已含旧名
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(listOf("番茄"), v.ui.value.profileTotals.map { it.profileName })
+        // 回设置页改名(只动 profile 表,不落 daily_total),期间无新记录:profiles 并入 combine
+        // 后自动重解析名称,再进报表无需等待下一次记录或切范围
+        g.profileRepo.rename(a, "改名")
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(listOf("改名"), v.ui.value.profileTotals.map { it.profileName })
+        assertEquals(30 * 60_000L, v.ui.value.profileTotals[0].millis)
+    }
+
+    @Test fun autoRefreshShowsOrphanLabelAfterProfileDelete() = runTest {
+        val g = graph("auto_orphan")
+        val a = g.profileRepo.create("番茄", 25, 5)
+        g.totalsRepo.addWork("2026-09-01", a, 30 * 60_000L)
+        val v = vm(g, "2026-09-06")
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(listOf("番茄"), v.ui.value.profileTotals.map { it.profileName })
+        // 设置页删除配置(无新记录、无 refresh):占位文案应自动出现
+        g.profileRepo.delete(g.profileRepo.byId(a)!!)
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(listOf("已删除配置"), v.ui.value.profileTotals.map { it.profileName })
+        assertEquals(30 * 60_000L, v.ui.value.profileTotals[0].millis)
     }
 }

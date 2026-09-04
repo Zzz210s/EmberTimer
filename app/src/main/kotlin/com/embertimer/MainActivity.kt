@@ -35,7 +35,9 @@ class MainActivity : ComponentActivity() {
         setContent {
             EmberTheme {
                 var screenOrdinal by rememberSaveable { mutableStateOf(Screen.HOME.ordinal) }
-                when (Screen.entries[screenOrdinal]) {
+                // 进程恢复兜底:enum 增删/重排后旧序数可能越界,回退主页
+                val screen = Screen.entries.getOrNull(screenOrdinal) ?: Screen.HOME
+                when (screen) {
                     Screen.HOME -> HomeScreen(onSettings = { screenOrdinal = Screen.SETTINGS.ordinal })
                     Screen.SETTINGS -> SettingsScreen(
                         onBack = { screenOrdinal = Screen.HOME.ordinal },

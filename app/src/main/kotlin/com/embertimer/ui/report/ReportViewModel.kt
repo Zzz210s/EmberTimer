@@ -78,15 +78,23 @@ class ReportViewModel(
     val ui: StateFlow<ReportUiState> = _ui.asStateFlow()
 
     init {
-        // 生产自动刷新:dayTotals(epoch) 作 daily_total 表变更信号,范围切换与新增记录都驱动重建
+        // 生产自动刷新:dayTotals(epoch) 是 daily_total 表失效信号,profiles 是 profile 表失效信号——
+        // 范围切换、新增记录、设置页改名/删除配置都驱动同一重建。Report VM 常驻 activity 级
+        // ViewModelStore,配置表并入 combine 后改名/删除无需再等新记录或切范围即重解析名称
         viewModelScope.launch {
-            combine(_range, graph.totalsRepo.dayTotals(EPOCH)) { range, _ -> range }
+            combine(
+                _range,
+                graph.totalsRepo.dayTotals(EPOCH),
+                graph.profileRepo.profiles,
+            ) { range, _, _ -> range }
                 .collect { refreshInternal() }
         }
     }
 
     fun setRange(r: ReportRange) {
         _range.value = r
+        // 乐观同步选中档:按钮立即切换,数据随后由自动重建落地(避免 DB 往返期间滞留旧高亮)
+        _ui.value = _ui.value.copy(range = r)
     }
 
     /** 挂起重建:测试与自动刷新共用同一实现(避开 stateIn/flatMapLatest 的测试环境悬挂) */

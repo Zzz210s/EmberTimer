@@ -1,5 +1,6 @@
 package com.embertimer.ui.report
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -36,6 +37,8 @@ fun ReportScreen(onBack: () -> Unit) {
     val app = LocalContext.current.applicationContext as EmberApp
     val vm: ReportViewModel = viewModel(factory = app.graph.vmFactory)
     val ui by vm.ui.collectAsStateWithLifecycle()
+    // 系统返回等同 Toolbar BACK:REPORT -> SETTINGS(pop),不结束 Activity
+    BackHandler(onBack = onBack)
 
     Scaffold(
         topBar = {
