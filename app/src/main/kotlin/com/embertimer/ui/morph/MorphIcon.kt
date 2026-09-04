@@ -11,14 +11,15 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Matrix
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import com.embertimer.ui.theme.MotionTokens
 
 /**
@@ -32,12 +33,11 @@ import com.embertimer.ui.theme.MotionTokens
  * 掩盖。不做中途再规划。
  *
  * 闭合性(v0.5 简化,Task 6 已知限制):计划不携带逐子路径 closed,飞行段按
- * 目标图标统一标志——全闭(PLAY/STOP)画闭合,全开/混合(PAUSE/SKIP)画开
- * (SKIP 飞行段三角缺一个接缝端点,落地即恢复正确闭合)。
+ * 目标图标统一标志——全闭(PLAY/STOP)画闭合,全开/混合(PAUSE/SKIP)画开。
  *
- * animationsOn=false 或首帧组合:直绘目标典型形状(按 target 记忆化解析)。
- * 进度仅在飞行期被 draw 闭包读取(draw 期 snapshot 读 = 自动 invalidateDraw,
- * 逐帧零重组)。[strokeWidth] 单位 px,null 时随 size 等比(同 PathIcon)。
+ * animationsOn=false 或首帧组合:直绘目标典型形状。
+ * 缩放:不用 DrawScope.scale(pivot 在按钮容器内偏移字形),改 Matrix 预缩放
+ * 路径绕画布中心对齐 24 栅格中心,drawPath 零变换直绘(同 PathIcon 修复)。
  */
 @Composable
 fun MorphIcon(
@@ -78,16 +78,28 @@ fun MorphIcon(
         modifier
             .size(size)
             .then(if (contentDescription == null) Modifier else Modifier.semantics { this.contentDescription = contentDescription })
-            .drawBehind {
-                val s = this.size.width / GRID
-                val f = flight
-                val p = if (animationsOn && f != null) {
-                    buildPath(interpolate(f, progress.value), closed)
-                } else {
-                    idlePath
+            .drawWithCache {
+                val w = this.size.width.toFloat()
+                val s = w / GRID
+                // 画布中心对齐 24 栅格中心 (12,12) 的预缩放矩阵(路径局部空间一次成型)
+                val m = Matrix().apply {
+                    translate(w / 2f - GRID / 2f * s, w / 2f - GRID / 2f * s)
+                    scale(s, s)
                 }
-                scale(s, s) {
-                    drawPath(p, tint, style = strokeStyle(strokeWidth, this.size.width, s))
+                val style = strokeStylePx(strokeWidth, w)
+                onDrawBehind {
+                    val f = flight
+                    val p: Path = if (animationsOn && f != null) {
+                        // 飞行中:点云(24 栅格)构 Path 后套同一矩阵(每帧新对象,就地变换安全)
+                        buildPath(interpolate(f, progress.value), closed).apply { transform(m) }
+                    } else {
+                        // 静止:记忆化规范路径(共享实例,不得就地变换,复制后套矩阵)
+                        Path().apply {
+                            addPath(idlePath)
+                            transform(m)
+                        }
+                    }
+                    drawPath(p, tint, style = style)
                 }
             },
     )
