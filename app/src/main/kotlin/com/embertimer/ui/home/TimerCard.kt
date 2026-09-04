@@ -1,15 +1,8 @@
 package com.embertimer.ui.home
 
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -24,7 +17,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.FilledIconToggleButton
 import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -39,44 +31,16 @@ import androidx.compose.ui.composed
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import com.embertimer.R
 import com.embertimer.timer.DurationFormat
 import com.embertimer.timer.EngineStatus
 import com.embertimer.timer.Phase
+import com.embertimer.ui.morph.IconPaths
+import com.embertimer.ui.morph.MorphIcon
+import com.embertimer.ui.morph.PathIcon
 import com.embertimer.ui.theme.rememberAnimationsEnabled
 
-/** 播放⇄暂停 morph:图标随状态弹性交叉淡入+缩放(Compose 无路径插值,此为诚实近似)。animationsOn=false 时直切 */
-@Composable
-private fun MorphToggleIcon(
-    running: Boolean,
-    animationsOn: Boolean,
-    modifier: Modifier = Modifier,
-) {
-    val pausedIcon = painterResource(R.drawable.ic_play)
-    val runningIcon = painterResource(R.drawable.ic_pause)
-    if (!animationsOn) {
-        Icon(if (running) runningIcon else pausedIcon, contentDescription = if (running) "暂停" else "恢复", modifier = modifier)
-        return
-    }
-    AnimatedContent(
-        targetState = running,
-        transitionSpec = {
-            (fadeIn(tween(90)) + scaleIn(initialScale = 0.85f, animationSpec = spring(dampingRatio = 0.8f))) togetherWith
-                (fadeOut(tween(90)) + scaleOut(targetScale = 0.85f, animationSpec = spring(dampingRatio = 0.8f)))
-        },
-        label = "playPauseMorph",
-    ) { isRunning ->
-        Icon(
-            if (isRunning) runningIcon else pausedIcon,
-            contentDescription = if (isRunning) "暂停" else "恢复",
-            modifier = modifier,
-        )
-    }
-}
-
-/** D3:按压时图标微缩至 92%,释放弹簧回弹 */
+/** D3:按压时图标微缩至 92%,释放弹簧回弹(曲线 = MotionTokens.PressSpring) */
 private fun Modifier.pressScale(pressed: Boolean): Modifier = composed {
     val scale by animateFloatAsState(if (pressed) 0.92f else 1f, spring(dampingRatio = 0.6f), label = "pressScale")
     graphicsLayer { scaleX = scale; scaleY = scale }
@@ -138,9 +102,11 @@ internal fun TimerCard(
                             modifier = Modifier.size(72.dp),
                             interactionSource = interaction,
                         ) {
-                            MorphToggleIcon(
-                                running = running,
+                            MorphIcon(
+                                target = if (running) IconPaths.PAUSE else IconPaths.PLAY,
+                                size = 24.dp,
                                 animationsOn = animationsOn,
+                                contentDescription = if (running) "暂停" else "恢复",
                                 modifier = if (animationsOn) Modifier.pressScale(pressed) else Modifier,
                             )
                         }
@@ -148,10 +114,10 @@ internal fun TimerCard(
                 }
                 if (snap != null && snap.status != EngineStatus.IDLE) {
                     FilledTonalIconButton(onClick = { act(onSkip) }, modifier = Modifier.size(56.dp)) {
-                        Icon(painterResource(R.drawable.ic_skip_next), contentDescription = "跳过")
+                        PathIcon(d = IconPaths.SKIP, size = 24.dp, contentDescription = "跳过")
                     }
                     FilledTonalIconButton(onClick = { act(onStop) }, modifier = Modifier.size(56.dp)) {
-                        Icon(painterResource(R.drawable.ic_stop), contentDescription = "终止")
+                        PathIcon(d = IconPaths.STOP, size = 24.dp, contentDescription = "终止")
                     }
                 }
             }
@@ -165,13 +131,12 @@ internal fun CycleBadge(count: Int, animationsOn: Boolean, modifier: Modifier = 
     val scale = remember { Animatable(1f) }
     var lastCount by remember { mutableIntStateOf(count) }
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
-        Icon(
-            painterResource(R.drawable.ic_repeat),
+        PathIcon(
+            d = IconPaths.REPEAT,
+            size = 16.dp,
             contentDescription = null, // 装饰性:数值紧随其后,语义由 Text 承载
-            modifier = Modifier
-                .size(16.dp)
-                .graphicsLayer { scaleX = scale.value; scaleY = scale.value },
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.graphicsLayer { scaleX = scale.value; scaleY = scale.value },
         )
         Spacer(Modifier.width(4.dp))
         Text("循环 $count", style = MaterialTheme.typography.bodyMedium)
