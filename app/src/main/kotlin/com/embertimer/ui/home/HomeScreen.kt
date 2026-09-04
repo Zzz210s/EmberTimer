@@ -101,7 +101,8 @@ fun HomeScreen(onSettings: () -> Unit) {
                     TimerCommands.start(ctx, p.id, p.workMinutes * 60_000L, p.restMinutes * 60_000L)
                 }
             }, onPause = { TimerCommands.pause(ctx) }, onResume = { TimerCommands.resume(ctx) },
-                onSkip = { TimerCommands.skip(ctx) }, onStop = { TimerCommands.stop(ctx) })
+                onSkip = { TimerCommands.skip(ctx) }, onStop = { TimerCommands.stop(ctx) },
+                onGoSettings = onSettings)
             Text("今日 " + DurationFormat.hm(ui.todayMillis), style = MaterialTheme.typography.titleMedium)
             Card {
                 Column(Modifier.padding(12.dp)) {
@@ -119,6 +120,15 @@ fun HomeScreen(onSettings: () -> Unit) {
 @Composable
 private fun ProfileChips(ui: HomeUiState, onSelect: (com.embertimer.data.db.ProfileEntity) -> Unit) {
     val running = ui.snap?.status == EngineStatus.RUNNING
+    if (ui.profiles.isEmpty()) {
+        // #3 首装空态:无配置时 chips 行让位给引导文案,入口在下方计时卡“去设置新建”
+        Text(
+            "还没有配置,先去设置新建",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        return
+    }
     // 横向滚动:设置页可建多配置后 chips 可能超出屏宽(Task 13 评审 H5,路由到本任务)
     Row(
         Modifier.horizontalScroll(rememberScrollState()),

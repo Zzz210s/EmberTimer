@@ -68,8 +68,8 @@ class AppGraph(
         initializer { SettingsViewModel(this@AppGraph) }
     }
 
+    // #3:首装不再种默认配置,空库由主页空态引导;bootstrap 只负责引擎冷启动恢复
     suspend fun bootstrap() {
-        profileRepo.seedIfEmpty()
         engine.restore(runtimeStore.flow.first())
     }
 

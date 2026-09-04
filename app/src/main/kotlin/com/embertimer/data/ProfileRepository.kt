@@ -11,12 +11,6 @@ class ProfileRepository(
 ) {
     val profiles: Flow<List<ProfileEntity>> = dao.observeAll()
 
-    suspend fun seedIfEmpty() {
-        if (dao.count() == 0) {
-            dao.insert(ProfileEntity(name = "番茄", workMinutes = 25, restMinutes = 5, createdAt = time.now()))
-        }
-    }
-
     suspend fun create(name: String, workMinutes: Int, restMinutes: Int): Long {
         if (dao.byName(name) != null) return -1L
         return dao.insert(ProfileEntity(name = name, workMinutes = workMinutes, restMinutes = restMinutes, createdAt = time.now()))

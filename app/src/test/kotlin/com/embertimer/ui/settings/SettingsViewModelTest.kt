@@ -50,17 +50,22 @@ class SettingsViewModelTest {
         val g = AppGraph(ctx, useInMemoryDb = true, storeFileName = "sv2")
         g.bootstrap()
         val vm = SettingsViewModel(g)
-        g.engine.restore(snap(EngineStatus.RUNNING))
-        assertFalse(vm.editDurations(ProfileEntity(1, "a", 1, 1, 0), 30, 10)) // RUNNING 拒
-        assertEquals(25, g.profileRepo.byId(1)!!.workMinutes) // IGNORED 不写(种子 25 保持)
-        g.engine.restore(snap(EngineStatus.PAUSED))
-        assertTrue(vm.editDurations(ProfileEntity(1, "a", 1, 1, 0), 30, 10)) // PAUSED 重开
+        // #3 首装空库:自建一行后才谈得上改时长策略
+        val id = vm.createProfile("专注", 25, 5)
+        g.engine.restore(snap(EngineStatus.RUNNING, profileId = id))
+        assertFalse(vm.editDurations(ProfileEntity(id, "a", 1, 1, 0), 30, 10)) // RUNNING 拒
+        assertEquals(25, g.profileRepo.byId(id)!!.workMinutes) // IGNORED 不写(建时 25 保持)
+        g.engine.restore(snap(EngineStatus.PAUSED, profileId = id))
+        assertTrue(vm.editDurations(ProfileEntity(id, "a", 1, 1, 0), 30, 10)) // PAUSED 重开
+        assertEquals(30, g.profileRepo.byId(id)!!.workMinutes)
     }
 
     @Test fun deletePolicy() = runTest {
         val g = AppGraph(ctx, useInMemoryDb = true, storeFileName = "sv3")
         g.bootstrap()
         val vm = SettingsViewModel(g)
+        // #3 首装空库:先自建“最后一条”,拒删语义不变
+        vm.createProfile("A", 25, 5)
         val only = g.profileRepo.profiles.first().first()
         assertFalse(vm.deleteProfile(only)) // 最后一条拒删
         vm.createProfile("B", 50, 10)

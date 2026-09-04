@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -47,8 +48,10 @@ internal fun TimerCard(
     onResume: () -> Unit,
     onSkip: () -> Unit,
     onStop: () -> Unit,
+    onGoSettings: () -> Unit,
 ) {
     val snap = ui.snap
+    val empty = ui.profiles.isEmpty()
     val animationsOn = rememberAnimationsEnabled()
     Card(Modifier.fillMaxWidth()) {
         Column(
@@ -84,11 +87,18 @@ internal fun TimerCard(
             } else {
                 Text(phaseText, style = MaterialTheme.typography.titleMedium)
             }
-            Text(
-                DurationFormat.ms(remaining),
-                style = MaterialTheme.typography.displayMedium,
-            )
-            CycleBadge(count = snap?.cycleCount ?: 0, animationsOn = animationsOn)
+            // #3 空态引导:无配置时倒计时数字位换文案(数字必为 00:00,无意义),
+            // 开始键维持 disabled(activeProfileId == -1),另提供直达设置的按钮
+            if (empty) {
+                Text("先新建一个计时配置", style = MaterialTheme.typography.titleLarge)
+                TextButton(onClick = onGoSettings) { Text("去设置新建") }
+            } else {
+                Text(
+                    DurationFormat.ms(remaining),
+                    style = MaterialTheme.typography.displayMedium,
+                )
+                CycleBadge(count = snap?.cycleCount ?: 0, animationsOn = animationsOn)
+            }
             val haptic = LocalHapticFeedback.current
             fun act(perform: () -> Unit) {
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)

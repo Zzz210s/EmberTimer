@@ -56,10 +56,12 @@ class HomeViewModelTest {
     @Test fun dayDetailBreaksDownPerProfile() = runTest {
         val g = AppGraph(ctx, useInMemoryDb = true, storeFileName = "hv_daydetail")
         g.bootstrap()
-        g.profileRepo.create("深度", 50, 10) // id 2
+        // #3 首装空库:无种子行,明细归属完全由测试自建的 id 决定
+        val pomoId = g.profileRepo.create("番茄", 25, 5)
+        val deepId = g.profileRepo.create("深度", 50, 10)
         val today = java.time.LocalDate.now()
-        g.totalsRepo.addWork(today.toString(), 1, 30 * 60_000L)
-        g.totalsRepo.addWork(today.toString(), 2, 90 * 60_000L)
+        g.totalsRepo.addWork(today.toString(), pomoId, 30 * 60_000L)
+        g.totalsRepo.addWork(today.toString(), deepId, 90 * 60_000L)
         val vm = HomeViewModel(g)
         vm.selectDay(today)
         val d = vm.dayDetail.first { it != null }!!
@@ -76,14 +78,15 @@ class HomeViewModelTest {
         val g = AppGraph(ctx, useInMemoryDb = true, storeFileName = "hv_daydetail_live")
         g.bootstrap()
         val today = java.time.LocalDate.now()
-        g.totalsRepo.addWork(today.toString(), 1, 30 * 60_000L)
+        val id = g.profileRepo.create("专注", 25, 5)
+        g.totalsRepo.addWork(today.toString(), id, 30 * 60_000L)
         val vm = HomeViewModel(g)
         vm.selectDay(today)
         assertEquals(30 * 60_000L, vm.dayDetail.first { it != null }!!.totalMillis)
         // 不重新 selectDay:Room 失效通知驱动 dayTotals 重发,detail 应自动反映新总额。
         // 失效链路在 Room 后台线程间逐跳推进,每跳回暂停的 Main looper 都需手动泵(同上
         // selectDay(null) 后 idle 的既有模式);泵多轮直到状态流换新值。
-        g.totalsRepo.addWork(today.toString(), 1, 20 * 60_000L)
+        g.totalsRepo.addWork(today.toString(), id, 20 * 60_000L)
         val deadline = System.currentTimeMillis() + 10_000
         while (vm.dayDetail.value?.totalMillis != 50 * 60_000L && System.currentTimeMillis() < deadline) {
             shadowOf(Looper.getMainLooper()).idle()
@@ -97,12 +100,13 @@ class HomeViewModelTest {
         // 孤儿行应显示固定文案而非 "?",时长与存活配置行均照实保留
         val g = AppGraph(ctx, useInMemoryDb = true, storeFileName = "hv_deleted")
         g.bootstrap()
-        val deletedId = g.profileRepo.create("临时", 25, 5) // id 2(bootstrap 种入 番茄 id 1)
-        assertTrue(deletedId > 0)
+        // #3 无种子行:存活/孤儿两行均由测试自建后删其一来构造
+        val pomoId = g.profileRepo.create("番茄", 25, 5)
+        val tempId = g.profileRepo.create("临时", 25, 5)
         val today = java.time.LocalDate.now()
-        g.totalsRepo.addWork(today.toString(), 1, 30 * 60_000L)
-        g.totalsRepo.addWork(today.toString(), deletedId, 90 * 60_000L)
-        g.profileRepo.delete(g.profileRepo.byId(deletedId)!!)
+        g.totalsRepo.addWork(today.toString(), pomoId, 30 * 60_000L)
+        g.totalsRepo.addWork(today.toString(), tempId, 90 * 60_000L)
+        g.profileRepo.delete(g.profileRepo.byId(tempId)!!)
         val vm = HomeViewModel(g)
         vm.selectDay(today)
         val d = vm.dayDetail.first { it != null }!!

@@ -40,18 +40,10 @@ class DbTest {
     }
     @After fun tearDown() { db.close() }
 
-    @Test fun seedCreatesDefaultWhenEmpty() = runTest {
-        profiles.seedIfEmpty()
-        val list = profiles.profiles.first()
-        assertEquals(1, list.size)
-        assertEquals("番茄", list[0].name)
-        assertEquals(25, list[0].workMinutes)
-        assertEquals(5, list[0].restMinutes)
-    }
-
-    @Test fun seedIsIdempotent() = runTest {
-        profiles.seedIfEmpty(); profiles.seedIfEmpty()
-        assertEquals(1, profiles.profiles.first().size)
+    @Test fun freshDatabaseHasNoDefaultProfile() = runTest {
+        // #3 首装空库:不再种默认“番茄”,空态由主页引导;任何库能力都不应写演示数据
+        assertTrue(profiles.profiles.first().isEmpty())
+        assertEquals(0, profiles.count())
     }
 
     @Test fun uniqueNameRejected() = runTest {
