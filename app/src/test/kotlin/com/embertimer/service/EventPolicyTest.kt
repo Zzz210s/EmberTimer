@@ -105,4 +105,41 @@ class EventPolicyTest {
                 .none { it is EventEffect.Settle },
         )
     }
+
+    // ---- Task 7 / #10:正计时无到期 —— start/resume/重启均不得武装阶段到期闹钟 ----
+
+    private fun countUpSnap() = snap(profileId = 2L, phase = Phase.WORK).copy(countUp = true)
+
+    /** 钉 6:countUp start 的 PhaseStarted 只强制 checkpoint,不武装闹钟(ForceCheckpoint 顺序保留) */
+    @Test fun countUpPhaseStartedSkipsArm() {
+        assertEquals(
+            listOf(EventEffect.ForceCheckpoint),
+            EventPolicy.decide(
+                EngineEvent.PhaseStarted(Phase.WORK, 140_000L, 1_000_000L),
+                countUpSnap(),
+            ),
+        )
+    }
+
+    /** 钉 7:countUp resume 不重武装;倒计时(后继快照无 countUp)行为不变 */
+    @Test fun countUpResumedSkipsArmButCountdownStillArms() {
+        assertEquals(
+            emptyList<EventEffect>(),
+            EventPolicy.decide(EngineEvent.Resumed(90_000L, 1_000_000L), countUpSnap()),
+        )
+        assertEquals(
+            listOf(EventEffect.Arm(90_000L)),
+            EventPolicy.decide(EngineEvent.Resumed(90_000L, 1_000_000L), snap(phase = Phase.WORK)),
+        )
+    }
+
+    /** 钉 8:countUp 重启仍取消闹钟 + 结算旧 profile,只是不武装新到期点 */
+    @Test fun countUpPhaseRestartedSkipsArmButStillCancelsAndSettles() {
+        val ev = EngineEvent.PhaseRestarted(Phase.WORK, 50_000L, 1L, 240_000L, 2_000_000L)
+        val fx = EventPolicy.decide(ev, countUpSnap())
+        assertEquals(
+            listOf(EventEffect.CancelAlarm, EventEffect.Settle(50_000L, 1L)),
+            fx,
+        )
+    }
 }

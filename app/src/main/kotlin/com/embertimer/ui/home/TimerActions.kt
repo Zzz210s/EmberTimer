@@ -61,6 +61,7 @@ internal fun ActionZone(
     status: EngineStatus?,
     startEnabled: Boolean,
     animationsOn: Boolean,
+    showSkip: Boolean,
     onStart: () -> Unit,
     onPause: () -> Unit,
     onResume: () -> Unit,
@@ -102,16 +103,17 @@ internal fun ActionZone(
                 PathIcon(d = IconPaths.PLAY, size = 24.dp, contentDescription = "开始")
             }
         } else {
-            ActiveKeys(status, animationsOn, onPause, onResume, onSkip, onStop)
+            ActiveKeys(status, animationsOn, showSkip, onPause, onResume, onSkip, onStop)
         }
     }
 }
 
-/** 运行态三键行(#11 均 56dp;顺序 #8 暂停/恢复 · 终止 · 跳过,onStop/onSkip 接线随键位走) */
+/** 运行态动作行(#11 均 56dp;顺序 #8 暂停/恢复 · 终止 · 跳过;正计时无 skip 语义 → 键不渲染) */
 @Composable
 private fun ActiveKeys(
     status: EngineStatus?,
     animationsOn: Boolean,
+    showSkip: Boolean,
     onPause: () -> Unit,
     onResume: () -> Unit,
     onSkip: () -> Unit,
@@ -147,9 +149,11 @@ private fun ActiveKeys(
                 PathIcon(d = IconPaths.STOP, size = 24.dp, contentDescription = "终止")
             }
         }
-        StaggerKey(animationsOn, delaySteps = 2) {
-            FilledTonalIconButton(onClick = onSkip, modifier = Modifier.size(56.dp)) {
-                PathIcon(d = IconPaths.SKIP, size = 24.dp, contentDescription = "跳过")
+        if (showSkip) {
+            StaggerKey(animationsOn, delaySteps = 2) {
+                FilledTonalIconButton(onClick = onSkip, modifier = Modifier.size(56.dp)) {
+                    PathIcon(d = IconPaths.SKIP, size = 24.dp, contentDescription = "跳过")
+                }
             }
         }
     }

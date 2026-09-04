@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
+import com.embertimer.data.db.ProfileMode
 import com.embertimer.timer.DurationFormat
 import com.embertimer.timer.Phase
 import com.embertimer.ui.morph.IconPaths
@@ -38,11 +39,12 @@ import com.embertimer.ui.morph.PathIcon
 import com.embertimer.ui.theme.MotionTokens
 import com.embertimer.ui.theme.rememberAnimationsEnabled
 
-/** 计时卡:阶段文案(D7 交叉交换)+ 大倒计时 + 循环徽标 + 动作区(重排见 TimerActions.kt) */
+/** 计时卡:阶段文案(D7 交叉交换)+ 大数字(倒计时剩余 / 正计时已走)+ 循环徽标 + 动作区(重排见 TimerActions.kt)
+ *  countUp(运行快照或当前配置为正计时)时:无到期/循环概念 → 徽标隐藏;skip 引擎已 no-op → 键隐藏 */
 @Composable
 internal fun TimerCard(
     ui: HomeUiState,
-    remaining: Long,
+    displayMillis: Long,
     onStart: () -> Unit,
     onPause: () -> Unit,
     onResume: () -> Unit,
@@ -52,6 +54,8 @@ internal fun TimerCard(
 ) {
     val snap = ui.snap
     val empty = ui.profiles.isEmpty()
+    val countUpActive = snap?.countUp == true ||
+        ui.profiles.firstOrNull { it.id == ui.activeProfileId }?.mode == ProfileMode.COUNTUP
     val animationsOn = rememberAnimationsEnabled()
     Card(Modifier.fillMaxWidth()) {
         Column(
@@ -94,10 +98,10 @@ internal fun TimerCard(
                 TextButton(onClick = onGoSettings) { Text("去设置新建") }
             } else {
                 Text(
-                    DurationFormat.ms(remaining),
+                    DurationFormat.ms(displayMillis),
                     style = MaterialTheme.typography.displayMedium,
                 )
-                CycleBadge(count = snap?.cycleCount ?: 0, animationsOn = animationsOn)
+                if (!countUpActive) CycleBadge(count = snap?.cycleCount ?: 0, animationsOn = animationsOn)
             }
             val haptic = LocalHapticFeedback.current
             fun act(perform: () -> Unit) {
@@ -108,6 +112,7 @@ internal fun TimerCard(
                 status = snap?.status,
                 startEnabled = ui.ready && ui.activeProfileId != -1L,
                 animationsOn = animationsOn,
+                showSkip = !countUpActive,
                 onStart = { act(onStart) },
                 onPause = { act(onPause) },
                 onResume = { act(onResume) },

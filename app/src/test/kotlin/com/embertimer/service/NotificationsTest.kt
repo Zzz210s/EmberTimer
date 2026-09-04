@@ -71,4 +71,28 @@ class NotificationsTest {
         assertEquals(TimerNotifications.CH_PROGRESS, n.channelId)
         assertEquals(true, (n.flags and android.app.Notification.FLAG_ONGOING_EVENT) != 0)
     }
+
+    // ---- Task 7 / #10:正计时通知 —— 无循环/跳过/到期;运行态正向 chronometer 承载已走时长 ----
+
+    @Test fun countUpRunningUsesForwardChronometer() {
+        TimerNotifications.ensureChannels(ctx)
+        val n = TimerNotifications.inProgress(ctx, snap.copy(countUp = true))
+        assertEquals(listOf("暂停", "终止"), n.actions.map { it.title.toString() })
+        assertEquals("工作中", n.extras.getCharSequence(NotificationCompat.EXTRA_TITLE).toString())
+        assertEquals("正计时", n.extras.getCharSequence(NotificationCompat.EXTRA_TEXT).toString())
+        // 正向 chronometer:起点 = endWall - 名义跨度(重锚后即每次 resume 的已走时长起点墙钟)
+        assertEquals(false, n.extras.getBoolean(NotificationCompat.EXTRA_CHRONOMETER_COUNT_DOWN))
+        assertEquals(true, n.extras.getBoolean(NotificationCompat.EXTRA_SHOW_CHRONOMETER, false))
+        assertEquals(snap.endWall - snap.durationMillis, n.`when`)
+        assertEquals(0, n.extras.getInt(NotificationCompat.EXTRA_PROGRESS_MAX)) // 无到期进度条
+    }
+
+    @Test fun countUpPausedFreezesElapsedInText() {
+        TimerNotifications.ensureChannels(ctx)
+        val paused = snap.copy(countUp = true, status = EngineStatus.PAUSED, timeAtPause = 45_000)
+        val n = TimerNotifications.inProgress(ctx, paused)
+        assertEquals(listOf("恢复", "终止"), n.actions.map { it.title.toString() })
+        assertEquals("已暂停 · 已进行 00:45", n.extras.getCharSequence(NotificationCompat.EXTRA_TEXT).toString())
+        assertEquals(false, n.extras.getBoolean(NotificationCompat.EXTRA_SHOW_CHRONOMETER, false))
+    }
 }

@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.embertimer.data.ReminderIntensity
 import com.embertimer.data.db.ProfileEntity
+import com.embertimer.data.db.ProfileMode
 import com.embertimer.di.AppGraph
 import com.embertimer.timer.EngineStatus
 import com.embertimer.timer.Phase
@@ -35,15 +36,33 @@ class SettingsViewModelTest {
         val g = AppGraph(ctx, useInMemoryDb = true, storeFileName = "sv1")
         g.bootstrap()
         val vm = SettingsViewModel(g)
-        val id = vm.createProfile("深度", 50, 10)
+        val id = vm.createProfile("深度", 50, 10, ProfileMode.COUNTDOWN)
         assertTrue(id > 0)
-        assertEquals(-1L, vm.createProfile("深度", 50, 10)) // 重名拒绝
+        assertEquals(-1L, vm.createProfile("深度", 50, 10, ProfileMode.COUNTDOWN)) // 重名拒绝
         vm.renameProfile(id, "深度专注")
-        vm.editDurations(ProfileEntity(id, "x", 1, 1, 0), 45, 15)
+        vm.editDurations(ProfileEntity(id, "x", 1, 1, 0), 45, 15, ProfileMode.COUNTDOWN)
         assertEquals(45, g.profileRepo.byId(id)!!.workMinutes)
         assertEquals("深度专注", g.profileRepo.byId(id)!!.name)
         vm.setIntensity(ReminderIntensity.STRONG)
         assertEquals(ReminderIntensity.STRONG, g.settingsRepo.reminderIntensity.first())
+    }
+
+    /** Task 7 / #10:模式选择贯穿新建与编辑 —— 建库、编辑不改模式、编辑改模式均落库 */
+    @Test fun modePersistsThroughCreateAndEdit() = runTest {
+        val g = AppGraph(ctx, useInMemoryDb = true, storeFileName = "sv_mode")
+        g.bootstrap()
+        val vm = SettingsViewModel(g)
+        val id = vm.createProfile("正计时", 45, 10, ProfileMode.COUNTUP)
+        assertTrue(id > 0)
+        assertEquals(ProfileMode.COUNTUP, g.profileRepo.byId(id)!!.mode)
+        assertEquals(ProfileMode.COUNTUP, g.profileRepo.modeOf(id)) // modeOf 同源
+        // 编辑不改模式(显式传原模式):模式不回退倒计时
+        vm.editDurations(ProfileEntity(id, "x", 1, 1, 0, mode = ProfileMode.COUNTUP), 30, 5, ProfileMode.COUNTUP)
+        assertEquals(ProfileMode.COUNTUP, g.profileRepo.byId(id)!!.mode)
+        assertEquals(30, g.profileRepo.byId(id)!!.workMinutes)
+        // 编辑切换模式:DB 跟随对话框选择
+        vm.editDurations(ProfileEntity(id, "x", 1, 1, 0, mode = ProfileMode.COUNTUP), 30, 5, ProfileMode.COUNTDOWN)
+        assertEquals(ProfileMode.COUNTDOWN, g.profileRepo.byId(id)!!.mode)
     }
 
     @Test fun editDurationsPolicy() = runTest {
@@ -51,12 +70,12 @@ class SettingsViewModelTest {
         g.bootstrap()
         val vm = SettingsViewModel(g)
         // #3 首装空库:自建一行后才谈得上改时长策略
-        val id = vm.createProfile("专注", 25, 5)
+        val id = vm.createProfile("专注", 25, 5, ProfileMode.COUNTDOWN)
         g.engine.restore(snap(EngineStatus.RUNNING, profileId = id))
-        assertFalse(vm.editDurations(ProfileEntity(id, "a", 1, 1, 0), 30, 10)) // RUNNING 拒
+        assertFalse(vm.editDurations(ProfileEntity(id, "a", 1, 1, 0), 30, 10, ProfileMode.COUNTDOWN)) // RUNNING 拒
         assertEquals(25, g.profileRepo.byId(id)!!.workMinutes) // IGNORED 不写(建时 25 保持)
         g.engine.restore(snap(EngineStatus.PAUSED, profileId = id))
-        assertTrue(vm.editDurations(ProfileEntity(id, "a", 1, 1, 0), 30, 10)) // PAUSED 重开
+        assertTrue(vm.editDurations(ProfileEntity(id, "a", 1, 1, 0), 30, 10, ProfileMode.COUNTDOWN)) // PAUSED 重开
         assertEquals(30, g.profileRepo.byId(id)!!.workMinutes)
     }
 
@@ -65,10 +84,10 @@ class SettingsViewModelTest {
         g.bootstrap()
         val vm = SettingsViewModel(g)
         // #3 首装空库:先自建“最后一条”,拒删语义不变
-        vm.createProfile("A", 25, 5)
+        vm.createProfile("A", 25, 5, ProfileMode.COUNTDOWN)
         val only = g.profileRepo.profiles.first().first()
         assertFalse(vm.deleteProfile(only)) // 最后一条拒删
-        vm.createProfile("B", 50, 10)
+        vm.createProfile("B", 50, 10, ProfileMode.COUNTDOWN)
         g.engine.restore(snap(EngineStatus.PAUSED, profileId = only.id))
         assertTrue(vm.deleteProfile(only)) // 暂停中的活跃配置:先 reset 再删
         assertEquals(1, g.profileRepo.profiles.first().size)

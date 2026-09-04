@@ -48,17 +48,17 @@ class SettingsViewModel(val graph: AppGraph) : ViewModel() {
         }
     }
 
-    suspend fun createProfile(name: String, workMinutes: Int, restMinutes: Int): Long =
-        // Task 7 起对话框带模式选择;当前无选择器,显式 COUNTDOWN 保持既有行为
-        graph.profileRepo.create(name, workMinutes, restMinutes, ProfileMode.COUNTDOWN)
+    suspend fun createProfile(name: String, workMinutes: Int, restMinutes: Int, mode: Int): Long =
+        // 对话框带模式选择(新建缺省倒计时由对话框状态决定);禁缺省:模式是显式用户选择
+        graph.profileRepo.create(name, workMinutes, restMinutes, mode)
 
     suspend fun renameProfile(id: Long, name: String) = graph.profileRepo.rename(id, name)
 
-    /** @return true 时调用方需发 TimerCommands.restartPhase */
-    suspend fun editDurations(p: ProfileEntity, workMinutes: Int, restMinutes: Int): Boolean {
+    /** @return true 时调用方需发 TimerCommands.restartPhase(mode 参数为对话框当前选中的模式) */
+    suspend fun editDurations(p: ProfileEntity, workMinutes: Int, restMinutes: Int, mode: Int): Boolean {
         val action = EnginePolicy.onEditDurations(graph.engine.snapshot.value, p.id)
         if (action == PolicyAction.IGNORED) return false
-        graph.profileRepo.updateDurations(p.id, workMinutes, restMinutes, p.mode)
+        graph.profileRepo.updateDurations(p.id, workMinutes, restMinutes, mode)
         return action == PolicyAction.RESTART_PHASE
     }
 

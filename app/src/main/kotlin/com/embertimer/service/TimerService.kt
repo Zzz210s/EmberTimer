@@ -144,6 +144,7 @@ class TimerService : Service() {
                             intent.getLongExtra(EXTRA_PROFILE_ID, -1),
                             intent.getLongExtra(EXTRA_WORK_MILLIS, 0),
                             intent.getLongExtra(EXTRA_REST_MILLIS, 0),
+                            countUp = intent.getBooleanExtra(EXTRA_COUNT_UP, false),
                         )
                         ACTION_PAUSE -> g.engine.pause()
                         ACTION_RESUME -> g.engine.resume()
@@ -159,6 +160,7 @@ class TimerService : Service() {
                             intent.getLongExtra(EXTRA_PROFILE_ID, -1),
                             intent.getLongExtra(EXTRA_WORK_MILLIS, 0),
                             intent.getLongExtra(EXTRA_REST_MILLIS, 0),
+                            countUp = intent.getBooleanExtra(EXTRA_COUNT_UP, false),
                         )
                     }
                 }
@@ -354,7 +356,8 @@ class TimerService : Service() {
                     ReconcileAction.FINISH_EXPIRED -> g.engine.onExpired()
                     ReconcileAction.RESUME_ACTIVE -> g.engine.snapshot.value?.let {
                         goForeground(it)
-                        g.alarmScheduler.arm(it.endElapsed)
+                        // 正计时无到期:重启对账不武装阶段到期闹钟(Task 7 / #10)
+                        if (!it.countUp) g.alarmScheduler.arm(it.endElapsed)
                     }
                     ReconcileAction.SHOW_PAUSED -> g.engine.snapshot.value?.let { goForeground(it) }
                 }
@@ -373,5 +376,6 @@ class TimerService : Service() {
         const val EXTRA_PROFILE_ID = "profile_id"
         const val EXTRA_WORK_MILLIS = "work_millis"
         const val EXTRA_REST_MILLIS = "rest_millis"
+        const val EXTRA_COUNT_UP = "count_up"
     }
 }

@@ -27,8 +27,8 @@ class ProfileRepository(
         dao.byId(id)?.let { dao.update(it.copy(name = name)) }
     }
 
-    /** mode 由调用方传入(Task 7 起对话框带模式选择;编辑已存在 profile 时应传 p.mode 以免误改) */
-    suspend fun updateDurations(id: Long, workMinutes: Int, restMinutes: Int, mode: Int = ProfileMode.COUNTDOWN) {
+    /** mode 必传(Task 7 起对话框带模式选择;禁止缺省,缺省会静默改写既有 profile 的模式) */
+    suspend fun updateDurations(id: Long, workMinutes: Int, restMinutes: Int, mode: Int) {
         dao.byId(id)?.let {
             dao.update(it.copy(workMinutes = workMinutes, restMinutes = restMinutes, mode = mode))
         }

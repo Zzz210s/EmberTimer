@@ -148,22 +148,21 @@ class TimerEngine(
         emit(EngineEvent.Reset(settle, profileId))
     }
 
-    fun restartPhase(profileId: Long, workMillis: Long, restMillis: Long) {
+    fun restartPhase(profileId: Long, workMillis: Long, restMillis: Long, countUp: Boolean = false) {
         val cur = _snapshot.value ?: return
         if (cur.status != EngineStatus.PAUSED) return
-        val settle = cur.settleMillis(cur.lastPauseTime)
-        val dur = if (cur.phase == Phase.WORK) workMillis else restMillis
+        val dur = if (countUp || cur.phase == Phase.WORK) workMillis else restMillis
         val e = el; val w = wall
         _snapshot.value = RuntimeSnapshot(
             profileId = profileId, workMillis = workMillis, restMillis = restMillis,
-            phase = cur.phase, status = EngineStatus.RUNNING, cycleCount = cur.cycleCount,
-            startElapsed = e, endElapsed = e + dur, endWall = w + dur,
+            phase = if (countUp) Phase.WORK else cur.phase, status = EngineStatus.RUNNING,
+            cycleCount = cur.cycleCount, startElapsed = e, endElapsed = e + dur, endWall = w + dur,
             timeSpentPaused = 0, lastPauseTime = 0, timeAtPause = 0,
-            savedAtWall = w, savedAtElapsed = e, ckptDate = null, ckptAccum = 0, countUp = cur.countUp,
+            savedAtWall = w, savedAtElapsed = e, ckptDate = null, ckptAccum = 0, countUp = countUp,
         )
         save()
-        // 结算归属旧 profile(cur.profileId):换 profile 重开时已累计工作量不跟新 profile 走
-        emit(EngineEvent.PhaseRestarted(cur.phase, settle, cur.profileId, e + dur, w + dur))
+        // 结算归属旧 profile:换 profile 重开时已累计工作量不跟新 profile 走
+        emit(EngineEvent.PhaseRestarted(cur.phase, cur.settleMillis(cur.lastPauseTime), cur.profileId, e + dur, w + dur))
     }
 
     private fun finishAndAdvance(cur: RuntimeSnapshot, settleAtElapsed: Long, auto: Boolean) {

@@ -3,15 +3,11 @@ package com.embertimer.service
 import android.content.Context
 import android.content.Intent
 
-/** UI -> 服务的命令入口。start 用 startForegroundService(Activity 前台调用合法),其余走 startService */
+/** UI -> 服务的命令入口。start 用 startForegroundService(Activity 前台调用合法),其余走 startService。
+ *  countUp(正计时)经 EXTRA_COUNT_UP 贯穿(缺省 false = 倒计时);intent 构建器 internal 供单测钉 extras。 */
 object TimerCommands {
-    fun start(context: Context, profileId: Long, workMillis: Long, restMillis: Long) {
-        context.startForegroundService(
-            intent(context, TimerService.ACTION_START)
-                .putExtra(TimerService.EXTRA_PROFILE_ID, profileId)
-                .putExtra(TimerService.EXTRA_WORK_MILLIS, workMillis)
-                .putExtra(TimerService.EXTRA_REST_MILLIS, restMillis)
-        )
+    fun start(context: Context, profileId: Long, workMillis: Long, restMillis: Long, countUp: Boolean = false) {
+        context.startForegroundService(startIntent(context, profileId, workMillis, restMillis, countUp))
     }
 
     fun pause(context: Context) = context.startService(intent(context, TimerService.ACTION_PAUSE))
@@ -19,14 +15,23 @@ object TimerCommands {
     fun stop(context: Context) = context.startService(intent(context, TimerService.ACTION_STOP))
     fun skip(context: Context) = context.startService(intent(context, TimerService.ACTION_SKIP))
 
-    fun restartPhase(context: Context, profileId: Long, workMillis: Long, restMillis: Long) {
-        context.startService(
-            intent(context, TimerService.ACTION_RESTART_PHASE)
-                .putExtra(TimerService.EXTRA_PROFILE_ID, profileId)
-                .putExtra(TimerService.EXTRA_WORK_MILLIS, workMillis)
-                .putExtra(TimerService.EXTRA_REST_MILLIS, restMillis)
-        )
+    fun restartPhase(context: Context, profileId: Long, workMillis: Long, restMillis: Long, countUp: Boolean = false) {
+        context.startService(restartPhaseIntent(context, profileId, workMillis, restMillis, countUp))
     }
+
+    internal fun startIntent(context: Context, profileId: Long, workMillis: Long, restMillis: Long, countUp: Boolean) =
+        intent(context, TimerService.ACTION_START)
+            .putExtra(TimerService.EXTRA_PROFILE_ID, profileId)
+            .putExtra(TimerService.EXTRA_WORK_MILLIS, workMillis)
+            .putExtra(TimerService.EXTRA_REST_MILLIS, restMillis)
+            .putExtra(TimerService.EXTRA_COUNT_UP, countUp)
+
+    internal fun restartPhaseIntent(context: Context, profileId: Long, workMillis: Long, restMillis: Long, countUp: Boolean) =
+        intent(context, TimerService.ACTION_RESTART_PHASE)
+            .putExtra(TimerService.EXTRA_PROFILE_ID, profileId)
+            .putExtra(TimerService.EXTRA_WORK_MILLIS, workMillis)
+            .putExtra(TimerService.EXTRA_REST_MILLIS, restMillis)
+            .putExtra(TimerService.EXTRA_COUNT_UP, countUp)
 
     private fun intent(context: Context, action: String) =
         Intent(context, TimerService::class.java).setAction(action)
