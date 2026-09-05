@@ -32,6 +32,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.embertimer.EmberApp
+import androidx.compose.ui.res.stringResource
+import com.embertimer.R
 import com.embertimer.data.db.ProfileEntity
 import com.embertimer.data.db.ProfileMode
 import com.embertimer.service.TimerCommands
@@ -61,10 +63,10 @@ fun ProfilesScreen(onBack: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("时钟管理") },
+                title = { Text(stringResource(R.string.clocks_manage)) },
                 navigationIcon = {
                     IconButton(onClick = if (deleteMode) { { deleteMode = false; selectedIds = emptySet() } } else onBack) {
-                        PathIcon(IconPaths.BACK, size = 24.dp, contentDescription = if (deleteMode) "退出删除" else "返回")
+                        PathIcon(IconPaths.BACK, size = 24.dp, contentDescription = stringResource(if (deleteMode) R.string.exit_delete else R.string.back))
                     }
                 },
                 actions = {
@@ -74,13 +76,13 @@ fun ProfilesScreen(onBack: () -> Unit) {
                     }) {
                         PathIcon(
                             IconPaths.TRASH, size = 24.dp,
-                            contentDescription = "删除管理",
+                            contentDescription = stringResource(R.string.delete_manage),
                             tint = if (deleteMode) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                     if (!deleteMode) {
                         IconButton(onClick = { creating = true }) {
-                            PathIcon(IconPaths.PLUS, size = 24.dp, contentDescription = "新建时钟")
+                            PathIcon(IconPaths.PLUS, size = 24.dp, contentDescription = stringResource(R.string.new_clock))
                         }
                     }
                 },
@@ -109,24 +111,25 @@ fun ProfilesScreen(onBack: () -> Unit) {
                     ) {
                         Column(Modifier.padding(12.dp)) {
                             Text(p.name, style = MaterialTheme.typography.titleSmall)
-                            val durationText = "${p.workMinutes} 分钟工作 / ${p.restMinutes} 分钟休息" +
-                                if (p.mode == ProfileMode.COUNTUP) " · 正计时" else ""
+                            val durBase = stringResource(R.string.durations_workrest, p.workMinutes, p.restMinutes)
+                            val durationText = if (p.mode == ProfileMode.COUNTUP)
+                                durBase + stringResource(R.string.mode_tag, stringResource(R.string.mode_countup)) else durBase
                             Text(durationText, style = MaterialTheme.typography.bodyMedium)
                             if (deleteMode) {
                                 Text(
-                                    if (selected) "已选择删除" else "点击选择",
+                                    if (selected) stringResource(R.string.selected_tag) else stringResource(R.string.tap_select_tag),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
-                            if (runningActive) Text("计时中,不可修改", style = MaterialTheme.typography.labelSmall)
+                            if (runningActive) Text(stringResource(R.string.running_locked), style = MaterialTheme.typography.labelSmall)
                         }
                     }
                 }
                 if (ui.profiles.isEmpty()) {
                     item {
                         Text(
-                            "还没有时钟,点击右上角 + 新建",
+                            stringResource(R.string.empty_clocks),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -138,13 +141,13 @@ fun ProfilesScreen(onBack: () -> Unit) {
                     Modifier.fillMaxWidth().padding(top = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    TextButton(onClick = { deleteMode = false; selectedIds = emptySet() }) { Text("取消") }
+                    TextButton(onClick = { deleteMode = false; selectedIds = emptySet() }) { Text(stringResource(R.string.cancel)) }
                     TextButton(
                         enabled = selectedIds.isNotEmpty(),
                         onClick = { confirmDelete = true },
                         modifier = Modifier.align(Alignment.CenterVertically),
                     ) {
-                        Text("删除选中(${selectedIds.size})", color = MaterialTheme.colorScheme.error)
+                        Text(stringResource(R.string.delete_selected_n, selectedIds.size), color = MaterialTheme.colorScheme.error)
                     }
                 }
             }

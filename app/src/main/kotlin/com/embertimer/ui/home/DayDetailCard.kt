@@ -1,5 +1,7 @@
 package com.embertimer.ui.home
 
+import com.embertimer.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -53,9 +55,9 @@ fun DayDetailCard(detail: DayDetailUi?, modifier: Modifier = Modifier) {
                 d.date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.FULL)),
                 style = MaterialTheme.typography.titleSmall,
             )
-            Text("专注 " + DurationFormat.hm(d.totalMillis), style = MaterialTheme.typography.headlineSmall)
+            Text(stringResource(R.string.focus_total, durLocalized(d.totalMillis)), style = MaterialTheme.typography.headlineSmall)
             if (d.rows.isEmpty()) {
-                Text("当日无专注记录", style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(R.string.day_none), style = MaterialTheme.typography.bodyMedium)
             } else {
                 d.rows.forEach { row ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -66,7 +68,7 @@ fun DayDetailCard(detail: DayDetailUi?, modifier: Modifier = Modifier) {
                         )
                         Spacer(Modifier.width(8.dp))
                         Text(row.profileName, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                        Text(DurationFormat.hm(row.millis), style = MaterialTheme.typography.bodyMedium)
+                        Text(durLocalized(row.millis), style = MaterialTheme.typography.bodyMedium)
                     }
                     // v1.3 #6:该时钟当日各段 开始~结束(仅时:分)
                     if (row.sessions.isNotEmpty()) {
@@ -91,3 +93,12 @@ fun DayDetailCard(detail: DayDetailUi?, modifier: Modifier = Modifier) {
 }
 
 private val HHmm = DateTimeFormatter.ofPattern("HH:mm")
+
+@Composable
+private fun durLocalized(millis: Long): String {
+    val totalMinutes = (millis + 59_999) / 60_000
+    val h = totalMinutes / 60
+    val m = totalMinutes % 60
+    return if (h == 0L) stringResource(R.string.duration_m, m)
+    else stringResource(R.string.duration_hm, h, m)
+}

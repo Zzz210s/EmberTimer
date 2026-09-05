@@ -1,5 +1,7 @@
 package com.embertimer.ui.settings
 
+import com.embertimer.R
+import androidx.compose.ui.res.stringResource
 import android.content.Context
 import android.database.sqlite.SQLiteConstraintException
 import androidx.compose.material3.AlertDialog
@@ -37,7 +39,7 @@ internal fun ProfileDialogHost(
         ProfileEditDialog(
             initial = p,
             existing = profiles,
-            title = "编辑时钟",
+            title = ctx.getString(R.string.edit_clock),
             onDismiss = { onEditChange(null) },
             onConfirm = { name, w, r, mode ->
                 scope.launch {
@@ -58,7 +60,7 @@ internal fun ProfileDialogHost(
         ProfileEditDialog(
             initial = null,
             existing = profiles,
-            title = "新建时钟",
+            title = ctx.getString(R.string.new_clock),
             onDismiss = { onCreateChange(false) },
             onConfirm = { name, w, r, mode ->
                 scope.launch {
@@ -71,8 +73,8 @@ internal fun ProfileDialogHost(
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { onConfirmDeleteChange(false) },
-            title = { Text("删除所选时钟") },
-            text = { Text("将删除 ${selectedIds.size} 个时钟及其累计记录?不可撤销。") },
+            title = { Text(stringResource(R.string.delete_confirm_title)) },
+            text = { Text(stringResource(R.string.delete_confirm_body, selectedIds.size)) },
             confirmButton = {
                 TextButton(onClick = {
                     onConfirmDeleteChange(false)
@@ -87,9 +89,9 @@ internal fun ProfileDialogHost(
                         }
                         onDeleteModeExit()
                     }
-                }) { Text("删除", color = MaterialTheme.colorScheme.error) }
+                }) { Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = { TextButton(onClick = { onConfirmDeleteChange(false) }) { Text("取消") } },
+            dismissButton = { TextButton(onClick = { onConfirmDeleteChange(false) }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 }

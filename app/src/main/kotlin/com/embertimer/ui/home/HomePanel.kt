@@ -1,5 +1,6 @@
 package com.embertimer.ui.home
 
+import com.embertimer.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -46,7 +47,7 @@ internal fun PanelBody(
                         .padding(horizontal = 20.dp, vertical = 14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text("时钟管理", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                    Text(stringResource(R.string.clocks_manage), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
                     PathIcon(IconPaths.BACK, size = 18.dp, contentDescription = null)
                 }
                 HorizontalDivider()

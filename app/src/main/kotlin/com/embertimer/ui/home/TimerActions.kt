@@ -1,4 +1,6 @@
 package com.embertimer.ui.home
+import androidx.compose.ui.res.stringResource
+import com.embertimer.R
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ContentTransform
@@ -100,7 +102,7 @@ internal fun ActionZone(
                 enabled = startEnabled,
                 modifier = Modifier.size(56.dp),
             ) {
-                PathIcon(d = IconPaths.PLAY, size = 24.dp, contentDescription = "开始")
+                PathIcon(d = IconPaths.PLAY, size = 24.dp, contentDescription = stringResource(R.string.act_start))
             }
         } else {
             ActiveKeys(status, animationsOn, showSkip, onPause, onResume, onSkip, onStop)
@@ -146,13 +148,13 @@ private fun ActiveKeys(
         }
         StaggerKey(animationsOn, delaySteps = 1) {
             FilledTonalIconButton(onClick = onStop, modifier = Modifier.size(56.dp)) {
-                PathIcon(d = IconPaths.STOP, size = 24.dp, contentDescription = "终止")
+                PathIcon(d = IconPaths.STOP, size = 24.dp, contentDescription = stringResource(R.string.act_stop))
             }
         }
         if (showSkip) {
             StaggerKey(animationsOn, delaySteps = 2) {
                 FilledTonalIconButton(onClick = onSkip, modifier = Modifier.size(56.dp)) {
-                    PathIcon(d = IconPaths.SKIP, size = 24.dp, contentDescription = "跳过")
+                    PathIcon(d = IconPaths.SKIP, size = 24.dp, contentDescription = stringResource(R.string.act_skip))
                 }
             }
         }

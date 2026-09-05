@@ -26,19 +26,19 @@ object TimerNotifications {
     fun ensureChannels(context: Context) {
         val nm = context.getSystemService(NotificationManager::class.java) ?: return
         nm.createNotificationChannel(
-            NotificationChannel(CH_PROGRESS, "计时进行中", NotificationManager.IMPORTANCE_DEFAULT).apply {
+            NotificationChannel(CH_PROGRESS, context.getString(R.string.ch_progress), NotificationManager.IMPORTANCE_DEFAULT).apply {
                 setSound(null, null)
                 setShowBadge(false)
             }
         )
         nm.createNotificationChannel(
-            NotificationChannel(CH_REMINDER, "阶段提醒", NotificationManager.IMPORTANCE_HIGH).apply {
+            NotificationChannel(CH_REMINDER, context.getString(R.string.ch_reminder), NotificationManager.IMPORTANCE_HIGH).apply {
                 setSound(null, null) // 铃声由 ReminderPlayer 播放
                 enableVibration(false) // 震动由 ReminderPlayer 播放
             }
         )
         nm.createNotificationChannel(
-            NotificationChannel(CH_REPORT, context.getString(com.embertimer.R.string.ch_report), NotificationManager.IMPORTANCE_DEFAULT).apply {
+            NotificationChannel(CH_REPORT, context.getString(R.string.ch_report), NotificationManager.IMPORTANCE_DEFAULT).apply {
                 setSound(null, null)
                 setShowBadge(false)
             }
@@ -57,10 +57,9 @@ object TimerNotifications {
             .build()
 
     fun inProgress(context: Context, snap: RuntimeSnapshot): Notification {
-        val phaseText = when {
-            snap.phase == Phase.WORK -> "工作中"
-            else -> "休息中"
-        }
+        val phaseText = context.getString(
+            if (snap.phase == Phase.WORK) R.string.state_work else R.string.state_rest,
+        )
         val paused = snap.status == EngineStatus.PAUSED
         val builder = NotificationCompat.Builder(context, CH_PROGRESS)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
@@ -73,14 +72,15 @@ object TimerNotifications {
             // 正计时(Task 7 / #10):无循环/到期/跳过 —— 文本只留模式;运行态用正向 chronometer
             // 显示已走时长(与倒计时 chronometer 同一机制,countDown=false),暂停态定格于文本
             builder.setContentText(
-                if (paused) "已暂停 · 已进行 " + DurationFormat.ms(snap.timeAtPause) else "正计时",
+                if (paused) context.getString(R.string.nt_paused_elapsed, DurationFormat.ms(snap.timeAtPause))
+                else context.getString(R.string.mode_countup),
             )
                 .addAction(
                     if (paused) R.drawable.ic_play else R.drawable.ic_pause,
-                    if (paused) "恢复" else "暂停",
+                    if (paused) context.getString(R.string.act_resume) else context.getString(R.string.act_pause),
                     serviceIntent(context, if (paused) TimerService.ACTION_RESUME else TimerService.ACTION_PAUSE),
                 )
-                .addAction(R.drawable.ic_stop, "终止", serviceIntent(context, TimerService.ACTION_STOP))
+                .addAction(R.drawable.ic_stop, context.getString(R.string.act_stop), serviceIntent(context, TimerService.ACTION_STOP))
             if (!paused) {
                 // when = 本次运行已走时长的墙钟起点(endWall - 名义跨度 = startWall;
                 // 每次 resume 引擎重锚 endWall,起点同步平移,暂停不计入)
@@ -89,14 +89,16 @@ object TimerNotifications {
                 builder.setWhen(snap.endWall - snap.durationMillis)
             }
         } else {
-            builder.setContentText(if (paused) "已暂停 · 循环 ${snap.cycleCount}" else "循环 ${snap.cycleCount}")
+            builder.setContentText(
+                context.getString(if (paused) R.string.nt_paused_cycle else R.string.nt_cycle, snap.cycleCount),
+            )
                 .addAction(
                     if (paused) R.drawable.ic_play else R.drawable.ic_pause,
-                    if (paused) "恢复" else "暂停",
+                    if (paused) context.getString(R.string.act_resume) else context.getString(R.string.act_pause),
                     serviceIntent(context, if (paused) TimerService.ACTION_RESUME else TimerService.ACTION_PAUSE),
                 )
-                .addAction(R.drawable.ic_skip_next, "跳过", serviceIntent(context, TimerService.ACTION_SKIP))
-                .addAction(R.drawable.ic_stop, "终止", serviceIntent(context, TimerService.ACTION_STOP))
+                .addAction(R.drawable.ic_skip_next, context.getString(R.string.act_skip), serviceIntent(context, TimerService.ACTION_SKIP))
+                .addAction(R.drawable.ic_stop, context.getString(R.string.act_stop), serviceIntent(context, TimerService.ACTION_STOP))
             if (!paused) {
                 // D2 方案 A:倒计时占标题行时间位(系统 chronometer 自动走秒);当前阶段进度条
                 builder.setUsesChronometer(true)
@@ -111,8 +113,8 @@ object TimerNotifications {
     }
 
     fun phaseDone(context: Context, workFinished: Boolean): Notification {
-        val title = if (workFinished) "工作完成" else "休息结束"
-        val text = if (workFinished) "休息一下" else "开始新一轮工作"
+        val title = context.getString(if (workFinished) R.string.done_work_title else R.string.done_rest_title)
+        val text = context.getString(if (workFinished) R.string.done_rest_body else R.string.done_work_body)
         return NotificationCompat.Builder(context, CH_REMINDER)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle(title)

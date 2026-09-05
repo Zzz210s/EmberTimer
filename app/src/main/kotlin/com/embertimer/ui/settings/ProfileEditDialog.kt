@@ -1,5 +1,7 @@
 package com.embertimer.ui.settings
 
+import com.embertimer.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.AlertDialog
@@ -44,32 +46,32 @@ internal fun ProfileEditDialog(
         title = { Text(title) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("名称") })
-                Text("计时模式", style = MaterialTheme.typography.labelLarge)
+                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text(stringResource(R.string.name_label)) })
+                Text(stringResource(R.string.mode_label), style = MaterialTheme.typography.labelLarge)
                 SingleChoiceSegmentedButtonRow {
-                    modeOptions.forEachIndexed { index, (value, label) ->
+                    modeOptions.forEachIndexed { index, (value, labelRes) ->
                         SegmentedButton(
                             selected = mode == value,
                             onClick = { mode = value },
                             shape = SegmentedButtonDefaults.itemShape(index = index, count = modeOptions.size),
                         ) {
-                            Text(label)
+                            Text(stringResource(labelRes))
                         }
                     }
                 }
-                OutlinedTextField(value = work, onValueChange = { work = it }, label = { Text("工作分钟 (1-180)") })
-                OutlinedTextField(value = rest, onValueChange = { rest = it }, label = { Text("休息分钟 (1-60)") })
+                OutlinedTextField(value = work, onValueChange = { work = it }, label = { Text(stringResource(R.string.work_minutes)) })
+                OutlinedTextField(value = rest, onValueChange = { rest = it }, label = { Text(stringResource(R.string.rest_minutes)) })
             }
         },
         confirmButton = {
             TextButton(
                 enabled = valid,
                 onClick = { onConfirm(name.trim(), work.toInt(), rest.toInt(), mode) },
-            ) { Text("确定") }
+            ) { Text(stringResource(R.string.confirm)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
 }
 
 /** 模式选择选项(顺序 = SegmentedButton 位序,与 ProfileMode 常量解耦) */
-private val modeOptions = listOf(ProfileMode.COUNTDOWN to "倒计时", ProfileMode.COUNTUP to "正计时")
+private val modeOptions = listOf(ProfileMode.COUNTDOWN to R.string.mode_countdown, ProfileMode.COUNTUP to R.string.mode_countup)

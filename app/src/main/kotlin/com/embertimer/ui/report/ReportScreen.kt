@@ -104,7 +104,12 @@ fun ReportScreen(onBack: () -> Unit, initialRange: ReportRange = ReportRange.WEE
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             } else {
-                ui.rows.forEach { row -> TotalRow(row.label, row.millis) }
+                ui.rows.forEach { row ->
+                        val label = if (row.weekIndex > 0)
+                            stringResource(R.string.report_bucket_week, row.weekIndex, row.rangeFrom, row.rangeTo)
+                        else row.label
+                        TotalRow(label, row.millis)
+                    }
                 Text(
                     stringResource(R.string.total_window),
                     style = MaterialTheme.typography.titleSmall,
