@@ -66,15 +66,25 @@ sealed interface EngineEvent {
      * RESET/restartPhase 可能已清空或替换快照,事后读快照会错归属或整个丢 settle,
      * 因此事件必须自带(携带方式镜像 Reset/PhaseRestarted)。
      */
-    data class PhaseFinished(val finished: Phase, val settleMillis: Long, val profileId: Long, val next: Phase, val auto: Boolean) : EngineEvent
+    data class PhaseFinished(
+        val finished: Phase, val settleMillis: Long, val profileId: Long, val next: Phase, val auto: Boolean,
+        /** v1.3 #6:本次工作段墙钟窗口(仅 finished=WORK 时有值);终止/暂停等由对应事件携带 */
+        val sessionStartWall: Long? = null, val sessionEndWall: Long? = null,
+    ) : EngineEvent
     /**
      * settleMillis = 待落库的工作增量(已扣除 checkpoint 游标);
      * profileId = 结算归属的 profile —— 重启前快照的 profileId。restartPhase 可换 profile,
      * 已累计的工作量仍归属旧 profile,携带方式镜像 Reset(事件发出时快照已指向新 profile)。
      */
-    data class PhaseRestarted(val phase: Phase, val settleMillis: Long, val profileId: Long, val endElapsed: Long, val endWall: Long) : EngineEvent
+    data class PhaseRestarted(
+        val phase: Phase, val settleMillis: Long, val profileId: Long, val endElapsed: Long, val endWall: Long,
+        val sessionStartWall: Long? = null, val sessionEndWall: Long? = null,
+    ) : EngineEvent
     data class Paused(val timeAtPause: Long) : EngineEvent
     data class Resumed(val endElapsed: Long, val endWall: Long) : EngineEvent
     /** reset 后快照已清空,事件必须自带 profileId 供 settle 落库 */
-    data class Reset(val settleMillis: Long, val profileId: Long) : EngineEvent
+    data class Reset(
+        val settleMillis: Long, val profileId: Long,
+        val sessionStartWall: Long? = null, val sessionEndWall: Long? = null,
+    ) : EngineEvent
 }

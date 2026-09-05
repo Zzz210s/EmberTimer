@@ -242,6 +242,15 @@ class TimerService : Service() {
             // 意味着后续全部事件静默丢失。捕获记日志保持存活;不自动重试 flush:落库是增量式的,
             // 盲目重试可能重复计数,留待下一 checkpoint 对账
             runCatching {
+                // v1.3 #6:工作段收尾(自动完成/终止/跳过/切换/重启)落一段专注 —— 窗口由引擎在
+                // 事件内携带(引擎同次转换赋值,无 service 侧跨线程竞态);settle>0 才记,防空段
+                if (ev.settleMillis() > 0) {
+                    val ss = ev.sessionStart(); val se = ev.sessionEnd()
+                    val pid = ev.profileIdOf()
+                    if (ss != null && se != null && se > ss && pid != null) {
+                        g.totalsRepo.recordWorkSession(pid, ss, se)
+                    }
+                }
                 for (fx in EventPolicy.decide(ev, g.engine.snapshot.value)) {
                     when (fx) {
                         is EventEffect.Settle -> flushSettle(fx.millis, fx.profileId)
@@ -378,4 +387,32 @@ class TimerService : Service() {
         const val EXTRA_REST_MILLIS = "rest_millis"
         const val EXTRA_COUNT_UP = "count_up"
     }
+}
+
+/** v1.3 #6:事件携带的工作段窗口读取(仅结算类事件含字段,其余为空) */
+private fun EngineEvent.settleMillis(): Long = when (this) {
+    is EngineEvent.PhaseFinished -> settleMillis
+    is EngineEvent.PhaseRestarted -> settleMillis
+    is EngineEvent.Reset -> settleMillis
+    else -> 0
+}
+
+private fun EngineEvent.sessionStart(): Long? = when (this) {
+    is EngineEvent.PhaseFinished -> sessionStartWall
+    is EngineEvent.PhaseRestarted -> sessionStartWall
+    is EngineEvent.Reset -> sessionStartWall
+    else -> null
+}
+
+private fun EngineEvent.sessionEnd(): Long? = when (this) {
+    is EngineEvent.PhaseFinished -> sessionEndWall
+    is EngineEvent.PhaseRestarted -> sessionEndWall
+    is EngineEvent.Reset -> sessionEndWall
+    else -> null
+}
+private fun EngineEvent.profileIdOf(): Long? = when (this) {
+    is EngineEvent.PhaseFinished -> profileId
+    is EngineEvent.PhaseRestarted -> profileId
+    is EngineEvent.Reset -> profileId
+    else -> null
 }

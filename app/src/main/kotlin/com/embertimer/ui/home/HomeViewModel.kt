@@ -30,7 +30,14 @@ data class HomeUiState(
     val days: Map<LocalDate, Long> = emptyMap(),
 )
 
-data class DayDetailRow(val profileName: String, val millis: Long, val index: Int)
+data class DayDetailRow(
+    val profileName: String,
+    val millis: Long,
+    val index: Int,
+    /** v1.3 #6:当日该时钟各段 [startAt..endAt](墙钟 ms,升序),供详情小行展示 */
+    val sessions: List<Pair<Long, Long>> = emptyList(),
+)
+
 data class DayDetailUi(val date: LocalDate, val totalMillis: Long, val rows: List<DayDetailRow>)
 
 class HomeViewModel(val graph: AppGraph) : ViewModel() {
@@ -73,6 +80,11 @@ class HomeViewModel(val graph: AppGraph) : ViewModel() {
                     .distinctUntilChanged()
                     .map { repo.breakdownByDate(day.toString()) }
                     .combine(graph.profileRepo.profiles) { rows, profiles ->
+                        val zone = java.time.ZoneId.systemDefault()
+                        val start = day.atStartOfDay(zone).toInstant().toEpochMilli()
+                        val end = day.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+                        val byProfile = repo.sessionsBetween(start, end).groupBy { it.profileId }
+                            .mapValues { (_, ses) -> ses.map { it.startAt to it.endAt } }
                         DayDetailUi(
                             date = day,
                             totalMillis = rows.sumOf { it.total },
@@ -83,6 +95,7 @@ class HomeViewModel(val graph: AppGraph) : ViewModel() {
                                     profileName = profiles.firstOrNull { it.id == r.profileId }?.name ?: "已删除时钟",
                                     millis = r.total,
                                     index = i,
+                                    sessions = byProfile[r.profileId] ?: emptyList(),
                                 )
                             },
                         )

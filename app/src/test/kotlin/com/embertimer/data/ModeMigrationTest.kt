@@ -99,7 +99,7 @@ class ModeMigrationTest {
         assertEquals(ProfileMode.COUNTUP, repo.modeOf(id2))
         assertEquals(2, repo.count())
         // daily_total 明细逐值保留(日期/归属/时长/时间戳)
-        val totals = DailyTotalRepository(db!!, db!!.dailyTotalDao(), time)
+        val totals = DailyTotalRepository(db!!, db!!.dailyTotalDao(), db!!.focusSessionDao(), time)
             .rangeBreakdown("2026-08-30", "2026-08-30")
         assertEquals(1, totals.size)
         assertEquals("2026-08-30", totals.single().date)

@@ -7,10 +7,11 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [ProfileEntity::class, DailyTotalEntity::class], version = 2, exportSchema = false)
+@Database(entities = [ProfileEntity::class, DailyTotalEntity::class, FocusSessionEntity::class], version = 3, exportSchema = false)
 abstract class EmberDatabase : RoomDatabase() {
     abstract fun profileDao(): ProfileDao
     abstract fun dailyTotalDao(): DailyTotalDao
+    abstract fun focusSessionDao(): FocusSessionDao
 
     companion object {
         /**
@@ -25,9 +26,19 @@ abstract class EmberDatabase : RoomDatabase() {
             }
         }
 
+        /** v2 -> v3(v1.3 #6):新增 focus_session 段记录表(非破坏,纯建表)。 */
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `focus_session` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`profileId` INTEGER NOT NULL, `startAt` INTEGER NOT NULL, `endAt` INTEGER NOT NULL)"
+                )
+            }
+        }
+
         fun build(context: Context): EmberDatabase =
             Room.databaseBuilder(context, EmberDatabase::class.java, "ember.db")
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 .build()
     }
 }

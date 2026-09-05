@@ -44,6 +44,9 @@ class TimerEngine(
     private val el get() = time.elapsedRealtime()
     private val wall get() = time.now()
 
+    /** v1.3 #6:当前工作段墙钟起点(引擎内维护,WORK 段 RUNNING 起置,暂停保留,结束经事件携带出) */
+    private var workWinStart: Long? = null
+
     suspend fun awaitReady() { ready.first { it } }
 
     /** 应用启动时从持久化恢复;之后置 ready */
@@ -69,6 +72,7 @@ class TimerEngine(
             timeSpentPaused = 0, lastPauseTime = 0, timeAtPause = 0,
             savedAtWall = w, savedAtElapsed = e, ckptDate = null, ckptAccum = 0, countUp = countUp,
         )
+        workWinStart = w
         save()
         emit(EngineEvent.PhaseStarted(Phase.WORK, e + workMillis, w + workMillis))
     }
@@ -106,6 +110,7 @@ class TimerEngine(
             lastPauseTime = 0, timeAtPause = 0,
             savedAtWall = w, savedAtElapsed = e,
         )
+        if (cur.phase == Phase.WORK && workWinStart == null) workWinStart = w
         save()
         emit(EngineEvent.Resumed(newEnd, newEndWall))
     }
@@ -143,9 +148,12 @@ class TimerEngine(
             else if (cur.countUp) el else el.coerceAtMost(cur.endElapsed) // 正计时全额结算(可超 workMillis)
         val settle = cur.settleMillis(settleAt)
         val profileId = cur.profileId
+        val (sesStart, sesEnd) = if (cur.phase == Phase.WORK) {
+            val st = workWinStart ?: wall; workWinStart = null; st to wall
+        } else null to null
         _snapshot.value = null
         save()
-        emit(EngineEvent.Reset(settle, profileId))
+        emit(EngineEvent.Reset(settle, profileId, sesStart, sesEnd))
     }
 
     fun restartPhase(profileId: Long, workMillis: Long, restMillis: Long, countUp: Boolean = false) {
@@ -153,6 +161,11 @@ class TimerEngine(
         if (cur.status != EngineStatus.PAUSED) return
         val dur = if (countUp || cur.phase == Phase.WORK) workMillis else restMillis
         val e = el; val w = wall
+        // v1.3 #6:旧工作段(暂停中)收尾携带窗口;重开为 WORK 则起新窗口
+        val (sesStart, sesEnd) = if (cur.phase == Phase.WORK) {
+            val st = workWinStart ?: w; workWinStart = null; st to w
+        } else null to null
+        if (countUp || cur.phase == Phase.WORK) workWinStart = w
         _snapshot.value = RuntimeSnapshot(
             profileId = profileId, workMillis = workMillis, restMillis = restMillis,
             phase = if (countUp) Phase.WORK else cur.phase, status = EngineStatus.RUNNING,
@@ -162,7 +175,7 @@ class TimerEngine(
         )
         save()
         // 结算归属旧 profile:换 profile 重开时已累计工作量不跟新 profile 走
-        emit(EngineEvent.PhaseRestarted(cur.phase, cur.settleMillis(cur.lastPauseTime), cur.profileId, e + dur, w + dur))
+        emit(EngineEvent.PhaseRestarted(cur.phase, cur.settleMillis(cur.lastPauseTime), cur.profileId, e + dur, w + dur, sesStart, sesEnd))
     }
 
     private fun finishAndAdvance(cur: RuntimeSnapshot, settleAtElapsed: Long, auto: Boolean) {
@@ -171,6 +184,11 @@ class TimerEngine(
         val cycle = if (next == Phase.WORK) cur.cycleCount + 1 else cur.cycleCount
         val dur = if (next == Phase.WORK) cur.workMillis else cur.restMillis
         val e = el; val w = wall
+        // v1.3 #6:工作段收尾携带窗口(取走清空);休息段收尾无窗口
+        val (sesStart, sesEnd) = if (cur.phase == Phase.WORK) {
+            val st = workWinStart ?: w; workWinStart = null; st to w
+        } else null to null
+        if (next == Phase.WORK) workWinStart = w
         _snapshot.value = RuntimeSnapshot(
             profileId = cur.profileId, workMillis = cur.workMillis, restMillis = cur.restMillis,
             phase = next, status = EngineStatus.RUNNING, cycleCount = cycle,
@@ -179,7 +197,7 @@ class TimerEngine(
             savedAtWall = w, savedAtElapsed = e, ckptDate = null, ckptAccum = 0, countUp = cur.countUp,
         )
         save()
-        emit(EngineEvent.PhaseFinished(cur.phase, settle, cur.profileId, next, auto))
+        emit(EngineEvent.PhaseFinished(cur.phase, settle, cur.profileId, next, auto, sesStart, sesEnd))
         emit(EngineEvent.PhaseStarted(next, e + dur, w + dur))
     }
 

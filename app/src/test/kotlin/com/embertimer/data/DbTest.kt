@@ -36,7 +36,7 @@ class DbTest {
         db = Room.inMemoryDatabaseBuilder(ctx, EmberDatabase::class.java)
             .allowMainThreadQueries().build()
         profiles = ProfileRepository(db.profileDao(), time)
-        totals = DailyTotalRepository(db, db.dailyTotalDao(), time)
+        totals = DailyTotalRepository(db, db.dailyTotalDao(), db.focusSessionDao(), time)
     }
     @After fun tearDown() { db.close() }
 

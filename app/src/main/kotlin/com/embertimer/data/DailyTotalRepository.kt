@@ -2,7 +2,9 @@ package com.embertimer.data
 
 import androidx.room.withTransaction
 import com.embertimer.data.db.DailyTotalDao
+import com.embertimer.data.db.FocusSessionDao
 import com.embertimer.data.db.DailyTotalEntity
+import com.embertimer.data.db.FocusSessionEntity
 import com.embertimer.data.db.DayProfileTotal
 import com.embertimer.data.db.DayTotal
 import com.embertimer.data.db.EmberDatabase
@@ -13,6 +15,7 @@ import kotlinx.coroutines.flow.Flow
 class DailyTotalRepository(
     private val db: EmberDatabase,
     private val dao: DailyTotalDao,
+    private val sessionDao: FocusSessionDao,
     private val time: TimeProvider,
 ) {
     /** API 26-28 的 SQLite 不支持 UPSERT 语法,用事务读-改-写兼容 */
@@ -32,4 +35,19 @@ class DailyTotalRepository(
     /** 区间内每日每配置明细(from/to 闭区间);供报表按日/按配置在内存聚合 */
     suspend fun rangeBreakdown(from: String, to: String): List<DayProfileTotal> =
         dao.rangeBreakdown(from, to)
+
+    /** 落一段专注(墙钟窗口),按本地午夜切分后逐段入库;zone 注入便于测试 */
+    suspend fun recordWorkSession(
+        profileId: Long,
+        startAt: Long,
+        endAt: Long,
+        zone: java.time.ZoneId = java.time.ZoneId.systemDefault(),
+    ) {
+        val rows = buildSessionRows(profileId, startAt, endAt, zone)
+        if (rows.isNotEmpty()) db.withTransaction { sessionDao.insertAll(rows) }
+    }
+
+    /** 某本地日 [dayStartMs, dayEndMs) 内的全部段(升序);供每日详情小行 */
+    suspend fun sessionsBetween(dayStartMs: Long, dayEndMs: Long): List<FocusSessionEntity> =
+        sessionDao.between(dayStartMs, dayEndMs)
 }
