@@ -62,13 +62,15 @@ fun ReportScreen(onBack: () -> Unit, initialRange: ReportRange = ReportRange.WEE
         ) {
             val tabs = listOf(ReportRange.WEEK to stringResource(R.string.tab_week), ReportRange.MONTH to stringResource(R.string.tab_month), ReportRange.LIFETIME to stringResource(R.string.tab_lifetime))
             SingleChoiceSegmentedButtonRow {
+                // 等宽:各段 weight(1f) 均分整行,标签不再按内容宽窄参差
                 tabs.forEachIndexed { index, (range, label) ->
                     SegmentedButton(
                         selected = ui.range == range,
                         onClick = { vm.setRange(range) },
                         shape = SegmentedButtonDefaults.itemShape(index = index, count = tabs.size),
+                        modifier = Modifier.weight(1f),
                     ) {
-                        Text(label, style = MaterialTheme.typography.bodyMedium)
+                        Text(label, style = MaterialTheme.typography.bodyMedium, maxLines = 1)
                     }
                 }
             }

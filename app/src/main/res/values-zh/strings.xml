@@ -4,7 +4,7 @@
     <string name="report_title">报表</string>
     <string name="tab_week">周报</string>
     <string name="tab_month">月报</string>
-    <string name="tab_lifetime">总时长</string>
+    <string name="tab_lifetime">总报</string>
     <string name="total_window">各时钟合计</string>
     <string name="total_lifetime">各时钟累计(起用至今)</string>
     <string name="total_all">全部合计</string>

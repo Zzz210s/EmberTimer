@@ -116,8 +116,9 @@ class MainActivity : ComponentActivity() {
                     AnimatedContent(
                         targetState = screen,
                         transitionSpec = {
-                            // v1.6:平缓交叉淡入淡出(去掉滑动/位移,时长放缓,不再有强动效)
-                            fadeIn(tween(220)).togetherWith(fadeOut(tween(140)))
+                            // v1.6.1:旧屏瞬间退场、新屏在主题底色上淡入——两屏不同时半透明叠加,
+                            // 杜绝叠加期透出窗口白的"闪白屏"(交叉淡化同刻透明度<1 是白屏根因)
+                            fadeIn(tween(200)).togetherWith(fadeOut(tween(0)))
                         },
                         label = "screenSwap",
                     ) { screenContent() }
