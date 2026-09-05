@@ -23,6 +23,7 @@ object ReportAlarmActions {
     const val WEEK = "com.embertimer.action.REPORT_WEEK"
     const val MONTH = "com.embertimer.action.REPORT_MONTH"
     const val EXTRA_REPORT_RANGE = "report_range" // 值 "week"|"month",通知点开直达报表对应 tab
+    const val EXTRA_ANCHOR_DATE = "report_anchor_date" // 计划送达日(yyyy-MM-dd),Doze 跨零点送达时仍按计划日汇总
 }
 
 /** 下一个周日 23:00(严格晚于 [now];now 恰为周日 23:00 前则取当天) */
@@ -52,20 +53,20 @@ class ReportAlarmScheduler(private val context: Context) {
 
     private fun arm(action: String, at: LocalDateTime) {
         val triggerAt = at.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
-        val pi = pendingIntent(action)
+        val pi = pendingIntent(action, at.toLocalDate())
         // 报表通知无精确性需求:setAndAllowWhileIdle 可入 Doze 维护窗口,无需权限
         am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi)
     }
 
-    private fun pendingIntent(action: String): PendingIntent =
+    private fun pendingIntent(action: String, anchor: LocalDate): PendingIntent =
         PendingIntent.getBroadcast(
             context,
             action.hashCode(), // 两 action 天然不同,requestCode 隔离
-            Intent(context, ReportAlarmReceiver::class.java).setAction(action),
+            Intent(context, ReportAlarmReceiver::class.java).setAction(action)
+                .putExtra(ReportAlarmActions.EXTRA_ANCHOR_DATE, anchor.toString()),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 }
 
-/** 计算区间内专注总毫秒数(纯函数,通知阈值用;避免直接依赖接收器测试环境) */
-internal fun weekLabel(): String = "本周专注"
-internal fun monthLabel(): String = "本月专注"
+/** 区间内专注总毫秒数(纯函数,通知阈值用;避免直接依赖接收器测试环境) */
+

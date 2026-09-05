@@ -94,19 +94,9 @@ internal fun TimerCard(
                 Text(phaseText, style = MaterialTheme.typography.titleMedium)
             }
             // #3 空态引导:无配置时倒计时数字位换文案(数字必为 00:00,无意义),
-            // 开始键维持 disabled(activeProfileId == -1),另提供直达设置的按钮
-            // v1.1 #7:空态 ↔ 计时内容交叉时淡入/展开(进 160ms 出 100ms);关闭动画直切
-            AnimatedContent(
-                targetState = empty,
-                transitionSpec = {
-                    val enterMs = MotionTokens.TextSwapEnter.durationMillis
-                    val exitMs = MotionTokens.TextSwapExit.durationMillis
-                    (fadeIn(tween(enterMs)) + expandVertically(tween(enterMs)))
-                        .togetherWith(fadeOut(tween(exitMs)) + shrinkVertically(tween(exitMs)))
-                        .using(SizeTransform(clip = false))
-                },
-                label = "emptyState",
-            ) { isEmpty ->
+            // 开始键维持 disabled(activeProfileId == -1),另提供直达时钟管理的按钮
+            // v1.1 #7:空态 ↔ 计时内容交叉淡入/展开;关闭动画直切(M1 门控)
+            val emptyBody: @Composable (Boolean) -> Unit = { isEmpty ->
                 // AnimatedContent 的 content 只应产出单子布局:多个子组合会落在内部 Box
                 // 上互相重叠(曾致循环图标叠在倒计时数字左上)。各分支包居中 Column。
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -123,6 +113,21 @@ internal fun TimerCard(
                         }
                     }
                 }
+            }
+            if (animationsOn) {
+                AnimatedContent(
+                    targetState = empty,
+                    transitionSpec = {
+                        val enterMs = MotionTokens.TextSwapEnter.durationMillis
+                        val exitMs = MotionTokens.TextSwapExit.durationMillis
+                        (fadeIn(tween(enterMs)) + expandVertically(tween(enterMs)))
+                            .togetherWith(fadeOut(tween(exitMs)) + shrinkVertically(tween(exitMs)))
+                            .using(SizeTransform(clip = false))
+                    },
+                    label = "emptyState",
+                ) { isEmpty -> emptyBody(isEmpty) }
+            } else {
+                emptyBody(empty)
             }
             val haptic = LocalHapticFeedback.current
             fun act(perform: () -> Unit) {

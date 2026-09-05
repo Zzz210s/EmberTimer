@@ -26,8 +26,11 @@ class ReportAlarmReceiver : BroadcastReceiver() {
             else -> return
         }
         goAsyncWithGraph(context) { g ->
-            val today = LocalDate.now()
-            val (from, to) = reportWindow(range, today)
+            // 用计划送达日锚定汇总窗口(I1):Doze 下 setAndAllowWhileIdle 可能跨零点送达,
+            // 若按送达日算会得到"下周期迄今≈0"而被阈值门丢弃,整期汇总永久丢失
+            val anchor = intent.getStringExtra(ReportAlarmActions.EXTRA_ANCHOR_DATE)
+                ?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: LocalDate.now()
+            val (from, to) = reportWindow(range, anchor)
             val rows = g.totalsRepo.rangeBreakdown(from, to)
             val total = rows.sumOf { it.total }
             if (total > 0) {
