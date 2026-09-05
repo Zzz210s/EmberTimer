@@ -55,14 +55,14 @@ fun reportRows(range: ReportRange, today: LocalDate, raw: List<DayProfileTotal>)
     }
 }
 
-/** 窗口内各配置合计,按时长降序;配置已删的行以固定文案占位(与主页明细口径一致) */
+/** 窗口内各时钟合计,按时长降序;配置已删的行以固定文案占位(与主页明细口径一致) */
 fun reportProfileTotals(
     profiles: List<ProfileEntity>,
     raw: List<DayProfileTotal>,
 ): List<ProfileTotalUi> = raw.groupBy { it.profileId }
     .map { (id, rs) ->
         ProfileTotalUi(
-            profileName = profiles.firstOrNull { it.id == id }?.name ?: "已删除配置",
+            profileName = profiles.firstOrNull { it.id == id }?.name ?: "已删除时钟",
             millis = rs.sumOf { it.total },
         )
     }

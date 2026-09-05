@@ -40,7 +40,7 @@ import com.embertimer.timer.DurationFormat
 import com.embertimer.ui.morph.IconPaths
 import com.embertimer.ui.morph.PathIcon
 
-/** 设置页「周报/月报」入口打开的报表屏:周/月切换 + 明细 + 尾部各配置合计 + 空态 */
+/** 设置页「周报/月报」入口打开的报表屏:周/月切换 + 明细 + 尾部各时钟合计 + 空态 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReportScreen(onBack: () -> Unit, initialRange: ReportRange = ReportRange.WEEK) {
@@ -88,7 +88,7 @@ fun ReportScreen(onBack: () -> Unit, initialRange: ReportRange = ReportRange.WEE
             } else {
                 ui.rows.forEach { row -> TotalRow(row.label, row.millis) }
                 Text(
-                    "各配置合计",
+                    "各时钟合计",
                     style = MaterialTheme.typography.titleSmall,
                     modifier = Modifier.padding(top = 8.dp),
                 )

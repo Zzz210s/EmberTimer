@@ -111,8 +111,8 @@ internal fun TimerCard(
                 // 上互相重叠(曾致循环图标叠在倒计时数字左上)。各分支包居中 Column。
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     if (isEmpty) {
-                        Text("先新建一个计时配置", style = MaterialTheme.typography.titleLarge)
-                        TextButton(onClick = onGoSettings) { Text("去新建配置") }
+                        Text("先新建一个计时时钟", style = MaterialTheme.typography.titleLarge)
+                        TextButton(onClick = onGoSettings) { Text("去新建时钟") }
                     } else {
                         Text(
                             DurationFormat.ms(displayMillis),

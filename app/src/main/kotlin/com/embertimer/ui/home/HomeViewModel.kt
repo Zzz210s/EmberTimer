@@ -80,7 +80,7 @@ class HomeViewModel(val graph: AppGraph) : ViewModel() {
                                 DayDetailRow(
                                     // daily_total 与 profile 无 FK(设计上保留热力图历史):
                                     // 配置删除后行成孤儿,名称以固定文案占位而非 "?"
-                                    profileName = profiles.firstOrNull { it.id == r.profileId }?.name ?: "已删除配置",
+                                    profileName = profiles.firstOrNull { it.id == r.profileId }?.name ?: "已删除时钟",
                                     millis = r.total,
                                     index = i,
                                 )

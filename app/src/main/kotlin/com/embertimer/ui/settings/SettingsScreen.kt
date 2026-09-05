@@ -35,7 +35,7 @@ import kotlinx.coroutines.launch
 
 /**
  * 设置页(v1.3 重构后瘦身):仅保留 精确闹钟授权横幅 + 提醒强度 两块;
- * 时长配置已独立为「配置管理」页(主页配置下拉面板顶部入口)。
+ * 时钟管理已独立为「时钟管理」页(主页配置下拉面板顶部入口)。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

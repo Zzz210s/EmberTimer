@@ -73,7 +73,7 @@ internal fun HomeTopBar(
                 PathIcon(IconPaths.SETTINGS, size = 24.dp, contentDescription = "设置")
             }
             // 中央:当前配置名(或 未选择)+ 展开箭头;点击在 PROFILE 面板间切换。
-            // 无配置时点击直达配置管理(创建入口)
+            // 无配置时点击直达时钟管理(创建入口)
             Box(Modifier.weight(1f).fillMaxWidth().clickable {
                 if (ui.profiles.isEmpty()) { onManageProfiles(); return@clickable }
                 open = if (open == HomePanel.PROFILE) null else HomePanel.PROFILE
