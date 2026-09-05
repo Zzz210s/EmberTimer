@@ -32,7 +32,7 @@ import org.robolectric.annotation.Config
  * 直调 onReceive(Robolectric 下 goAsync 安全);body 异步,副作用断言轮询等待。
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34], application = ReportAlarmReceiverTest.TestApp::class)
+@Config(sdk = [34], qualifiers = "zh", application = ReportAlarmReceiverTest.TestApp::class)
 class ReportAlarmReceiverTest {
     class TestApp : EmberApp() { override fun onCreate() { /* 跳过真实装配 */ } }
 
