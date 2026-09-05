@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 报表/通知(v1.3 EN 对照):默认中文 -->
+    <string name="report_title">报表</string>
+    <string name="tab_week">周报</string>
+    <string name="tab_month">月报</string>
+    <string name="tab_lifetime">时钟累计</string>
+    <string name="total_window">各时钟合计</string>
+    <string name="total_lifetime">各时钟累计(起用至今)</string>
+    <string name="total_all">全部合计</string>
+    <string name="empty_period">本期无专注记录</string>
+    <string name="empty_lifetime">还没有专注记录</string>
+    <string name="report_back">返回</string>
+    <string name="report_week_title">周报</string>
+    <string name="report_month_title">月报</string>
+    <string name="report_week_body">本周专注 %1$s</string>
+    <string name="report_month_body">本月专注 %1$s</string>
+    <string name="ch_report">专注报表</string>
+    <string name="duration_hm">%1$d 小时 %2$d 分钟</string>
+    <string name="duration_m">%1$d 分钟</string>
+
+    <!-- 通用 -->
+    <string name="back">返回</string>
+    <string name="cancel">取消</string>
+    <string name="confirm">确定</string>
+    <string name="delete">删除</string>
+    <string name="settings">设置</string>
+    <string name="menu">菜单</string>
+    <string name="clocks_manage">时钟管理</string>
+    <string name="new_clock">新建时钟</string>
+    <string name="edit_clock">编辑时钟</string>
+    <string name="delete_manage">删除管理</string>
+    <string name="exit_delete">退出删除</string>
+    <string name="delete_selected_n">删除选中(%1$d)</string>
+    <string name="selected_tag">已选</string>
+    <string name="tap_select_tag">点选</string>
+    <string name="running_locked">计时中,不可修改</string>
+    <string name="durations_workrest">%1$d 分钟工作 / %2$d 分钟休息</string>
+    <string name="mode_tag"> · %1$s</string>
+    <string name="empty_clocks">还没有时钟,点击右上角 + 新建</string>
+    <string name="delete_confirm_title">删除所选时钟</string>
+    <string name="delete_confirm_body">将删除 %1$d 个时钟及其累计记录?不可撤销。</string>
+    <string name="name_label">名称</string>
+    <string name="work_minutes">工作分钟 (1-180)</string>
+    <string name="rest_minutes">休息分钟 (1-60)</string>
+    <string name="mode_label">计时模式</string>
+    <string name="mode_countdown">倒计时</string>
+    <string name="mode_countup">正计时</string>
+    <string name="reminder_intensity">提醒强度</string>
+    <string name="intensity_light">轻</string>
+    <string name="intensity_standard">标准</string>
+    <string name="intensity_strong">强</string>
+    <string name="exact_alarm_hint">精确闹钟未授权,后台切换可能有分钟级延迟</string>
+    <string name="go_grant">去授权</string>
+    <!-- 主页 -->
+    <string name="state_idle">空闲</string>
+    <string name="state_work">工作中</string>
+    <string name="state_rest">休息中</string>
+    <string name="empty_guide">先新建一个计时时钟</string>
+    <string name="go_new_clock">去新建时钟</string>
+    <string name="cycle_n">循环 %1$d</string>
+    <string name="today_total">今日 %1$s</string>
+    <string name="focus_total">专注 %1$s</string>
+    <string name="day_none">当日无专注记录</string>
+    <string name="day_no_records">%1$s, 无记录</string>
+    <string name="unselected_placeholder">未选择</string>
+    <!-- 通知 -->
+    <string name="ch_progress">计时进行中</string>
+    <string name="ch_reminder">阶段提醒</string>
+    <string name="nt_paused_cycle">已暂停 · 循环 %1$d</string>
+    <string name="nt_paused_elapsed">已暂停 · 已进行 %1$s</string>
+    <string name="nt_cycle">循环 %1$d</string>
+    <string name="act_pause">暂停</string>
+    <string name="act_resume">恢复</string>
+    <string name="act_skip">跳过</string>
+    <string name="act_stop">终止</string>
+    <string name="done_work_title">工作完成</string>
+    <string name="done_rest_title">休息结束</string>
+    <string name="done_work_body">开始新一轮工作</string>
+    <string name="done_rest_body">休息一下</string>
+    <string name="report_bucket_week">第 %1$d 周(%2$s~%3$s)</string>
+    <string name="act_start">开始</string>
+</resources>

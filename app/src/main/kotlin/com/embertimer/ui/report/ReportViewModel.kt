@@ -15,7 +15,14 @@ import kotlinx.coroutines.launch
 
 enum class ReportRange { WEEK, MONTH, LIFETIME }
 
-data class ReportRow(val label: String, val millis: Long)
+data class ReportRow(
+    val label: String,
+    val millis: Long,
+    /** v1.4 本地化辅助:月报桶序号与起止(MM-dd);0 = 非桶行 */
+    val weekIndex: Int = 0,
+    val rangeFrom: String = "",
+    val rangeTo: String = "",
+)
 
 data class ProfileTotalUi(val profileName: String, val millis: Long)
 
@@ -52,7 +59,7 @@ fun reportRows(range: ReportRange, today: LocalDate, raw: List<DayProfileTotal>)
                 val end = start.plusDays(6).let { if (it.isAfter(today)) today else it }
                 val from = start.toString().substring(5)
                 val to = end.toString().substring(5)
-                ReportRow("第 $bucket 周($from~$to)", dayEntries.sumOf { it.value })
+                ReportRow("第 $bucket 周($from~$to)", dayEntries.sumOf { it.value }, bucket, from, to)
             }
     }
 }

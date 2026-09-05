@@ -1,5 +1,7 @@
 package com.embertimer.ui.settings
 
+import com.embertimer.R
+import androidx.compose.ui.res.stringResource
 import android.content.Intent
 import android.os.Build
 import android.provider.Settings
@@ -51,9 +53,9 @@ fun SettingsScreen(onBack: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("设置") },
+                title = { Text(stringResource(R.string.settings)) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) { PathIcon(IconPaths.BACK, size = 24.dp, contentDescription = "返回") }
+                    IconButton(onClick = onBack) { PathIcon(IconPaths.BACK, size = 24.dp, contentDescription = stringResource(R.string.back)) }
                 },
             )
         },
@@ -66,18 +68,18 @@ fun SettingsScreen(onBack: () -> Unit) {
                 item {
                     Card {
                         Column(Modifier.padding(12.dp)) {
-                            Text("精确闹钟未授权,后台切换可能有分钟级延迟", style = MaterialTheme.typography.bodyMedium)
+                            Text(stringResource(R.string.exact_alarm_hint), style = MaterialTheme.typography.bodyMedium)
                             TextButton(onClick = {
                                 if (Build.VERSION.SDK_INT >= 31) {
                                     ctx.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM))
                                 }
-                            }) { Text("去授权") }
+                            }) { Text(stringResource(R.string.go_grant)) }
                         }
                     }
                 }
             }
             item {
-                Text("提醒强度", style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.reminder_intensity), style = MaterialTheme.typography.titleMedium)
                 SingleChoiceSegmentedButtonRow {
                     ReminderIntensity.entries.forEachIndexed { index, intensity ->
                         SegmentedButton(
@@ -90,9 +92,9 @@ fun SettingsScreen(onBack: () -> Unit) {
                         ) {
                             Text(
                                 when (intensity) {
-                                    ReminderIntensity.LIGHT -> "轻"
-                                    ReminderIntensity.STANDARD -> "标准"
-                                    ReminderIntensity.STRONG -> "强"
+                                    ReminderIntensity.LIGHT -> stringResource(R.string.intensity_light)
+                                    ReminderIntensity.STANDARD -> stringResource(R.string.intensity_standard)
+                                    ReminderIntensity.STRONG -> stringResource(R.string.intensity_strong)
                                 },
                             )
                         }

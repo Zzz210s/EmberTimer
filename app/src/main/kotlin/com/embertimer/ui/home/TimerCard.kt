@@ -21,6 +21,8 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.ui.res.stringResource
+import com.embertimer.R
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -65,11 +67,12 @@ internal fun TimerCard(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            val phaseText = when {
-                snap == null -> "空闲"
-                snap.phase == Phase.WORK -> "工作中"
-                else -> "休息中"
+            val phaseRes = when {
+                snap == null -> R.string.state_idle
+                snap.phase == Phase.WORK -> R.string.state_work
+                else -> R.string.state_rest
             }
+            val phaseText = stringResource(phaseRes)
             // D7 状态文本交叉交换:新文案自下方 1/4 高度滑入(进 160ms),旧文案向上
             // 滑出淡出(出 100ms,快于进避免交叉发糊);时长全部取自 TextSwap* token。
             // animationsOn=false 直切纯文本
@@ -101,8 +104,8 @@ internal fun TimerCard(
                 // 上互相重叠(曾致循环图标叠在倒计时数字左上)。各分支包居中 Column。
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     if (isEmpty) {
-                        Text("先新建一个计时时钟", style = MaterialTheme.typography.titleLarge)
-                        TextButton(onClick = onGoSettings) { Text("去新建时钟") }
+                        Text(stringResource(R.string.empty_guide), style = MaterialTheme.typography.titleLarge)
+                        TextButton(onClick = onGoSettings) { Text(stringResource(R.string.go_new_clock)) }
                     } else {
                         Text(
                             DurationFormat.ms(displayMillis),
@@ -159,7 +162,7 @@ internal fun CycleBadge(count: Int, animationsOn: Boolean, modifier: Modifier = 
         PathIcon(
             d = IconPaths.REPEAT,
             size = 16.dp,
-            contentDescription = "循环 $count",
+            contentDescription = stringResource(R.string.cycle_n, count),
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.graphicsLayer { scaleX = scale.value; scaleY = scale.value },
         )

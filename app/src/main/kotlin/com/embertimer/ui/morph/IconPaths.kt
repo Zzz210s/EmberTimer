@@ -30,7 +30,9 @@ object IconPaths {
     const val CHECK = "M4.5,12.5 L10,18 L19.5,6.5"
     /** 加号(v1.3 时钟管理页标题栏新建入口,静态图标,无 XML 对应) */
     const val PLUS = "M12,5 L12,19 M5,12 L19,12"
+    /** 垃圾桶(v1.4 时钟管理删除模式入口,静态图标,无 XML 对应) */
+    const val TRASH = "M5,7 L19,7 M9,7 L9,5 L15,5 L15,7 M7,7 L8,19 L16,19 L17,7 M10,10 L10,16 M14,10 L14,16"
 
     /** 全部 11 个图标,供测试遍历(24 栅格合法性/可解析性守卫)。 */
-    val ALL: List<String> = listOf(PLAY, PAUSE, SKIP, STOP, REPEAT, SETTINGS, BACK, MENU, CHEVRON_DOWN, CHECK, PLUS)
+    val ALL: List<String> = listOf(PLAY, PAUSE, SKIP, STOP, REPEAT, SETTINGS, BACK, MENU, CHEVRON_DOWN, CHECK, PLUS, TRASH)
 }

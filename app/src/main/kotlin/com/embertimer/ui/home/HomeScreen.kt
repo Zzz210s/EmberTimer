@@ -1,5 +1,7 @@
 package com.embertimer.ui.home
 
+import com.embertimer.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -116,7 +118,7 @@ fun HomeScreen(onSettings: () -> Unit, onOpenReport: (ReportRange) -> Unit, onMa
                 onSkip = { TimerCommands.skip(ctx) }, onStop = { TimerCommands.stop(ctx) },
                 onGoSettings = onSettings)
             // v1.1 #7:今日合计落账变化时滑切(落账频次低,不打扰);关闭动画直切
-            val todayText = "今日 " + DurationFormat.hm(ui.todayMillis)
+            val todayText = stringResource(R.string.today_total, localizedDuration(ui.todayMillis))
             val animationsOn = rememberAnimationsEnabled()
             if (animationsOn) {
                 AnimatedContent(
@@ -146,4 +148,13 @@ fun HomeScreen(onSettings: () -> Unit, onOpenReport: (ReportRange) -> Unit, onMa
 
     }
     }
+}
+
+@Composable
+private fun localizedDuration(millis: Long): String {
+    val totalMinutes = (millis + 59_999) / 60_000
+    val h = totalMinutes / 60
+    val m = totalMinutes % 60
+    return if (h == 0L) stringResource(R.string.duration_m, m)
+    else stringResource(R.string.duration_hm, h, m)
 }

@@ -1,5 +1,7 @@
 package com.embertimer.ui.heatmap
 
+import com.embertimer.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -98,8 +100,9 @@ private fun HeatmapCell(cell: DayCell, isSelected: Boolean, onClick: () -> Unit)
     // D2(v1.1):2dp 圆角;常态保留极浅描边(onSurface 12%);选中 = 2dp primary 圆角边框
     val borderColor = if (isSelected) MaterialTheme.colorScheme.primary
     else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
-    val desc = if (cell.millis > 0) "${cell.date}, ${DurationFormat.hm(cell.millis)}"
-    else "${cell.date}, 无记录"
+    val dur = if (cell.millis > 0) localDur(cell.millis)
+    else stringResource(R.string.no_records_short)
+    val desc = cell.date.toString() + ", " + dur
     Box(
         Modifier
             .size(CELL)
@@ -141,4 +144,13 @@ private fun MonthLabels(model: HeatmapModel, state: LazyGridState) {
             }
         }
     }
+}
+
+@Composable
+private fun localDur(millis: Long): String {
+    val totalMinutes = (millis + 59_999) / 60_000
+    val h = totalMinutes / 60
+    val m = totalMinutes % 60
+    return if (h == 0L) stringResource(R.string.duration_m, m)
+    else stringResource(R.string.duration_hm, h, m)
 }

@@ -1,5 +1,6 @@
 package com.embertimer.ui.home
 
+import com.embertimer.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -11,6 +12,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.embertimer.data.db.ProfileEntity
@@ -45,7 +47,7 @@ internal fun PanelBody(
                         .padding(horizontal = 20.dp, vertical = 14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text("时钟管理", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                    Text(stringResource(R.string.clocks_manage), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
                     PathIcon(IconPaths.BACK, size = 18.dp, contentDescription = null)
                 }
                 HorizontalDivider()
@@ -73,7 +75,13 @@ internal fun PanelBody(
                 }
             }
             HomePanel.REPORT -> {
-                listOf(ReportRange.WEEK to "周报", ReportRange.MONTH to "月报").forEach { (r, label) ->
+                // v1.4 #1:菜单与报表三段页签对齐(周报/月报/时钟累计);标签走资源(跟随系统语言)
+                val rows = listOf(
+                    ReportRange.WEEK to stringResource(com.embertimer.R.string.tab_week),
+                    ReportRange.MONTH to stringResource(com.embertimer.R.string.tab_month),
+                    ReportRange.LIFETIME to stringResource(com.embertimer.R.string.tab_lifetime),
+                )
+                rows.forEach { (r, label) ->
                     Row(
                         Modifier.fillMaxWidth().clickable { onOpenReport(r) }
                             .padding(horizontal = 20.dp, vertical = 14.dp),

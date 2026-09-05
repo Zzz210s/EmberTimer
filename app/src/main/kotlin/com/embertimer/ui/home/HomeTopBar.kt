@@ -1,5 +1,7 @@
 package com.embertimer.ui.home
 
+import com.embertimer.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
@@ -74,7 +76,7 @@ internal fun HomeTopBar(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = { onSettings() }) {
-                PathIcon(IconPaths.SETTINGS, size = 24.dp, contentDescription = "设置")
+                PathIcon(IconPaths.SETTINGS, size = 24.dp, contentDescription = stringResource(R.string.settings))
             }
             // 中央:当前配置名(或 未选择)+ 展开箭头;点击在 PROFILE 面板间切换。
             // 无配置时点击直达时钟管理(创建入口)
@@ -82,7 +84,8 @@ internal fun HomeTopBar(
                 if (ui.profiles.isEmpty()) { onManageProfiles(); return@clickable }
                 open = if (open == HomePanel.PROFILE) null else HomePanel.PROFILE
             }, contentAlignment = Alignment.Center) {
-                val activeName = ui.profiles.firstOrNull { it.id == ui.activeProfileId }?.name ?: "未选择"
+                val activeName = ui.profiles.firstOrNull { it.id == ui.activeProfileId }?.name
+                    ?: stringResource(R.string.unselected_placeholder)
                 val rotation by animateFloatAsState(if (open == HomePanel.PROFILE) 180f else 0f, label = "chevron")
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (animationsOn) {
@@ -109,7 +112,7 @@ internal fun HomeTopBar(
                 }
             }
             IconButton(onClick = { open = if (open == HomePanel.REPORT) null else HomePanel.REPORT }) {
-                PathIcon(IconPaths.MENU, size = 24.dp, contentDescription = "菜单")
+                PathIcon(IconPaths.MENU, size = 24.dp, contentDescription = stringResource(R.string.menu))
             }
         }
         // 面板区:布局流内占位 -> 高度动画推挤下方内容(顺沿下移/收起回弹)。

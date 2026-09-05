@@ -23,6 +23,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.embertimer.R
@@ -67,7 +68,15 @@ fun ReportScreen(onBack: () -> Unit, initialRange: ReportRange = ReportRange.WEE
                         selected = ui.range == range,
                         onClick = { vm.setRange(range) },
                         shape = SegmentedButtonDefaults.itemShape(index = index, count = tabs.size),
-                    ) { Text(label) }
+                    ) {
+                        Text(
+                            label,
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis,
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
                 }
             }
             // 周/月/时钟累计内容直渲(曾包 AnimatedContent 时内容停留首帧旧 ui,直渲零状态依赖)
@@ -95,7 +104,12 @@ fun ReportScreen(onBack: () -> Unit, initialRange: ReportRange = ReportRange.WEE
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             } else {
-                ui.rows.forEach { row -> TotalRow(row.label, row.millis) }
+                ui.rows.forEach { row ->
+                        val label = if (row.weekIndex > 0)
+                            stringResource(R.string.report_bucket_week, row.weekIndex, row.rangeFrom, row.rangeTo)
+                        else row.label
+                        TotalRow(label, row.millis)
+                    }
                 Text(
                     stringResource(R.string.total_window),
                     style = MaterialTheme.typography.titleSmall,
