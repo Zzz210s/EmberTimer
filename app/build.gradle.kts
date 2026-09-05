@@ -42,7 +42,7 @@ android {
             else signingConfigs.getByName("debug")
         }
     }
-    androidResources { localeFilters += listOf("zh") }
+    // v1.3 EN 对照:移除 zh-only 资源过滤(values-en 需随包;此前列表过滤导致 en 丢包)
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

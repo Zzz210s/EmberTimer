@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 报表/通知(v1.3 EN 对照):默认中文 -->
+    <string name="report_title">报表</string>
+    <string name="tab_week">周报</string>
+    <string name="tab_month">月报</string>
+    <string name="tab_lifetime">时钟累计</string>
+    <string name="total_window">各时钟合计</string>
+    <string name="total_lifetime">各时钟累计(起用至今)</string>
+    <string name="total_all">全部合计</string>
+    <string name="empty_period">本期无专注记录</string>
+    <string name="empty_lifetime">还没有专注记录</string>
+    <string name="report_back">返回</string>
+    <string name="report_week_title">周报</string>
+    <string name="report_month_title">月报</string>
+    <string name="report_week_body">本周专注 %1$s</string>
+    <string name="report_month_body">本月专注 %1$s</string>
+    <string name="ch_report">专注报表</string>
+    <string name="duration_hm">%1$d 小时 %2$d 分钟</string>
+    <string name="duration_m">%1$d 分钟</string>
+</resources>

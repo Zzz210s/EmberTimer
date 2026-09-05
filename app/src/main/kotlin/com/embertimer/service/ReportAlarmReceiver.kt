@@ -41,8 +41,14 @@ class ReportAlarmReceiver : BroadcastReceiver() {
     }
 
     private fun post(context: Context, range: ReportRange, totalMillis: Long) {
-        val title = if (range == ReportRange.WEEK) "周报" else "月报"
-        val prefix = if (range == ReportRange.WEEK) "本周专注 " else "本月专注 "
+        val week = range == ReportRange.WEEK
+        val title = context.getString(
+            if (week) com.embertimer.R.string.report_week_title else com.embertimer.R.string.report_month_title,
+        )
+        val body = context.getString(
+            if (week) com.embertimer.R.string.report_week_body else com.embertimer.R.string.report_month_body,
+            DurationFormat.localizedHm(context, totalMillis),
+        )
         val contentIntent = PendingIntent.getActivity(
             context,
             range.hashCode(),
@@ -56,7 +62,7 @@ class ReportAlarmReceiver : BroadcastReceiver() {
         val n = NotificationCompat.Builder(context, TimerNotifications.CH_REPORT)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle(title)
-            .setContentText(prefix + DurationFormat.hm(totalMillis))
+            .setContentText(body)
             .setContentIntent(contentIntent)
             .setAutoCancel(true)
             .build()

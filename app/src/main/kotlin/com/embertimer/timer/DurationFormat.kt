@@ -1,5 +1,7 @@
 package com.embertimer.timer
 
+import android.content.Context
+import com.embertimer.R
 import java.util.Locale
 
 object DurationFormat {
@@ -12,6 +14,15 @@ object DurationFormat {
             h == 0L -> "$m 分钟"
             else -> "$h 小时 $m 分钟"
         }
+    }
+
+    /** 本地化 "X 小时 Y 分钟"(en:"1h 30m");非通知场景默认仍走 [hm] 中文 */
+    fun localizedHm(context: Context, millis: Long): String {
+        val totalMinutes = (millis + 59_999) / 60_000
+        val h = totalMinutes / 60
+        val m = totalMinutes % 60
+        return if (h == 0L) context.getString(R.string.duration_m, m)
+        else context.getString(R.string.duration_hm, h, m)
     }
 
     /** "mm:ss",超过一小时也继续累计分钟;负数钳为 0;Locale.ROOT 防局部阿拉伯数字(Task 4 遗留,收尾落地) */
