@@ -107,15 +107,21 @@ internal fun TimerCard(
                 },
                 label = "emptyState",
             ) { isEmpty ->
-                if (isEmpty) {
-                    Text("先新建一个计时配置", style = MaterialTheme.typography.titleLarge)
-                    TextButton(onClick = onGoSettings) { Text("去设置新建") }
-                } else {
-                    Text(
-                        DurationFormat.ms(displayMillis),
-                        style = MaterialTheme.typography.displayMedium,
-                    )
-                    if (!countUpActive) CycleBadge(count = snap?.cycleCount ?: 0, animationsOn = animationsOn)
+                // AnimatedContent 的 content 只应产出单子布局:多个子组合会落在内部 Box
+                // 上互相重叠(曾致循环图标叠在倒计时数字左上)。各分支包居中 Column。
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    if (isEmpty) {
+                        Text("先新建一个计时配置", style = MaterialTheme.typography.titleLarge)
+                        TextButton(onClick = onGoSettings) { Text("去设置新建") }
+                    } else {
+                        Text(
+                            DurationFormat.ms(displayMillis),
+                            style = MaterialTheme.typography.displayMedium,
+                        )
+                        if (!countUpActive) {
+                            CycleBadge(count = snap?.cycleCount ?: 0, animationsOn = animationsOn)
+                        }
+                    }
                 }
             }
             val haptic = LocalHapticFeedback.current
