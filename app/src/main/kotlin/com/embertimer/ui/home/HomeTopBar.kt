@@ -1,19 +1,29 @@
 package com.embertimer.ui.home
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
-import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -24,6 +34,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import com.embertimer.data.db.ProfileEntity
 import com.embertimer.timer.EngineStatus
@@ -33,96 +44,169 @@ import com.embertimer.ui.report.ReportRange
 import com.embertimer.ui.theme.MotionTokens
 import com.embertimer.ui.theme.rememberAnimationsEnabled
 
+/** 顶栏可展开的面板类型:配置选择 / 报表入口 */
+internal enum class HomePanel { PROFILE, REPORT }
+
 /**
- * 顶栏中央配置下拉(v1.1 #3/#1,取代已删除的 chips 行):当前配置名 + 展开箭头,
- * 点击弹出全部配置(菜单项仅名,#1);点击切换 active(计时中 disabled,口径与旧
- * chips 一致:仅 RUNNING 禁切,暂停中允许按策略重开)。无配置时中央占位"未选择"
- * (原 chips 行空态引导职责并入),点击直达设置。
+ * 主页顶栏(v1.2 #1):三件套 [齿轮 | 当前配置名(点击展开)| 汉堡] 之下挂**全屏宽展开面板**。
+ * 面板在布局流内占位(AnimatedVisibility 高度动画),展开时把下方内容整体顺沿下移;
+ * 收起回弹。两个面板互斥(开一个自动关另一个)。animationsOn=false 时面板直切无动画。
+ * 面板行:配置面板 = 整宽行(仅配置名 + 当前勾选,计时中禁点,空态引导去设置);
+ * 报表面板 = 周报/月报整宽行。菜单语义与 v1.1 下拉一致,仅形态改为推挤式全宽面板。
  */
 @Composable
-internal fun ProfileDropdown(
+internal fun HomeTopBar(
     ui: HomeUiState,
-    onSelect: (ProfileEntity) -> Unit,
+    onSelectProfile: (ProfileEntity) -> Unit,
     onSettings: () -> Unit,
+    onOpenReport: (ReportRange) -> Unit,
 ) {
-    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        if (ui.profiles.isEmpty()) {
-            Text(
-                "未选择",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.clickable(onClick = onSettings),
-            )
-            return@Box
-        }
-        val running = ui.snap?.status == EngineStatus.RUNNING
-        val activeName = ui.profiles.firstOrNull { it.id == ui.activeProfileId }?.name ?: "未选择"
-        val animationsOn = rememberAnimationsEnabled()
-        var expanded by remember { mutableStateOf(false) }
-        Box(
-            Modifier
-                .clickable(onClick = { expanded = true })
-                .padding(horizontal = 8.dp, vertical = 4.dp),
+    val animationsOn = rememberAnimationsEnabled()
+    var open by remember { mutableStateOf<HomePanel?>(null) }
+    val running = ui.snap?.status == EngineStatus.RUNNING
+
+    Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).statusBarsPadding()) {
+        Row(
+            Modifier.fillMaxWidth().height(56.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                // v1.1 #7:配置切换时名称滑切(TextSwap 族);关闭动画则直切
-                if (animationsOn) {
-                    AnimatedContent(
-                        targetState = activeName,
-                        transitionSpec = {
-                            (fadeIn(tween(MotionTokens.TextSwapEnter.durationMillis)) +
-                                slideInVertically(tween(MotionTokens.TextSwapEnter.durationMillis)) { it / 3 })
-                                .togetherWith(
-                                    fadeOut(tween(MotionTokens.TextSwapExit.durationMillis)) +
-                                        slideOutVertically(tween(MotionTokens.TextSwapExit.durationMillis)) { -it / 3 },
-                                )
-                        },
-                        label = "profileNameSwap",
-                    ) { name -> Text(name, style = MaterialTheme.typography.titleMedium) }
-                } else {
-                    Text(activeName, style = MaterialTheme.typography.titleMedium)
-                }
-                PathIcon(IconPaths.CHEVRON_DOWN, size = 20.dp, contentDescription = null)
+            IconButton(onClick = { onSettings() }) {
+                PathIcon(IconPaths.SETTINGS, size = 24.dp, contentDescription = "设置")
             }
-            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                ui.profiles.forEach { p ->
-                    DropdownMenuItem(
-                        text = { Text(p.name) },
-                        enabled = !running,
-                        onClick = {
-                            expanded = false
-                            onSelect(p)
-                        },
+            // 中央:当前配置名(或 未选择)+ 展开箭头;点击在 PROFILE 面板间切换
+            Box(Modifier.weight(1f).fillMaxWidth().clickable {
+                open = if (open == HomePanel.PROFILE) null else HomePanel.PROFILE
+            }, contentAlignment = Alignment.Center) {
+                val activeName = ui.profiles.firstOrNull { it.id == ui.activeProfileId }?.name ?: "未选择"
+                val rotation by animateFloatAsState(if (open == HomePanel.PROFILE) 180f else 0f, label = "chevron")
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (animationsOn) {
+                        AnimatedContent(
+                            targetState = activeName,
+                            transitionSpec = {
+                                (fadeIn(tween(MotionTokens.TextSwapEnter.durationMillis)) +
+                                    slideInVertically(tween(MotionTokens.TextSwapEnter.durationMillis)) { it / 3 })
+                                    .togetherWith(
+                                        fadeOut(tween(MotionTokens.TextSwapExit.durationMillis)) +
+                                            slideOutVertically(tween(MotionTokens.TextSwapExit.durationMillis)) { -it / 3 },
+                                    )
+                            },
+                            label = "profileNameSwap",
+                        ) { name -> Text(name, style = MaterialTheme.typography.titleMedium) }
+                    } else {
+                        Text(activeName, style = MaterialTheme.typography.titleMedium)
+                    }
+                    Spacer(Modifier.width(4.dp))
+                    PathIcon(
+                        IconPaths.CHEVRON_DOWN, size = 20.dp, contentDescription = null,
+                        modifier = Modifier.graphicsLayer { rotationZ = rotation },
                     )
                 }
             }
+            IconButton(onClick = { open = if (open == HomePanel.REPORT) null else HomePanel.REPORT }) {
+                PathIcon(IconPaths.MENU, size = 24.dp, contentDescription = "菜单")
+            }
+        }
+        // 面板区:布局流内占位 -> 高度动画推挤下方内容(顺沿下移/收起回弹)。
+        // 开/关由外层 AnimatedVisibility 承担;面板间切换用 AnimatedContent 交叉淡入;
+        // 关闭时保留最后面板内容随 shrink 一起收起(避免中途闪空)。
+        if (animationsOn) {
+            var last by remember { mutableStateOf<HomePanel?>(null) }
+            if (open != null) last = open
+            val shown = open ?: last
+            AnimatedVisibility(
+                visible = open != null,
+                enter = expandVertically(tween(MotionTokens.TextSwapEnter.durationMillis)) + fadeIn(
+                    tween(MotionTokens.TextSwapEnter.durationMillis),
+                ),
+                exit = shrinkVertically(tween(MotionTokens.TextSwapExit.durationMillis)) + fadeOut(
+                    tween(MotionTokens.TextSwapExit.durationMillis),
+                ),
+            ) {
+                AnimatedContent(
+                    targetState = shown,
+                    transitionSpec = {
+                        (fadeIn(tween(MotionTokens.TextSwapEnter.durationMillis)) +
+                            slideInVertically(tween(MotionTokens.TextSwapEnter.durationMillis)) { it / 8 })
+                            .togetherWith(
+                                fadeOut(tween(MotionTokens.TextSwapExit.durationMillis)) +
+                                    slideOutVertically(tween(MotionTokens.TextSwapExit.durationMillis)) { -it / 8 },
+                            )
+                    },
+                    label = "panelSwap",
+                ) { p ->
+                    if (p != null) {
+                        PanelBody(p, ui, ui.profiles.isEmpty(), running, onSelectProfile, onSettings, onOpenReport)
+                    } else {
+                        Box(Modifier.height(0.dp))
+                    }
+                }
+            }
+        } else if (open != null) {
+            PanelBody(open!!, ui, ui.profiles.isEmpty(), running, onSelectProfile, onSettings, onOpenReport)
         }
     }
 }
 
-/** 顶栏右侧汉堡菜单(v1.1):周报/月报直达报表屏并预选对应 tab */
+/** 面板内容(整宽行列表);进入时行首自带轻微下滑位移,强化"展开"方向感 */
 @Composable
-internal fun ReportMenu(onOpenReport: (ReportRange) -> Unit) {
-    var expanded by remember { mutableStateOf(false) }
-    Box {
-        IconButton(onClick = { expanded = true }) {
-            PathIcon(IconPaths.MENU, size = 24.dp, contentDescription = "菜单")
-        }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            DropdownMenuItem(
-                text = { Text("周报") },
-                onClick = {
-                    expanded = false
-                    onOpenReport(ReportRange.WEEK)
-                },
-            )
-            DropdownMenuItem(
-                text = { Text("月报") },
-                onClick = {
-                    expanded = false
-                    onOpenReport(ReportRange.MONTH)
-                },
-            )
+private fun PanelBody(
+    panel: HomePanel,
+    ui: HomeUiState,
+    profileEmpty: Boolean,
+    running: Boolean,
+    onSelectProfile: (ProfileEntity) -> Unit,
+    onSettings: () -> Unit,
+    onOpenReport: (ReportRange) -> Unit,
+) {
+    val surface = MaterialTheme.colorScheme.surface
+    Column(Modifier.fillMaxWidth().background(surface)) {
+        HorizontalDivider()
+        when (panel) {
+            HomePanel.PROFILE -> {
+                if (profileEmpty) {
+                    Row(Modifier.fillMaxWidth().clickable(onClick = onSettings).padding(16.dp)) {
+                        Text("还没有配置,先去设置新建", style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                } else {
+                    ui.profiles.forEach { p ->
+                        val selected = p.id == ui.activeProfileId
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .clickable(enabled = !running) { onSelectProfile(p) }
+                                .padding(horizontal = 20.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                p.name,
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier.weight(1f),
+                                color = if (running) MaterialTheme.colorScheme.onSurfaceVariant
+                                else MaterialTheme.colorScheme.onSurface,
+                            )
+                            if (selected) {
+                                PathIcon(IconPaths.CHECK, size = 20.dp, contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                        HorizontalDivider()
+                    }
+                }
+            }
+            HomePanel.REPORT -> {
+                listOf(ReportRange.WEEK to "周报", ReportRange.MONTH to "月报").forEach { (r, label) ->
+                    Row(
+                        Modifier.fillMaxWidth().clickable { onOpenReport(r) }
+                            .padding(horizontal = 20.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                    }
+                    HorizontalDivider()
+                }
+            }
         }
     }
 }

@@ -9,16 +9,14 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -39,8 +37,6 @@ import com.embertimer.timer.DurationFormat
 import com.embertimer.timer.EngineStatus
 import com.embertimer.ui.heatmap.Heatmap
 import com.embertimer.ui.heatmap.buildHeatmapModel
-import com.embertimer.ui.morph.IconPaths
-import com.embertimer.ui.morph.PathIcon
 import com.embertimer.ui.report.ReportRange
 import com.embertimer.ui.theme.MotionTokens
 import com.embertimer.ui.theme.rememberAnimationsEnabled
@@ -48,7 +44,6 @@ import java.time.LocalDate
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(onSettings: () -> Unit, onOpenReport: (ReportRange) -> Unit) {
     val app = LocalContext.current.applicationContext as EmberApp
@@ -87,35 +82,26 @@ fun HomeScreen(onSettings: () -> Unit, onOpenReport: (ReportRange) -> Unit) {
         if (ui.snap != null) ServiceLauncher.ensureServiceRunning(ctx)
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    ProfileDropdown(
-                        ui,
-                        onSelect = { p ->
-                            scope.launch {
-                                if (vm.selectProfile(p)) {
-                                    // 正计时判定来自目标配置(Task 7):暂停中切换/重启会以新 profile 模式重开
-                                    TimerCommands.restartPhase(
-                                        ctx, p.id, p.workMinutes * 60_000L, p.restMinutes * 60_000L,
-                                        countUp = p.mode == ProfileMode.COUNTUP,
-                                    )
-                                }
-                            }
-                        },
-                        onSettings = onSettings,
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onSettings) { PathIcon(IconPaths.SETTINGS, size = 24.dp, contentDescription = "设置") }
-                },
-                actions = { ReportMenu(onOpenReport) },
-            )
-        },
-    ) { pad ->
+    // v1.2 #1:主页改为布局流 = 顶栏(内置可展开全宽面板)+ 内容区(weight)。
+    // 面板在顶栏内部占位展开/收起,内容区随之下移/回弹;底部留导航条安全区。
+    Column(Modifier.fillMaxWidth()) {
+        HomeTopBar(
+            ui = ui,
+            onSelectProfile = { p ->
+                scope.launch {
+                    if (vm.selectProfile(p)) {
+                        TimerCommands.restartPhase(
+                            ctx, p.id, p.workMinutes * 60_000L, p.restMinutes * 60_000L,
+                            countUp = p.mode == ProfileMode.COUNTUP,
+                        )
+                    }
+                }
+            },
+            onSettings = onSettings,
+            onOpenReport = onOpenReport,
+        )
         Column(
-            Modifier.padding(pad).padding(16.dp).verticalScroll(rememberScrollState()),
+            Modifier.weight(1f).navigationBarsPadding().padding(16.dp).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             TimerCard(ui, displayMillis, onStart = {
@@ -156,6 +142,7 @@ fun HomeScreen(onSettings: () -> Unit, onOpenReport: (ReportRange) -> Unit) {
                     DayDetailCard(dayDetail)
                 }
             }
-        }
+
+    }
     }
 }
