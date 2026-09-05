@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -40,7 +41,7 @@ import com.embertimer.timer.DurationFormat
 import com.embertimer.ui.morph.IconPaths
 import com.embertimer.ui.morph.PathIcon
 
-/** 设置页「周报/月报」入口打开的报表屏:周/月切换 + 明细 + 尾部各时钟合计 + 空态 */
+/** 报表屏(主页汉堡进入):周报/月报/时钟累计 三页签 + 明细 + 各时钟合计 + 空态 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReportScreen(onBack: () -> Unit, initialRange: ReportRange = ReportRange.WEEK) {
@@ -66,7 +67,7 @@ fun ReportScreen(onBack: () -> Unit, initialRange: ReportRange = ReportRange.WEE
             Modifier.padding(pad).padding(16.dp).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            val tabs = listOf(ReportRange.WEEK to "周报", ReportRange.MONTH to "月报")
+            val tabs = listOf(ReportRange.WEEK to "周报", ReportRange.MONTH to "月报", ReportRange.LIFETIME to "时钟累计")
             SingleChoiceSegmentedButtonRow {
                 tabs.forEachIndexed { index, (range, label) ->
                     SegmentedButton(
@@ -76,10 +77,25 @@ fun ReportScreen(onBack: () -> Unit, initialRange: ReportRange = ReportRange.WEE
                     ) { Text(label) }
                 }
             }
-            // TEMP bypass AnimatedContent for isolation
-            // 周/月内容直渲(曾包 AnimatedContent(ui.range) 时内容停留在首帧旧 ui,
-            // 设备复现数据刷新后不重渲;直渲正确且零状态依赖,切换动画由段按钮自带)
-            if (ui.rows.isEmpty()) {
+            // 周/月/时钟累计内容直渲(曾包 AnimatedContent 时内容停留首帧旧 ui,直渲零状态依赖)
+            if (ui.range == ReportRange.LIFETIME) {
+                if (ui.profileTotals.isEmpty()) {
+                    Text(
+                        "还没有专注记录",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
+                    Text(
+                        "各时钟累计(起用至今)",
+                        style = MaterialTheme.typography.titleSmall,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                    ui.profileTotals.forEach { p -> TotalRow(p.profileName, p.millis) }
+                    HorizontalDivider(Modifier.padding(vertical = 8.dp))
+                    TotalRow("全部合计", ui.profileTotals.sumOf { it.millis })
+                }
+            } else if (ui.rows.isEmpty()) {
                 Text(
                     "本期无专注记录",
                     style = MaterialTheme.typography.bodyMedium,
@@ -93,7 +109,8 @@ fun ReportScreen(onBack: () -> Unit, initialRange: ReportRange = ReportRange.WEE
                     modifier = Modifier.padding(top = 8.dp),
                 )
                 ui.profileTotals.forEach { p -> TotalRow(p.profileName, p.millis) }
-            }        }
+            }
+        }
     }
 }
 

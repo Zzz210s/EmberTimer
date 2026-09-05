@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
@@ -32,7 +31,6 @@ import com.embertimer.EmberApp
 import com.embertimer.data.db.ProfileEntity
 import com.embertimer.data.db.ProfileMode
 import com.embertimer.service.TimerCommands
-import com.embertimer.timer.DurationFormat
 import com.embertimer.timer.EngineStatus
 import com.embertimer.ui.morph.IconPaths
 import com.embertimer.ui.morph.PathIcon
@@ -61,6 +59,12 @@ fun ProfilesScreen(onBack: () -> Unit) {
                 navigationIcon = {
                     IconButton(onClick = onBack) { PathIcon(IconPaths.BACK, size = 24.dp, contentDescription = "返回") }
                 },
+                actions = {
+                    // v1.3 #5:新建收进标题栏最右 "+"(替换原底部整行按钮)
+                    IconButton(onClick = { creating = true }) {
+                        PathIcon(IconPaths.PLUS, size = 24.dp, contentDescription = "新建时钟")
+                    }
+                },
             )
         },
     ) { pad ->
@@ -77,7 +81,6 @@ fun ProfilesScreen(onBack: () -> Unit) {
                         val durationText = "${p.workMinutes} 分钟工作 / ${p.restMinutes} 分钟休息" +
                             if (countUp) " · 正计时" else ""
                         Text(durationText, style = MaterialTheme.typography.bodyMedium)
-                        Text("累计 " + DurationFormat.hm(ui.totals[p.id] ?: 0L))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             TextButton(enabled = !runningActive, onClick = { editing = p }) { Text("编辑") }
                             TextButton(
@@ -96,14 +99,11 @@ fun ProfilesScreen(onBack: () -> Unit) {
             if (ui.profiles.isEmpty()) {
                 item {
                     Text(
-                        "还没有时钟,点击下方新建",
+                        "还没有时钟,点击右上角 + 新建",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-            }
-            item {
-                Button(onClick = { creating = true }) { Text("新建时钟") }
             }
         }
     }

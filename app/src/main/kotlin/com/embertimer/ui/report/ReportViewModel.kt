@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-enum class ReportRange { WEEK, MONTH }
+enum class ReportRange { WEEK, MONTH, LIFETIME }
 
 data class ReportRow(val label: String, val millis: Long)
 
@@ -32,6 +32,7 @@ fun reportWindow(range: ReportRange, today: LocalDate): Pair<String, String> = w
         monday.toString() to today.toString()
     }
     ReportRange.MONTH -> today.withDayOfMonth(1).toString() to today.toString()
+    ReportRange.LIFETIME -> LocalDate.ofEpochDay(0).toString() to today.toString()
 }
 
 /**
@@ -43,6 +44,7 @@ fun reportRows(range: ReportRange, today: LocalDate, raw: List<DayProfileTotal>)
     val dates = byDate.toSortedMap()
     return when (range) {
         ReportRange.WEEK -> dates.map { (date, m) -> ReportRow(date.substring(5), m) }
+        ReportRange.LIFETIME -> emptyList() // 长期累计走 profileTotals,明细为空
         ReportRange.MONTH -> dates.entries
             .groupBy { (date, _) -> (LocalDate.parse(date).dayOfMonth - 1) / 7 + 1 }
             .map { (bucket, dayEntries) ->
@@ -55,7 +57,6 @@ fun reportRows(range: ReportRange, today: LocalDate, raw: List<DayProfileTotal>)
     }
 }
 
-/** 窗口内各时钟合计,按时长降序;配置已删的行以固定文案占位(与主页明细口径一致) */
 fun reportProfileTotals(
     profiles: List<ProfileEntity>,
     raw: List<DayProfileTotal>,
@@ -104,10 +105,18 @@ class ReportViewModel(
 
     private suspend fun refreshInternal() {
         val range = _range.value
+        val profiles = graph.profileRepo.profiles.first()
+        if (range == ReportRange.LIFETIME) {
+            val lt = graph.totalsRepo.profileTotals().first().map { p ->
+                val name = profiles.firstOrNull { it.id == p.profileId }?.name ?: "已删除时钟"
+                ProfileTotalUi(name, p.total)
+            }.sortedByDescending { it.millis }
+            _ui.value = ReportUiState(range = range, rows = emptyList(), profileTotals = lt)
+            return
+        }
         val today = clock()
         val (from, to) = reportWindow(range, today)
         val raw = graph.totalsRepo.rangeBreakdown(from, to)
-        val profiles = graph.profileRepo.profiles.first()
         _ui.value = ReportUiState(
             range = range,
             rows = reportRows(range, today, raw),
