@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,7 +27,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
@@ -38,6 +38,8 @@ import java.time.LocalDate
 
 private val CELL = 20.dp
 private val GAP = 2.dp
+/** v1.1 #2:统一 2dp 圆角,background 与 border 同 shape */
+private val CELL_RADIUS = RoundedCornerShape(2.dp)
 private val LEVEL_ALPHA = listOf(0.35f, 0.55f, 0.75f, 1f)
 
 @Composable
@@ -75,12 +77,15 @@ fun Heatmap(model: HeatmapModel, selected: LocalDate?, onSelect: (LocalDate?) ->
                 horizontalArrangement = Arrangement.spacedBy(GAP),
                 verticalArrangement = Arrangement.spacedBy(GAP),
             ) {
-                items(model.columns.flatMap { it.cells }, key = { it.date.toEpochDay() }) { cell ->
-                    HeatmapCell(
-                        cell = cell,
-                        isSelected = cell.date == selected,
-                        onClick = { onSelect(if (cell.date == selected) null else cell.date) },
-                    )
+                items(gridItems(model), key = { it.itemId() }) { item ->
+                    when (item) {
+                        is HeatmapItem.Blank -> Box(Modifier.size(CELL)) // 首记录前:纯空白占位,无背景/语义
+                        is HeatmapItem.Cell -> HeatmapCell(
+                            cell = item.cell,
+                            isSelected = item.cell.date == selected,
+                            onClick = { onSelect(if (item.cell.date == selected) null else item.cell.date) },
+                        )
+                    }
                 }
             }
         }
@@ -90,7 +95,7 @@ fun Heatmap(model: HeatmapModel, selected: LocalDate?, onSelect: (LocalDate?) ->
 @Composable
 private fun HeatmapCell(cell: DayCell, isSelected: Boolean, onClick: () -> Unit) {
     val color by animateColorAsState(levelColor(cell.level), label = "cellColor")
-    // D2 直角:常态保留极浅描边(onSurface 12%);选中 = 2dp primary 直角边框
+    // D2(v1.1):2dp 圆角;常态保留极浅描边(onSurface 12%);选中 = 2dp primary 圆角边框
     val borderColor = if (isSelected) MaterialTheme.colorScheme.primary
     else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
     val desc = if (cell.millis > 0) "${cell.date}, ${DurationFormat.hm(cell.millis)}"
@@ -98,8 +103,8 @@ private fun HeatmapCell(cell: DayCell, isSelected: Boolean, onClick: () -> Unit)
     Box(
         Modifier
             .size(CELL)
-            .background(color)
-            .border(if (isSelected) 2.dp else 0.5.dp, borderColor, RectangleShape)
+            .background(color, CELL_RADIUS)
+            .border(if (isSelected) 2.dp else 0.5.dp, borderColor, CELL_RADIUS)
             .clickable(onClick = onClick, onClickLabel = desc)
             .semantics {
                 contentDescription = desc
