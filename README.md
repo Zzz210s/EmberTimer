@@ -35,6 +35,7 @@ The core problem of pomodoro-style apps is background reliability: lock screen, 
 - Weekly and monthly focus reports (per-day or per-week buckets plus per-profile totals) reachable from settings.
 - Fresh installs start empty with guidance to create the first profile (no seeded demo data); upgrades preserve all data via a non-destructive schema migration. Square heatmap cells with always-visible per-column month labels; icon-only start button and unified 56dp action keys.
 - Reworked top bar: profile switcher dropdown in the center and a menu (weekly/monthly report shortcuts) on the right. Heatmap cells rounded to 2dp, dates before the first record render blank, and month labels follow the GitHub pattern. Scheduled Sunday/last-day-of-month summary notifications (only when the period has focus time). Unified spring/tween motion across remaining state changes.
+- Expanding full-width top-bar panels (profile switch / report menu) that push page content down with animated transitions instead of floating menus. Profile management lives on its own screen, entered from a pinned row at the top of the profile panel; the settings screen is trimmed to the permission banner and reminder intensity.
 
 ## Install
 
