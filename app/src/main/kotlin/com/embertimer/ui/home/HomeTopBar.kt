@@ -44,8 +44,6 @@ import com.embertimer.ui.report.ReportRange
 import com.embertimer.ui.theme.MotionTokens
 import com.embertimer.ui.theme.rememberAnimationsEnabled
 
-/** 顶栏可展开的面板类型:配置选择 / 报表入口 */
-internal enum class HomePanel { PROFILE, REPORT }
 
 /**
  * 主页顶栏(v1.2 #1):三件套 [齿轮 | 当前配置名(点击展开)| 汉堡] 之下挂**全屏宽展开面板**。
@@ -59,6 +57,7 @@ internal fun HomeTopBar(
     ui: HomeUiState,
     onSelectProfile: (ProfileEntity) -> Unit,
     onSettings: () -> Unit,
+    onManageProfiles: () -> Unit,
     onOpenReport: (ReportRange) -> Unit,
 ) {
     val animationsOn = rememberAnimationsEnabled()
@@ -73,8 +72,10 @@ internal fun HomeTopBar(
             IconButton(onClick = { onSettings() }) {
                 PathIcon(IconPaths.SETTINGS, size = 24.dp, contentDescription = "设置")
             }
-            // 中央:当前配置名(或 未选择)+ 展开箭头;点击在 PROFILE 面板间切换
+            // 中央:当前配置名(或 未选择)+ 展开箭头;点击在 PROFILE 面板间切换。
+            // 无配置时点击直达配置管理(创建入口)
             Box(Modifier.weight(1f).fillMaxWidth().clickable {
+                if (ui.profiles.isEmpty()) { onManageProfiles(); return@clickable }
                 open = if (open == HomePanel.PROFILE) null else HomePanel.PROFILE
             }, contentAlignment = Alignment.Center) {
                 val activeName = ui.profiles.firstOrNull { it.id == ui.activeProfileId }?.name ?: "未选择"
@@ -136,77 +137,16 @@ internal fun HomeTopBar(
                     label = "panelSwap",
                 ) { p ->
                     if (p != null) {
-                        PanelBody(p, ui, ui.profiles.isEmpty(), running, onSelectProfile, onSettings, onOpenReport)
+                        PanelBody(p, ui, ui.profiles.isEmpty(), running, onSelectProfile, onManageProfiles, onOpenReport)
                     } else {
                         Box(Modifier.height(0.dp))
                     }
                 }
             }
         } else if (open != null) {
-            PanelBody(open!!, ui, ui.profiles.isEmpty(), running, onSelectProfile, onSettings, onOpenReport)
+            PanelBody(open!!, ui, ui.profiles.isEmpty(), running, onSelectProfile, onManageProfiles, onOpenReport)
         }
     }
 }
 
 /** 面板内容(整宽行列表);进入时行首自带轻微下滑位移,强化"展开"方向感 */
-@Composable
-private fun PanelBody(
-    panel: HomePanel,
-    ui: HomeUiState,
-    profileEmpty: Boolean,
-    running: Boolean,
-    onSelectProfile: (ProfileEntity) -> Unit,
-    onSettings: () -> Unit,
-    onOpenReport: (ReportRange) -> Unit,
-) {
-    val surface = MaterialTheme.colorScheme.surface
-    Column(Modifier.fillMaxWidth().background(surface)) {
-        HorizontalDivider()
-        when (panel) {
-            HomePanel.PROFILE -> {
-                if (profileEmpty) {
-                    Row(Modifier.fillMaxWidth().clickable(onClick = onSettings).padding(16.dp)) {
-                        Text("还没有配置,先去设置新建", style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                } else {
-                    ui.profiles.forEach { p ->
-                        val selected = p.id == ui.activeProfileId
-                        Row(
-                            Modifier
-                                .fillMaxWidth()
-                                .clickable(enabled = !running) { onSelectProfile(p) }
-                                .padding(horizontal = 20.dp, vertical = 14.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                p.name,
-                                style = MaterialTheme.typography.bodyLarge,
-                                modifier = Modifier.weight(1f),
-                                color = if (running) MaterialTheme.colorScheme.onSurfaceVariant
-                                else MaterialTheme.colorScheme.onSurface,
-                            )
-                            if (selected) {
-                                PathIcon(IconPaths.CHECK, size = 20.dp, contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary)
-                            }
-                        }
-                        HorizontalDivider()
-                    }
-                }
-            }
-            HomePanel.REPORT -> {
-                listOf(ReportRange.WEEK to "周报", ReportRange.MONTH to "月报").forEach { (r, label) ->
-                    Row(
-                        Modifier.fillMaxWidth().clickable { onOpenReport(r) }
-                            .padding(horizontal = 20.dp, vertical = 14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-                    }
-                    HorizontalDivider()
-                }
-            }
-        }
-    }
-}

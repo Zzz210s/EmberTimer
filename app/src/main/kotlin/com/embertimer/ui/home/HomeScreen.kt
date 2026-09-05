@@ -45,7 +45,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
-fun HomeScreen(onSettings: () -> Unit, onOpenReport: (ReportRange) -> Unit) {
+fun HomeScreen(onSettings: () -> Unit, onOpenReport: (ReportRange) -> Unit, onManageProfiles: () -> Unit) {
     val app = LocalContext.current.applicationContext as EmberApp
     val vm: HomeViewModel = viewModel(factory = app.graph.vmFactory)
     val ui by vm.ui.collectAsStateWithLifecycle()
@@ -98,6 +98,7 @@ fun HomeScreen(onSettings: () -> Unit, onOpenReport: (ReportRange) -> Unit) {
                 }
             },
             onSettings = onSettings,
+            onManageProfiles = onManageProfiles,
             onOpenReport = onOpenReport,
         )
         Column(

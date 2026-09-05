@@ -112,7 +112,7 @@ internal fun TimerCard(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     if (isEmpty) {
                         Text("先新建一个计时配置", style = MaterialTheme.typography.titleLarge)
-                        TextButton(onClick = onGoSettings) { Text("去设置新建") }
+                        TextButton(onClick = onGoSettings) { Text("去新建配置") }
                     } else {
                         Text(
                             DurationFormat.ms(displayMillis),
