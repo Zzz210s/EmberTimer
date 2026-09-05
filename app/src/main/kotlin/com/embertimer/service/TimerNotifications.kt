@@ -15,31 +15,16 @@ import com.embertimer.timer.Phase
 import com.embertimer.timer.RuntimeSnapshot
 
 object TimerNotifications {
-    const val CH_PROGRESS = "ember_progress"
-    const val CH_REMINDER = "ember_reminder"
-    const val CH_REPORT = "ember_report"
-    const val ID_PROGRESS = 1
-    const val ID_REMINDER = 2
-    const val ID_REPORT_WEEK = 10
-    const val ID_REPORT_MONTH = 11
+    // v1.4.3:单渠道单 ID —— 通知栏任何时刻最多一条(前台进度/完成提醒/报表总结同槽位)
+    const val CH_TIMER = "ember_timer"
+    const val ID_NOTIFY = 1
 
     fun ensureChannels(context: Context) {
         val nm = context.getSystemService(NotificationManager::class.java) ?: return
         nm.createNotificationChannel(
-            NotificationChannel(CH_PROGRESS, context.getString(R.string.ch_progress), NotificationManager.IMPORTANCE_DEFAULT).apply {
-                setSound(null, null)
-                setShowBadge(false)
-            }
-        )
-        nm.createNotificationChannel(
-            NotificationChannel(CH_REMINDER, context.getString(R.string.ch_reminder), NotificationManager.IMPORTANCE_HIGH).apply {
-                setSound(null, null) // 铃声由 ReminderPlayer 播放
-                enableVibration(false) // 震动由 ReminderPlayer 播放
-            }
-        )
-        nm.createNotificationChannel(
-            NotificationChannel(CH_REPORT, context.getString(R.string.ch_report), NotificationManager.IMPORTANCE_DEFAULT).apply {
-                setSound(null, null)
+            NotificationChannel(CH_TIMER, context.getString(R.string.ch_app), NotificationManager.IMPORTANCE_DEFAULT).apply {
+                setSound(null, null) // 铃声/震动由 ReminderPlayer 播放
+                enableVibration(false)
                 setShowBadge(false)
             }
         )
@@ -47,7 +32,7 @@ object TimerNotifications {
 
     /** 引擎快照未就绪时的最小占位通知:onStartCommand 同步前台化先顶上,异步收集器稍后用真实快照替换 */
     fun minimal(context: Context): Notification =
-        NotificationCompat.Builder(context, CH_PROGRESS)
+        NotificationCompat.Builder(context, CH_TIMER)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle("EmberTimer")
             .setOngoing(true)
@@ -61,7 +46,7 @@ object TimerNotifications {
             if (snap.phase == Phase.WORK) R.string.state_work else R.string.state_rest,
         )
         val paused = snap.status == EngineStatus.PAUSED
-        val builder = NotificationCompat.Builder(context, CH_PROGRESS)
+        val builder = NotificationCompat.Builder(context, CH_TIMER)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle(phaseText)
             .setOngoing(true)
@@ -115,7 +100,7 @@ object TimerNotifications {
     fun phaseDone(context: Context, workFinished: Boolean): Notification {
         val title = context.getString(if (workFinished) R.string.done_work_title else R.string.done_rest_title)
         val text = context.getString(if (workFinished) R.string.done_rest_body else R.string.done_work_body)
-        return NotificationCompat.Builder(context, CH_REMINDER)
+        return NotificationCompat.Builder(context, CH_TIMER)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle(title)
             .setContentText(text)

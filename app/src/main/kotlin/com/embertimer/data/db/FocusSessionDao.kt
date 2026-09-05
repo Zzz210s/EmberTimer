@@ -18,4 +18,8 @@ interface FocusSessionDao {
 
     @Query("SELECT COUNT(*) FROM focus_session")
     suspend fun count(): Int
+
+    /** 墙钟窗口内全部段(起点升序);供报表时段分布 */
+    @Query("SELECT * FROM focus_session WHERE startAt >= :startMs AND startAt < :endMs ORDER BY startAt")
+    suspend fun betweenMs(startMs: Long, endMs: Long): List<FocusSessionEntity>
 }

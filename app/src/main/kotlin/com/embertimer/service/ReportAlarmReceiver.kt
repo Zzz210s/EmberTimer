@@ -59,7 +59,7 @@ class ReportAlarmReceiver : BroadcastReceiver() {
                 ),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val n = NotificationCompat.Builder(context, TimerNotifications.CH_REPORT)
+        val n = NotificationCompat.Builder(context, TimerNotifications.CH_TIMER)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle(title)
             .setContentText(body)
@@ -67,6 +67,6 @@ class ReportAlarmReceiver : BroadcastReceiver() {
             .setAutoCancel(true)
             .build()
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
-        nm.notify(if (range == ReportRange.WEEK) TimerNotifications.ID_REPORT_WEEK else TimerNotifications.ID_REPORT_MONTH, n)
+        nm.notify(TimerNotifications.ID_NOTIFY, n)
     }
 }

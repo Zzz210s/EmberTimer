@@ -31,8 +31,8 @@ class NotificationsTest {
     @Test fun ensureChannelsCreatesBoth() {
         TimerNotifications.ensureChannels(ctx)
         val nm = ctx.getSystemService(NotificationManager::class.java)
-        assertNotNull(nm.getNotificationChannel(TimerNotifications.CH_PROGRESS))
-        assertNotNull(nm.getNotificationChannel(TimerNotifications.CH_REMINDER))
+        assertNotNull(nm.getNotificationChannel(TimerNotifications.CH_TIMER))
+        assertNotNull(nm.getNotificationChannel(TimerNotifications.CH_TIMER))
     }
 
     /** 三态通知契约:title 为阶段;text 承载循环;运行态 chronometer 倒计时 + 进度条;动作图标 + STOP intent */
@@ -68,7 +68,7 @@ class NotificationsTest {
     @Test fun minimalPlaceholderIsOngoing() {
         TimerNotifications.ensureChannels(ctx)
         val n = TimerNotifications.minimal(ctx)
-        assertEquals(TimerNotifications.CH_PROGRESS, n.channelId)
+        assertEquals(TimerNotifications.CH_TIMER, n.channelId)
         assertEquals(true, (n.flags and android.app.Notification.FLAG_ONGOING_EVENT) != 0)
     }
 

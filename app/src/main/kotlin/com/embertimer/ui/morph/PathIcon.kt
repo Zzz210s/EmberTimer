@@ -54,7 +54,8 @@ fun PathIcon(
             .drawWithCache {
                 val w = this.size.width.toFloat()
                 val s = w / GRID
-                val scaled = Path().apply {
+                // 预缩放一次(路径局部空间成型),逐帧直绘零拷贝(v1.4.3 闪帧修复:静态图标不再每帧建 Path)
+                val scaledIdle = Path().apply {
                     addPath(rawPath)
                     transform(
                         Matrix().apply {
@@ -64,7 +65,7 @@ fun PathIcon(
                     )
                 }
                 onDrawBehind {
-                    drawPath(scaled, tint, style = strokeStylePx(strokeWidth, w))
+                    drawPath(scaledIdle, tint, style = strokeStylePx(strokeWidth, w))
                 }
             },
     )

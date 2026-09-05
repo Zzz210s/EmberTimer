@@ -70,8 +70,8 @@ class ReportAlarmReceiverTest {
     private fun posted(): List<android.app.Notification> {
         val nm = ctx.getSystemService(NotificationManager::class.java)
         return listOf(
-            shadowOf(nm).getNotification(TimerNotifications.ID_REPORT_WEEK),
-            shadowOf(nm).getNotification(TimerNotifications.ID_REPORT_MONTH),
+            shadowOf(nm).getNotification(TimerNotifications.ID_NOTIFY),
+            shadowOf(nm).getNotification(TimerNotifications.ID_NOTIFY),
         ).filterNotNull()
     }
 
@@ -127,8 +127,8 @@ class ReportAlarmReceiverTest {
         // 静置让异步 body 完成,再断言无任何报表通知
         Thread.sleep(400)
         assertNull(shadowOf(ctx.getSystemService(NotificationManager::class.java))
-            .getNotification(TimerNotifications.ID_REPORT_WEEK))
+            .getNotification(TimerNotifications.ID_NOTIFY))
         assertNull(shadowOf(ctx.getSystemService(NotificationManager::class.java))
-            .getNotification(TimerNotifications.ID_REPORT_MONTH))
+            .getNotification(TimerNotifications.ID_NOTIFY))
     }
 }

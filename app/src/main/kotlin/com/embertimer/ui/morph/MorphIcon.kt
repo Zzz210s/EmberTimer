@@ -87,17 +87,18 @@ fun MorphIcon(
                     scale(s, s)
                 }
                 val style = strokeStylePx(strokeWidth, w)
+                // 静止路径预缩放一次(共享实例复用,不再每帧建 Path 拷贝 —— v1.4.3 闪帧修复)
+                val scaledIdle = Path().apply {
+                    addPath(idlePath)
+                    transform(m)
+                }
                 onDrawBehind {
                     val f = flight
                     val p: Path = if (animationsOn && f != null) {
                         // 飞行中:点云(24 栅格)构 Path 后套同一矩阵(每帧新对象,就地变换安全)
                         buildPath(interpolate(f, progress.value), closed).apply { transform(m) }
                     } else {
-                        // 静止:记忆化规范路径(共享实例,不得就地变换,复制后套矩阵)
-                        Path().apply {
-                            addPath(idlePath)
-                            transform(m)
-                        }
+                        scaledIdle
                     }
                     drawPath(p, tint, style = style)
                 }
