@@ -21,6 +21,11 @@ import com.embertimer.ui.report.ReportRange
 import com.embertimer.ui.report.ReportScreen
 import com.embertimer.ui.settings.ProfilesScreen
 import com.embertimer.ui.settings.SettingsScreen
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.Modifier
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.tween
@@ -67,6 +72,8 @@ class MainActivity : ComponentActivity() {
         parseReportExtra(intent)
         setContent {
             EmberTheme {
+                // 全屏底色垫底:切换过渡/透明层永不透出窗口白底(真机 edge-to-edge 闪白修复)
+                Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
                 var screenOrdinal by rememberSaveable { mutableStateOf(Screen.HOME.ordinal) }
                 // 进程恢复兜底:enum 增删/重排后旧序数可能越界,回退主页
                 val screen = Screen.entries.getOrNull(screenOrdinal) ?: Screen.HOME
@@ -127,6 +134,7 @@ class MainActivity : ComponentActivity() {
                 BackHandler {
                     if (screen == Screen.HOME) moveTaskToBack(true)
                     else screenOrdinal = Screen.HOME.ordinal
+                }
                 }
             }
         }
