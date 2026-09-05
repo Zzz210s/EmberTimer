@@ -5,22 +5,21 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** 2026-09-07 是周一;2026-09-01 是周二 */
+/** 2026-09-07 是周一;2026-09-01 是周二;2026-09-09 是周三 */
 class HeatmapModelTest {
-    private val today = LocalDate.of(2026, 9, 9) // 周三
+    private val today = LocalDate.of(2026, 9, 9)
 
     @Test fun emptyDataYieldsCurrentWeekUpToToday() {
         val m = buildHeatmapModel(emptyMap(), today)
         assertEquals(1, m.columns.size)
         assertEquals(3, m.columns[0].cells.size) // 周一..周三
-        assertEquals(listOf("1", "", "3", "", "5", "", ""), m.weekLabels)
     }
 
     @Test fun unusedDaysAreCellsWithNoneNotMissing() {
         val m = buildHeatmapModel(mapOf(today to 3_600_000L), today)
         val cells = m.columns[0].cells
         assertEquals(3, cells.size)
-        assertEquals(HeatLevel.NONE, cells[0].level) // 周一无数据,仍渲染
+        assertEquals(HeatLevel.NONE, cells[0].level)
         assertEquals(0L, cells[0].millis)
         assertEquals(HeatLevel.L2, cells[2].level)
     }
@@ -33,48 +32,34 @@ class HeatmapModelTest {
         assertEquals(HeatLevel.L4, HeatmapLevels.of(4 * 3_600_000L))
     }
 
-    @Test fun monthLabelsAreEnglishAbbreviations() {
-        val d = LocalDate.of(2026, 8, 15) // 有数据的最早日,所在周周一是 8/10
-        val m = buildHeatmapModel(mapOf(d to 60_000L), today)
-        val idx = m.columns.indexOfFirst { it.weekStart == LocalDate.of(2026, 8, 31) }
-        assertTrue(idx > 0)
-        assertEquals(mapOf(idx to "Sep"), m.monthLabels) // 首列(8月)不标;跨月首列标 Sep
+    @Test fun dayCellHasNoJoinFlags() {
+        val d = LocalDate.of(2026, 9, 1)
+        val m = buildHeatmapModel(mapOf(d to 3_600_000L), today)
+        val c = m.columns.flatMap { it.cells }.first { it.date == d }
+        assertEquals(HeatLevel.L2, c.level)
+        // join 字段已随直角渲染移除(编译期保证:DayCell 仅 date/millis/level)
+        assertEquals(d, c.date)
+        assertEquals(3_600_000L, c.millis)
     }
 
-    @Test fun monthLabelCrossesYearBoundary() {
+    @Test fun everyColumnLabeledWithItsWeekStartMonth() {
+        // 跨月数据:9/1 所在周周一是 8/31(8 月),9/8 所在周周一是 9/7(Sep)
+        // 列标签 = 列 weekStart 的月份缩写,故首列为 Aug、次列为 Sep
+        val d1 = LocalDate.of(2026, 9, 1)
+        val d2 = LocalDate.of(2026, 9, 8)
+        val m = buildHeatmapModel(mapOf(d1 to 60_000L, d2 to 60_000L), today)
+        assertTrue(m.columns.size >= 2)
+        assertEquals("Aug", m.monthLabels[0])
+        assertEquals("Sep", m.monthLabels[1])
+    }
+
+    @Test fun monthLabelCrossesYearBoundaryEveryColumn() {
         val m = buildHeatmapModel(
             mapOf(LocalDate.of(2026, 12, 20) to 60_000L),
-            LocalDate.of(2027, 1, 6), // 周三
+            LocalDate.of(2027, 1, 6),
         )
-        assertTrue(m.monthLabels.values.contains("Jan"))
-        // weekStarts: 12/14, 12/21, 12/28, 1/4 -> 1/1 落在第 3 列(col 2);首列不标,Dec 全程不标
-        assertEquals(mapOf(2 to "Jan"), m.monthLabels)
-    }
-
-    @Test fun joinFlagsFollowSameLevelContiguity() {
-        // 周二 9/1、周三 9/2、下周二 9/8 同为 1h(L2);周四 9/3 无数据
-        val days = mapOf(
-            LocalDate.of(2026, 9, 1) to 3_600_000L,
-            LocalDate.of(2026, 9, 2) to 3_600_000L,
-            LocalDate.of(2026, 9, 8) to 3_600_000L,
-        )
-        val m = buildHeatmapModel(days, today)
-        fun cell(d: LocalDate) = m.columns.flatMap { it.cells }.first { it.date == d }
-        val tue = cell(LocalDate.of(2026, 9, 1))
-        assertEquals(HeatLevel.L2, tue.level)
-        assertEquals(false, tue.joinTop)   // 周一 NONE
-        assertEquals(true, tue.joinBottom) // 周三 L2
-        assertEquals(false, tue.joinStart) // 上周二 8/25 早于首列(8/31)且无数据 NONE -> 不融合
-        val wed = cell(LocalDate.of(2026, 9, 2))
-        assertEquals(false, wed.joinBottom) // 周四 NONE
-        val nextTue = cell(LocalDate.of(2026, 9, 8))
-        assertEquals(true, nextTue.joinStart) // 9/1 同级
-    }
-
-    @Test fun firstHistoryColumnNeverJoinsStart() {
-        val m = buildHeatmapModel(mapOf(LocalDate.of(2026, 8, 31) to 0L, today to 0L), today)
-        // 8/31 是数据最早周的周一(实际首列为 8/31 所在周):其左侧越界不得融合
-        val first = m.columns.first().cells.first()
-        assertEquals(false, first.joinStart)
+        // weekStarts: 12/14(Dec), 12/21(Dec), 12/28(Dec), 1/4(Jan) -> 每列都标
+        assertEquals("Dec", m.monthLabels[0])
+        assertEquals("Jan", m.monthLabels[m.columns.lastIndex])
     }
 }

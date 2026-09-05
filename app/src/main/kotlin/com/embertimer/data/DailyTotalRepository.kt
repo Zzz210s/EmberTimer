@@ -3,6 +3,7 @@ package com.embertimer.data
 import androidx.room.withTransaction
 import com.embertimer.data.db.DailyTotalDao
 import com.embertimer.data.db.DailyTotalEntity
+import com.embertimer.data.db.DayProfileTotal
 import com.embertimer.data.db.DayTotal
 import com.embertimer.data.db.EmberDatabase
 import com.embertimer.data.db.ProfileTotal
@@ -27,4 +28,8 @@ class DailyTotalRepository(
     fun profileTotals(): Flow<List<ProfileTotal>> = dao.observeProfileTotals()
 
     suspend fun breakdownByDate(date: String): List<ProfileTotal> = dao.breakdownByDate(date)
+
+    /** 区间内每日每配置明细(from/to 闭区间);供报表按日/按配置在内存聚合 */
+    suspend fun rangeBreakdown(from: String, to: String): List<DayProfileTotal> =
+        dao.rangeBreakdown(from, to)
 }

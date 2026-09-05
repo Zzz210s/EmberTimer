@@ -13,13 +13,12 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -32,6 +31,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
+import com.embertimer.data.db.ProfileMode
 import com.embertimer.timer.DurationFormat
 import com.embertimer.timer.Phase
 import com.embertimer.ui.morph.IconPaths
@@ -39,18 +39,23 @@ import com.embertimer.ui.morph.PathIcon
 import com.embertimer.ui.theme.MotionTokens
 import com.embertimer.ui.theme.rememberAnimationsEnabled
 
-/** 计时卡:阶段文案(D7 交叉交换)+ 大倒计时 + 循环徽标 + 动作区(重排见 TimerActions.kt) */
+/** 计时卡:阶段文案(D7 交叉交换)+ 大数字(倒计时剩余 / 正计时已走)+ 循环徽标 + 动作区(重排见 TimerActions.kt)
+ *  countUp(运行快照或当前配置为正计时)时:无到期/循环概念 → 徽标隐藏;skip 引擎已 no-op → 键隐藏 */
 @Composable
 internal fun TimerCard(
     ui: HomeUiState,
-    remaining: Long,
+    displayMillis: Long,
     onStart: () -> Unit,
     onPause: () -> Unit,
     onResume: () -> Unit,
     onSkip: () -> Unit,
     onStop: () -> Unit,
+    onGoSettings: () -> Unit,
 ) {
     val snap = ui.snap
+    val empty = ui.profiles.isEmpty()
+    val countUpActive = snap?.countUp == true ||
+        ui.profiles.firstOrNull { it.id == ui.activeProfileId }?.mode == ProfileMode.COUNTUP
     val animationsOn = rememberAnimationsEnabled()
     Card(Modifier.fillMaxWidth()) {
         Column(
@@ -86,11 +91,18 @@ internal fun TimerCard(
             } else {
                 Text(phaseText, style = MaterialTheme.typography.titleMedium)
             }
-            Text(
-                DurationFormat.ms(remaining),
-                style = MaterialTheme.typography.displayMedium,
-            )
-            CycleBadge(count = snap?.cycleCount ?: 0, animationsOn = animationsOn)
+            // #3 空态引导:无配置时倒计时数字位换文案(数字必为 00:00,无意义),
+            // 开始键维持 disabled(activeProfileId == -1),另提供直达设置的按钮
+            if (empty) {
+                Text("先新建一个计时配置", style = MaterialTheme.typography.titleLarge)
+                TextButton(onClick = onGoSettings) { Text("去设置新建") }
+            } else {
+                Text(
+                    DurationFormat.ms(displayMillis),
+                    style = MaterialTheme.typography.displayMedium,
+                )
+                if (!countUpActive) CycleBadge(count = snap?.cycleCount ?: 0, animationsOn = animationsOn)
+            }
             val haptic = LocalHapticFeedback.current
             fun act(perform: () -> Unit) {
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -100,6 +112,7 @@ internal fun TimerCard(
                 status = snap?.status,
                 startEnabled = ui.ready && ui.activeProfileId != -1L,
                 animationsOn = animationsOn,
+                showSkip = !countUpActive,
                 onStart = { act(onStart) },
                 onPause = { act(onPause) },
                 onResume = { act(onResume) },
@@ -110,7 +123,8 @@ internal fun TimerCard(
     }
 }
 
-/** D4:循环徽标;count 递增时 repeat 图标弹跳一次(scale 1->1.25->1,约 220ms),animationsOn=false 时无动画 */
+/** D4:循环徽标(仅图标);count 递增时 repeat 图标弹跳一次(scale 1->1.25->1,约 220ms),animationsOn=false 时无动画。
+ * 数字由 PathIcon 的 contentDescription 承载(TalkBack 可读),不渲染可见文本。 */
 @Composable
 internal fun CycleBadge(count: Int, animationsOn: Boolean, modifier: Modifier = Modifier) {
     val scale = remember { Animatable(1f) }
@@ -119,12 +133,10 @@ internal fun CycleBadge(count: Int, animationsOn: Boolean, modifier: Modifier = 
         PathIcon(
             d = IconPaths.REPEAT,
             size = 16.dp,
-            contentDescription = null, // 装饰性:数值紧随其后,语义由 Text 承载
+            contentDescription = "循环 $count",
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.graphicsLayer { scaleX = scale.value; scaleY = scale.value },
         )
-        Spacer(Modifier.width(4.dp))
-        Text("循环 $count", style = MaterialTheme.typography.bodyMedium)
     }
     LaunchedEffect(count) {
         if (count > lastCount) {

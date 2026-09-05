@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.embertimer.data.ReminderIntensity
 import com.embertimer.data.db.ProfileEntity
+import com.embertimer.data.db.ProfileMode
 import com.embertimer.di.AppGraph
 import com.embertimer.timer.EnginePolicy
 import com.embertimer.timer.PolicyAction
@@ -47,16 +48,17 @@ class SettingsViewModel(val graph: AppGraph) : ViewModel() {
         }
     }
 
-    suspend fun createProfile(name: String, workMinutes: Int, restMinutes: Int): Long =
-        graph.profileRepo.create(name, workMinutes, restMinutes)
+    suspend fun createProfile(name: String, workMinutes: Int, restMinutes: Int, mode: Int): Long =
+        // 对话框带模式选择(新建缺省倒计时由对话框状态决定);禁缺省:模式是显式用户选择
+        graph.profileRepo.create(name, workMinutes, restMinutes, mode)
 
     suspend fun renameProfile(id: Long, name: String) = graph.profileRepo.rename(id, name)
 
-    /** @return true 时调用方需发 TimerCommands.restartPhase */
-    suspend fun editDurations(p: ProfileEntity, workMinutes: Int, restMinutes: Int): Boolean {
+    /** @return true 时调用方需发 TimerCommands.restartPhase(mode 参数为对话框当前选中的模式) */
+    suspend fun editDurations(p: ProfileEntity, workMinutes: Int, restMinutes: Int, mode: Int): Boolean {
         val action = EnginePolicy.onEditDurations(graph.engine.snapshot.value, p.id)
         if (action == PolicyAction.IGNORED) return false
-        graph.profileRepo.updateDurations(p.id, workMinutes, restMinutes)
+        graph.profileRepo.updateDurations(p.id, workMinutes, restMinutes, mode)
         return action == PolicyAction.RESTART_PHASE
     }
 

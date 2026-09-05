@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.embertimer.EmberApp
+import com.embertimer.data.db.ProfileMode
 import com.embertimer.service.ServiceLauncher
 import com.embertimer.service.TimerCommands
 import com.embertimer.timer.DurationFormat
@@ -52,15 +53,21 @@ fun HomeScreen(onSettings: () -> Unit) {
     val dayDetail by vm.dayDetail.collectAsStateWithLifecycle()
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
-    var remaining by remember { mutableLongStateOf(0L) }
+    // Task 7 / #10:数字位 = 倒计时剩余 / 正计时已走(计到快照,暂停定格)。
+    // countUp elapsed 由 accruedWork 换算(phase 恒 WORK;倒计时分支保持既有 remaining 语义)
+    var displayMillis by remember { mutableLongStateOf(0L) }
 
-    LaunchedEffect(ui.snap?.status, ui.snap?.endElapsed, ui.snap?.timeAtPause) {
+    LaunchedEffect(
+        ui.snap?.status, ui.snap?.endElapsed, ui.snap?.timeAtPause,
+        ui.snap?.startElapsed, ui.snap?.countUp,
+    ) {
         while (true) {
-            remaining = ui.snap?.let { s ->
-                when (s.status) {
-                    EngineStatus.RUNNING -> s.remaining(vm.time.elapsedRealtime())
-                    EngineStatus.PAUSED -> s.timeAtPause
-                    EngineStatus.IDLE -> 0L
+            displayMillis = ui.snap?.let { s ->
+                when {
+                    s.countUp -> s.accruedWork(vm.time.elapsedRealtime())
+                    s.status == EngineStatus.RUNNING -> s.remaining(vm.time.elapsedRealtime())
+                    s.status == EngineStatus.PAUSED -> s.timeAtPause
+                    else -> 0L
                 }
             } ?: 0L
             delay(250)
@@ -78,7 +85,7 @@ fun HomeScreen(onSettings: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("EmberTimer") },
+                title = {},
                 navigationIcon = {
                     IconButton(onClick = onSettings) { PathIcon(IconPaths.SETTINGS, size = 24.dp, contentDescription = "设置") }
                 },
@@ -92,16 +99,24 @@ fun HomeScreen(onSettings: () -> Unit) {
             ProfileChips(ui, onSelect = { p ->
                 scope.launch {
                     if (vm.selectProfile(p)) {
-                        TimerCommands.restartPhase(ctx, p.id, p.workMinutes * 60_000L, p.restMinutes * 60_000L)
+                        // 正计时判定来自目标配置(Task 7):暂停中切换/重启会以新 profile 模式重开
+                        TimerCommands.restartPhase(
+                            ctx, p.id, p.workMinutes * 60_000L, p.restMinutes * 60_000L,
+                            countUp = p.mode == ProfileMode.COUNTUP,
+                        )
                     }
                 }
             })
-            TimerCard(ui, remaining, onStart = {
+            TimerCard(ui, displayMillis, onStart = {
                 ui.profiles.firstOrNull { it.id == ui.activeProfileId }?.let { p ->
-                    TimerCommands.start(ctx, p.id, p.workMinutes * 60_000L, p.restMinutes * 60_000L)
+                    TimerCommands.start(
+                        ctx, p.id, p.workMinutes * 60_000L, p.restMinutes * 60_000L,
+                        countUp = p.mode == ProfileMode.COUNTUP,
+                    )
                 }
             }, onPause = { TimerCommands.pause(ctx) }, onResume = { TimerCommands.resume(ctx) },
-                onSkip = { TimerCommands.skip(ctx) }, onStop = { TimerCommands.stop(ctx) })
+                onSkip = { TimerCommands.skip(ctx) }, onStop = { TimerCommands.stop(ctx) },
+                onGoSettings = onSettings)
             Text("今日 " + DurationFormat.hm(ui.todayMillis), style = MaterialTheme.typography.titleMedium)
             Card {
                 Column(Modifier.padding(12.dp)) {
@@ -119,6 +134,15 @@ fun HomeScreen(onSettings: () -> Unit) {
 @Composable
 private fun ProfileChips(ui: HomeUiState, onSelect: (com.embertimer.data.db.ProfileEntity) -> Unit) {
     val running = ui.snap?.status == EngineStatus.RUNNING
+    if (ui.profiles.isEmpty()) {
+        // #3 首装空态:无配置时 chips 行让位给引导文案,入口在下方计时卡“去设置新建”
+        Text(
+            "还没有配置,先去设置新建",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        return
+    }
     // 横向滚动:设置页可建多配置后 chips 可能超出屏宽(Task 13 评审 H5,路由到本任务)
     Row(
         Modifier.horizontalScroll(rememberScrollState()),

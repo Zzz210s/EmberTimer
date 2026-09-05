@@ -28,14 +28,19 @@ sealed interface EventEffect {
  *
  * settleMillis <= 0 不产生 Settle 效果(决策层直接省略;flushSettle 的同款守卫
  * 保留作纵深防御,pin 见 EventPolicyTest)。
+ *
+ * Arm 门控(Task 7 / #10):正计时永不到期,start/resume/重启均不得武装阶段到期精确闹钟。
+ * countUp 由后继快照携带(PhaseStarted/Resumed/PhaseRestarted 落地时快照必为本次运行态,
+ * countUp 事件只可能由倒计时语义之外的路径产生);countDown 后继无此标志 → 行为逐字节不变。
  */
 object EventPolicy {
     fun decide(ev: EngineEvent, successorSnapshot: RuntimeSnapshot?): List<EventEffect> = when (ev) {
-        is EngineEvent.PhaseStarted -> listOf(
-            EventEffect.Arm(ev.endElapsed),
-            EventEffect.ForceCheckpoint,
-        )
-        is EngineEvent.Resumed -> listOf(EventEffect.Arm(ev.endElapsed))
+        is EngineEvent.PhaseStarted -> buildList {
+            if (successorSnapshot?.countUp != true) add(EventEffect.Arm(ev.endElapsed))
+            add(EventEffect.ForceCheckpoint)
+        }
+        is EngineEvent.Resumed ->
+            if (successorSnapshot?.countUp == true) emptyList() else listOf(EventEffect.Arm(ev.endElapsed))
         is EngineEvent.Paused -> listOf(EventEffect.CancelAlarm)
         is EngineEvent.PhaseFinished -> buildList {
             add(EventEffect.CancelAlarm)
@@ -47,7 +52,7 @@ object EventPolicy {
         is EngineEvent.PhaseRestarted -> buildList {
             add(EventEffect.CancelAlarm)
             settle(ev.settleMillis, ev.profileId)?.let(::add)
-            add(EventEffect.Arm(ev.endElapsed))
+            if (successorSnapshot?.countUp != true) add(EventEffect.Arm(ev.endElapsed))
         }
         is EngineEvent.Reset -> buildList {
             add(EventEffect.CancelAlarm)

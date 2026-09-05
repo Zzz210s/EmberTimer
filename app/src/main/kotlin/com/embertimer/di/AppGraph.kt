@@ -15,6 +15,7 @@ import com.embertimer.data.db.EmberDatabase
 import com.embertimer.timer.SystemTimeProvider
 import com.embertimer.timer.TimerEngine
 import com.embertimer.ui.home.HomeViewModel
+import com.embertimer.ui.report.ReportViewModel
 import com.embertimer.ui.settings.SettingsViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -37,6 +38,7 @@ class AppGraph(
         // Robolectric legacy SQLite 影子按线程登记连接指针,Room 池化连接跨 arch_disk_io 线程
         // 复用会触发 Illegal connection pointer;测试路径用直通执行器把查询钉在调用线程上
         Room.inMemoryDatabaseBuilder(context, EmberDatabase::class.java)
+            .addMigrations(EmberDatabase.MIGRATION_1_2)
             .allowMainThreadQueries()
             .setQueryExecutor(directExecutor)
             .setTransactionExecutor(directExecutor)
@@ -66,10 +68,11 @@ class AppGraph(
         // graph 即 this@AppGraph,闭包捕获(字面 graph 无成员可解析,需显式标签)
         initializer { HomeViewModel(this@AppGraph) }
         initializer { SettingsViewModel(this@AppGraph) }
+        initializer { ReportViewModel(this@AppGraph) }
     }
 
+    // #3:首装不再种默认配置,空库由主页空态引导;bootstrap 只负责引擎冷启动恢复
     suspend fun bootstrap() {
-        profileRepo.seedIfEmpty()
         engine.restore(runtimeStore.flow.first())
     }
 

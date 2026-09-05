@@ -58,7 +58,7 @@ class TimerEngine(
         save()
     }
 
-    fun start(profileId: Long, workMillis: Long, restMillis: Long) {
+    fun start(profileId: Long, workMillis: Long, restMillis: Long, countUp: Boolean = false) {
         val cur = _snapshot.value
         if (cur != null && cur.status != EngineStatus.IDLE) return
         val e = el; val w = wall
@@ -67,7 +67,7 @@ class TimerEngine(
             phase = Phase.WORK, status = EngineStatus.RUNNING, cycleCount = 0,
             startElapsed = e, endElapsed = e + workMillis, endWall = w + workMillis,
             timeSpentPaused = 0, lastPauseTime = 0, timeAtPause = 0,
-            savedAtWall = w, savedAtElapsed = e, ckptDate = null, ckptAccum = 0,
+            savedAtWall = w, savedAtElapsed = e, ckptDate = null, ckptAccum = 0, countUp = countUp,
         )
         save()
         emit(EngineEvent.PhaseStarted(Phase.WORK, e + workMillis, w + workMillis))
@@ -77,7 +77,8 @@ class TimerEngine(
         val cur = _snapshot.value ?: return
         if (cur.status != EngineStatus.RUNNING) return
         val e = el; val w = wall
-        val atPause = (cur.endElapsed - e).coerceAtLeast(0)
+        // 暂停存“剩余”(倒计时)或“暂停时已走时长”(正计时 accrued,可超 workMillis)
+        val atPause = (if (cur.countUp) (e - cur.startElapsed - cur.timeSpentPaused) else (cur.endElapsed - e)).coerceAtLeast(0)
         _snapshot.value = cur.copy(
             status = EngineStatus.PAUSED, timeAtPause = atPause, lastPauseTime = e,
             savedAtWall = w, savedAtElapsed = e,
@@ -90,13 +91,13 @@ class TimerEngine(
         val cur = _snapshot.value ?: return
         if (cur.status != EngineStatus.PAUSED) return
         val e = el; val w = wall
-        // 重锚 elapsed 时钟:先冻结已累计的工作量,再重设 startElapsed。
-        // 设备重启后旧 startElapsed/lastPauseTime 锚点已失效(单调钟清零),若只平移 end,
-        // accruedWork 会坍缩向 0,导致 ckptAccum 游标倒退、已落库工作量被重复计数。
-        val frozenAccrued = (cur.lastPauseTime - cur.startElapsed - cur.timeSpentPaused)
-            .coerceIn(0, cur.durationMillis)
-        val newEnd = e + cur.timeAtPause
-        val newEndWall = w + cur.timeAtPause
+        // 重锚 elapsed:冻结已走量后重设 startElapsed(重启单调钟清零时只平移 end 会坍缩/游标倒退);
+        // countUp 不封顶,end=start+名义跨度(倒计时 timeAtPause=剩余,end=当前+剩余)
+        val frozenAccrued = (cur.lastPauseTime - cur.startElapsed - cur.timeSpentPaused).let {
+            if (cur.countUp) it.coerceAtLeast(0) else it.coerceIn(0, cur.durationMillis)
+        }
+        val newEnd = if (cur.countUp) e - frozenAccrued + cur.durationMillis else e + cur.timeAtPause
+        val newEndWall = if (cur.countUp) w - frozenAccrued + cur.durationMillis else w + cur.timeAtPause
         _snapshot.value = cur.copy(
             status = EngineStatus.RUNNING,
             startElapsed = e - frozenAccrued,
@@ -121,12 +122,14 @@ class TimerEngine(
     fun onExpired() {
         val cur = _snapshot.value ?: return
         if (cur.status != EngineStatus.RUNNING) return
+        if (cur.countUp) return // 正计时永不到期:不推进、不结算(Task 6 硬契约)
         if (el < cur.endElapsed) return
         finishAndAdvance(cur, settleAtElapsed = cur.endElapsed, auto = true)
     }
 
     fun skip() {
         val cur = _snapshot.value ?: return
+        if (cur.countUp) return // 正计时 skip 为 no-op:不结算、不推进、不发事件(Task 6 硬契约)
         when (cur.status) {
             EngineStatus.RUNNING -> finishAndAdvance(cur, settleAtElapsed = el.coerceAtMost(cur.endElapsed), auto = false)
             EngineStatus.PAUSED -> finishAndAdvance(cur, settleAtElapsed = cur.lastPauseTime, auto = false)
@@ -136,7 +139,8 @@ class TimerEngine(
 
     fun reset() {
         val cur = _snapshot.value ?: return
-        val settleAt = if (cur.status == EngineStatus.RUNNING) el.coerceAtMost(cur.endElapsed) else cur.lastPauseTime
+        val settleAt = if (cur.status != EngineStatus.RUNNING) cur.lastPauseTime
+            else if (cur.countUp) el else el.coerceAtMost(cur.endElapsed) // 正计时全额结算(可超 workMillis)
         val settle = cur.settleMillis(settleAt)
         val profileId = cur.profileId
         _snapshot.value = null
@@ -144,22 +148,21 @@ class TimerEngine(
         emit(EngineEvent.Reset(settle, profileId))
     }
 
-    fun restartPhase(profileId: Long, workMillis: Long, restMillis: Long) {
+    fun restartPhase(profileId: Long, workMillis: Long, restMillis: Long, countUp: Boolean = false) {
         val cur = _snapshot.value ?: return
         if (cur.status != EngineStatus.PAUSED) return
-        val settle = cur.settleMillis(cur.lastPauseTime)
-        val dur = if (cur.phase == Phase.WORK) workMillis else restMillis
+        val dur = if (countUp || cur.phase == Phase.WORK) workMillis else restMillis
         val e = el; val w = wall
         _snapshot.value = RuntimeSnapshot(
             profileId = profileId, workMillis = workMillis, restMillis = restMillis,
-            phase = cur.phase, status = EngineStatus.RUNNING, cycleCount = cur.cycleCount,
-            startElapsed = e, endElapsed = e + dur, endWall = w + dur,
+            phase = if (countUp) Phase.WORK else cur.phase, status = EngineStatus.RUNNING,
+            cycleCount = cur.cycleCount, startElapsed = e, endElapsed = e + dur, endWall = w + dur,
             timeSpentPaused = 0, lastPauseTime = 0, timeAtPause = 0,
-            savedAtWall = w, savedAtElapsed = e, ckptDate = null, ckptAccum = 0,
+            savedAtWall = w, savedAtElapsed = e, ckptDate = null, ckptAccum = 0, countUp = countUp,
         )
         save()
-        // 结算归属旧 profile(cur.profileId):换 profile 重开时已累计工作量不跟新 profile 走
-        emit(EngineEvent.PhaseRestarted(cur.phase, settle, cur.profileId, e + dur, w + dur))
+        // 结算归属旧 profile:换 profile 重开时已累计工作量不跟新 profile 走
+        emit(EngineEvent.PhaseRestarted(cur.phase, cur.settleMillis(cur.lastPauseTime), cur.profileId, e + dur, w + dur))
     }
 
     private fun finishAndAdvance(cur: RuntimeSnapshot, settleAtElapsed: Long, auto: Boolean) {
@@ -173,7 +176,7 @@ class TimerEngine(
             phase = next, status = EngineStatus.RUNNING, cycleCount = cycle,
             startElapsed = e, endElapsed = e + dur, endWall = w + dur,
             timeSpentPaused = 0, lastPauseTime = 0, timeAtPause = 0,
-            savedAtWall = w, savedAtElapsed = e, ckptDate = null, ckptAccum = 0,
+            savedAtWall = w, savedAtElapsed = e, ckptDate = null, ckptAccum = 0, countUp = cur.countUp,
         )
         save()
         emit(EngineEvent.PhaseFinished(cur.phase, settle, cur.profileId, next, auto))

@@ -20,10 +20,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Button
 import androidx.compose.material3.FilledIconToggleButton
 import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -51,11 +49,11 @@ private fun Modifier.pressScale(pressed: Boolean): Modifier = composed {
 }
 
 /**
- * D6 动作区重排:空闲「开始」文字钮 ⇄ 运行态三键行(暂停 72dp + 跳过 56dp + 终止 56dp)。
- * 容器 AnimatedContent 的键是 isIdle 而非 status —— RUNNING⇄PAUSED 不触发容器过渡,
- * 中央 MorphIcon 在同一组合槽内就地形变、两翼静止。IDLE⇄运行态才做槽位交换:
- * 开始钮上滑淡出(TextSwapExit 时长,与状态文本同族),三键行本体不挂容器入场,
- * 由各键 StaggerKey 自带错峰展开(中央 0ms 原位、跳过 +40ms、终止 +80ms 自下滑入);
+ * D6 动作区重排:空闲「开始」播放图标键 ⇄ 运行态三键行(56dp 统一:暂停/恢复 · 终止 · 跳过,
+ * 见 v1.0 #9/#11/#8)。容器 AnimatedContent 的键是 isIdle 而非 status —— RUNNING⇄PAUSED
+ * 不触发容器过渡,MorphIcon 在原组合槽内就地形变、另两键原位静止。IDLE⇄运行态才做槽位交换:
+ * 开始键上滑淡出(TextSwapExit 时长,与状态文本同族),三键行本体不挂容器入场,
+ * 由各键 StaggerKey 自带错峰展开(暂停/恢复 0ms 原位、终止 +40ms、跳过 +80ms 自下滑入);
  * 反向(终止回空闲)以 0.6x 时长收拢。animationsOn=false 时 snap 直切。
  */
 @Composable
@@ -63,6 +61,7 @@ internal fun ActionZone(
     status: EngineStatus?,
     startEnabled: Boolean,
     animationsOn: Boolean,
+    showSkip: Boolean,
     onStart: () -> Unit,
     onPause: () -> Unit,
     onResume: () -> Unit,
@@ -95,19 +94,26 @@ internal fun ActionZone(
         label = "actionZone",
     ) { idle ->
         if (idle) {
-            // 开始保留文字主按钮(空态唯一入口,图标歧义大)
-            Button(onClick = onStart, enabled = startEnabled) { Text("开始") }
+            // #9 开始改图标键:PLAY 外观与暂停态「恢复」键同款,播放语义连贯
+            FilledTonalIconButton(
+                onClick = onStart,
+                enabled = startEnabled,
+                modifier = Modifier.size(56.dp),
+            ) {
+                PathIcon(d = IconPaths.PLAY, size = 24.dp, contentDescription = "开始")
+            }
         } else {
-            ActiveKeys(status, animationsOn, onPause, onResume, onSkip, onStop)
+            ActiveKeys(status, animationsOn, showSkip, onPause, onResume, onSkip, onStop)
         }
     }
 }
 
-/** 运行态三键行:暂停/恢复共用同一组合槽,跳过/终止分列两翼(触控语义 72/56/56 不变) */
+/** 运行态动作行(#11 均 56dp;顺序 #8 暂停/恢复 · 终止 · 跳过;正计时无 skip 语义 → 键不渲染) */
 @Composable
 private fun ActiveKeys(
     status: EngineStatus?,
     animationsOn: Boolean,
+    showSkip: Boolean,
     onPause: () -> Unit,
     onResume: () -> Unit,
     onSkip: () -> Unit,
@@ -120,13 +126,13 @@ private fun ActiveKeys(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(20.dp),
     ) {
-        StaggerKey(animationsOn, delaySteps = 0, slide = 0.dp) { // 中央键原位展开(不滑入)
+        StaggerKey(animationsOn, delaySteps = 0, slide = 0.dp) { // 暂停/恢复键原位展开(不滑入)
             val interaction = remember { MutableInteractionSource() }
             val pressed by interaction.collectIsPressedAsState()
             FilledIconToggleButton(
                 checked = running,
                 onCheckedChange = { if (running) onPause() else onResume() },
-                modifier = Modifier.size(72.dp),
+                modifier = Modifier.size(56.dp),
                 interactionSource = interaction,
             ) {
                 MorphIcon(
@@ -139,13 +145,15 @@ private fun ActiveKeys(
             }
         }
         StaggerKey(animationsOn, delaySteps = 1) {
-            FilledTonalIconButton(onClick = onSkip, modifier = Modifier.size(56.dp)) {
-                PathIcon(d = IconPaths.SKIP, size = 24.dp, contentDescription = "跳过")
-            }
-        }
-        StaggerKey(animationsOn, delaySteps = 2) {
             FilledTonalIconButton(onClick = onStop, modifier = Modifier.size(56.dp)) {
                 PathIcon(d = IconPaths.STOP, size = 24.dp, contentDescription = "终止")
+            }
+        }
+        if (showSkip) {
+            StaggerKey(animationsOn, delaySteps = 2) {
+                FilledTonalIconButton(onClick = onSkip, modifier = Modifier.size(56.dp)) {
+                    PathIcon(d = IconPaths.SKIP, size = 24.dp, contentDescription = "跳过")
+                }
             }
         }
     }

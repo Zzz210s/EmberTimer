@@ -16,7 +16,6 @@ import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -41,25 +40,26 @@ class AppGraphTest {
         }
     }
 
-    @Test fun bootstrapSeedsAndEnginePersists() = runTest {
+    @Test fun bootstrapSkipsSeedingAndEnginePersists() = runTest {
         val g1 = AppGraph(ctx, useInMemoryDb = true, storeFileName = "graph_persist").also { graph = it }
         g1.bootstrap()
-        assertTrue(g1.profileRepo.count() >= 1)
-        // 用非 Flow 访问取种子行:observeAll 会启动 Room Invalidation Tracker,
+        // #3 首装空库:bootstrap 只做引擎恢复,不种默认配置
+        assertEquals(0, g1.profileRepo.count())
+        // 用非 Flow 访问取行:observeAll 会启动 Room Invalidation Tracker,
         // 其后台刷新线程在 Robolectric 按线程登记的 legacy SQLite 影子下会 Illegal connection pointer
-        val p = g1.profileRepo.byId(1L)!!
+        val id = g1.profileRepo.create("测试", 25, 5)
         g1.engine.restore(null)
-        g1.engine.start(p.id, 60_000L, 30_000L)
+        g1.engine.start(id, 60_000L, 30_000L)
         // appScope 是真实 Default dispatcher,轮询等待 persist 完成
         val deadline = System.currentTimeMillis() + 2_000
         var saved: RuntimeSnapshot? = null
         while (System.currentTimeMillis() < deadline) {
             saved = g1.runtimeStore.flow.first()
-            if (saved != null && saved.profileId == p.id) break
+            if (saved != null && saved.profileId == id) break
             Thread.sleep(50)
         }
         assertNotNull(saved)
-        assertEquals(p.id, saved!!.profileId)
+        assertEquals(id, saved!!.profileId)
         // 冷启动恢复路径由 SettingsStoreTest.runtimeStateRoundTrip + RuntimeStateCodecTest 覆盖
     }
 }
