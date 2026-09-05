@@ -84,8 +84,10 @@ internal fun HomeTopBar(
                 if (ui.profiles.isEmpty()) { onManageProfiles(); return@clickable }
                 open = if (open == HomePanel.PROFILE) null else HomePanel.PROFILE
             }, contentAlignment = Alignment.Center) {
-                val activeName = ui.profiles.firstOrNull { it.id == ui.activeProfileId }?.name
-                    ?: stringResource(R.string.unselected_placeholder)
+                val placeholder = stringResource(R.string.unselected_placeholder)
+                val activeName = ui.profiles.firstOrNull { it.id == ui.activeProfileId }?.name ?: placeholder
+                val nameColor = if (activeName == placeholder) MaterialTheme.colorScheme.onSurfaceVariant
+                else MaterialTheme.colorScheme.onSurface
                 val rotation by animateFloatAsState(if (open == HomePanel.PROFILE) 180f else 0f, label = "chevron")
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (animationsOn) {
@@ -100,9 +102,9 @@ internal fun HomeTopBar(
                                     )
                             },
                             label = "profileNameSwap",
-                        ) { name -> Text(name, style = MaterialTheme.typography.titleMedium) }
+                        ) { name -> Text(name, style = MaterialTheme.typography.titleMedium, color = nameColor) }
                     } else {
-                        Text(activeName, style = MaterialTheme.typography.titleMedium)
+                        Text(activeName, style = MaterialTheme.typography.titleMedium, color = nameColor)
                     }
                     Spacer(Modifier.width(4.dp))
                     PathIcon(
