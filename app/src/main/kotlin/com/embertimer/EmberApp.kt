@@ -13,5 +13,7 @@ open class EmberApp : Application() {
         graph = AppGraph(this)
         graph.bootstrapAsync()
         TimerNotifications.ensureChannels(this)
+        // v1.1 #5:报表通知闹钟(周日/月末 23:00)——每次进程冷启/开机补武装(闹钟不跨重启)
+        com.embertimer.service.ReportAlarmScheduler(this).ensure()
     }
 }

@@ -1,6 +1,15 @@
 package com.embertimer.ui.report
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import com.embertimer.ui.theme.MotionTokens
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,6 +27,7 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,10 +43,12 @@ import com.embertimer.ui.morph.PathIcon
 /** 设置页「周报/月报」入口打开的报表屏:周/月切换 + 明细 + 尾部各配置合计 + 空态 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ReportScreen(onBack: () -> Unit) {
+fun ReportScreen(onBack: () -> Unit, initialRange: ReportRange = ReportRange.WEEK) {
     val app = LocalContext.current.applicationContext as EmberApp
     val vm: ReportViewModel = viewModel(factory = app.graph.vmFactory)
     val ui by vm.ui.collectAsStateWithLifecycle()
+    // v1.1 顶栏汉堡/设置入口携带预选范围:VM 常驻 activity 级 store,每次进屏重放 setRange
+    LaunchedEffect(initialRange) { vm.setRange(initialRange) }
     // 系统返回等同 Toolbar BACK:REPORT -> SETTINGS(pop),不结束 Activity
     BackHandler(onBack = onBack)
 
@@ -64,20 +76,33 @@ fun ReportScreen(onBack: () -> Unit) {
                     ) { Text(label) }
                 }
             }
-            if (ui.rows.isEmpty()) {
-                Text(
-                    "本期无专注记录",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            } else {
-                ui.rows.forEach { row -> TotalRow(row.label, row.millis) }
-                Text(
-                    "各配置合计",
-                    style = MaterialTheme.typography.titleSmall,
-                    modifier = Modifier.padding(top = 8.dp),
-                )
-                ui.profileTotals.forEach { p -> TotalRow(p.profileName, p.millis) }
+            // v1.1 #7:周/月切换时内容交叉过渡(进 160 出 100,轻上移);关闭动画直切
+            AnimatedContent(
+                targetState = ui.range,
+                transitionSpec = {
+                    val enterMs = MotionTokens.TextSwapEnter.durationMillis
+                    val exitMs = MotionTokens.TextSwapExit.durationMillis
+                    (fadeIn(tween(enterMs)) + slideInVertically(tween(enterMs)) { it / 6 })
+                        .togetherWith(fadeOut(tween(exitMs)) + slideOutVertically(tween(exitMs)) { -it / 6 })
+                        .using(SizeTransform(clip = false))
+                },
+                label = "reportRange",
+            ) { _ ->
+                if (ui.rows.isEmpty()) {
+                    Text(
+                        "本期无专注记录",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
+                    ui.rows.forEach { row -> TotalRow(row.label, row.millis) }
+                    Text(
+                        "各配置合计",
+                        style = MaterialTheme.typography.titleSmall,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                    ui.profileTotals.forEach { p -> TotalRow(p.profileName, p.millis) }
+                }
             }
         }
     }

@@ -17,8 +17,11 @@ import com.embertimer.timer.RuntimeSnapshot
 object TimerNotifications {
     const val CH_PROGRESS = "ember_progress"
     const val CH_REMINDER = "ember_reminder"
+    const val CH_REPORT = "ember_report"
     const val ID_PROGRESS = 1
     const val ID_REMINDER = 2
+    const val ID_REPORT_WEEK = 10
+    const val ID_REPORT_MONTH = 11
 
     fun ensureChannels(context: Context) {
         val nm = context.getSystemService(NotificationManager::class.java) ?: return
@@ -32,6 +35,12 @@ object TimerNotifications {
             NotificationChannel(CH_REMINDER, "阶段提醒", NotificationManager.IMPORTANCE_HIGH).apply {
                 setSound(null, null) // 铃声由 ReminderPlayer 播放
                 enableVibration(false) // 震动由 ReminderPlayer 播放
+            }
+        )
+        nm.createNotificationChannel(
+            NotificationChannel(CH_REPORT, "专注报表", NotificationManager.IMPORTANCE_DEFAULT).apply {
+                setSound(null, null)
+                setShowBadge(false)
             }
         )
     }

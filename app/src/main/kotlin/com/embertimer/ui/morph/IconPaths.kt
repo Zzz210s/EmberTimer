@@ -22,7 +22,11 @@ object IconPaths {
     const val SETTINGS = "M9.671,4.136 a2.34,2.34 0 0 1 4.659,0 a2.34,2.34 0 0 0 3.319,1.915 a2.34,2.34 0 0 1 2.33,4.033 a2.34,2.34 0 0 0 0,3.831 a2.34,2.34 0 0 1 -2.33,4.033 a2.34,2.34 0 0 0 -3.319,1.915 a2.34,2.34 0 0 1 -4.659,0 a2.34,2.34 0 0 0 -3.32,-1.915 a2.34,2.34 0 0 1 -2.33,-4.033 a2.34,2.34 0 0 0 0,-3.831 a2.34,2.34 0 0 1 2.33,-4.033 a2.34,2.34 0 0 0 3.319,-1.915 z M12,9 a3,3 0 1 0 0.001,6 a3,3 0 1 0 -0.001,-6 z"
     /** 返回箭头:左箭头 + 横杆(与 ic_arrow_back.xml 两个 <path> 内容逐字节一致,静态图标) */
     const val BACK = "M12,19 l-7,-7 l7,-7 M19,12 L5,12"
+    /** 汉堡菜单:三横线(v1.1 顶栏 actions 报表入口,静态图标,无 XML 对应) */
+    const val MENU = "M4,6 L20,6 M4,12 L20,12 M4,18 L20,18"
+    /** 下拉展开箭头:V 形(v1.1 顶栏中央配置下拉指示,静态图标,无 XML 对应) */
+    const val CHEVRON_DOWN = "M6,9 L12,15 L18,9"
 
-    /** 全部 7 个图标,供测试遍历(24 栅格合法性/可解析性守卫)。 */
-    val ALL: List<String> = listOf(PLAY, PAUSE, SKIP, STOP, REPEAT, SETTINGS, BACK)
+    /** 全部 9 个图标,供测试遍历(24 栅格合法性/可解析性守卫)。 */
+    val ALL: List<String> = listOf(PLAY, PAUSE, SKIP, STOP, REPEAT, SETTINGS, BACK, MENU, CHEVRON_DOWN)
 }

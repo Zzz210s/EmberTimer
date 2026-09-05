@@ -38,28 +38,31 @@ private val MONTH_ABBREVIATIONS = mapOf(
     Month.OCTOBER to "Oct", Month.NOVEMBER to "Nov", Month.DECEMBER to "Dec",
 )
 
-/** 全历史构建:窗口从最早数据所在周的周一到 today 所在周;未使用日为 0 值格子(不消失) */
+/** 全历史构建:窗口从最早数据所在周的周一到 today 所在周;首记录前的日期不产出格子(纯空白) */
 fun buildHeatmapModel(days: Map<LocalDate, Long>, today: LocalDate): HeatmapModel {
-    val first = (days.keys.minOrNull() ?: today).with(DayOfWeek.MONDAY)
+    val firstDataDate = days.keys.minOrNull() ?: today
+    val first = firstDataDate.with(DayOfWeek.MONDAY)
     val weekStarts = generateSequence(first) { it.plusWeeks(1) }
         .takeWhile { !it.isAfter(today) }
         .toList()
         .ifEmpty { listOf(first) }
 
-    fun levelOf(d: LocalDate): HeatLevel? =
-        if (d.isAfter(today)) null else HeatmapLevels.of(days[d] ?: 0L)
-
-    val columns = weekStarts.map { ws ->
-        WeekColumn(ws, (0..6).mapNotNull { dowIdx ->
-            val d = ws.plusDays(dowIdx.toLong())
-            val level = levelOf(d) ?: return@mapNotNull null
-            DayCell(d, days[d] ?: 0L, level)
-        })
+    // 未来日剔除;首记录前剔除(GitHub 式空白,非 NONE 格)
+    fun cellOf(d: LocalDate): DayCell? = when {
+        d.isAfter(today) -> null
+        d.isBefore(firstDataDate) -> null
+        else -> DayCell(d, days[d] ?: 0L, HeatmapLevels.of(days[d] ?: 0L))
     }
 
-    // D4:每列都标其 weekStart(周一)所在月的缩写,含首列
-    val monthLabels = weekStarts.mapIndexed { i, ws ->
-        i to MONTH_ABBREVIATIONS.getValue(ws.month)
+    val columns = weekStarts.map { ws ->
+        WeekColumn(ws, (0..6).mapNotNull { dowIdx -> cellOf(ws.plusDays(dowIdx.toLong())) })
+    }
+
+    // D4(v1.1):GitHub 式月份标签——仅跨月列标注(与前一列 weekStart 不同月),首列不标
+    val monthLabels = weekStarts.mapIndexedNotNull { i, ws ->
+        if (i > 0 && ws.month != weekStarts[i - 1].month) {
+            i to MONTH_ABBREVIATIONS.getValue(ws.month)
+        } else null
     }.toMap()
     return HeatmapModel(columns, monthLabels)
 }

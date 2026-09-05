@@ -5,23 +5,42 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** 2026-09-07 是周一;2026-09-01 是周二;2026-09-09 是周三 */
+/** 2026-09-07 是周一;2026-09-01 是周二;2026-09-09 是周三;2026-08-28 是周五 */
 class HeatmapModelTest {
     private val today = LocalDate.of(2026, 9, 9)
 
     @Test fun emptyDataYieldsCurrentWeekUpToToday() {
         val m = buildHeatmapModel(emptyMap(), today)
         assertEquals(1, m.columns.size)
-        assertEquals(3, m.columns[0].cells.size) // 周一..周三
+        // 新语义:无数据时 firstDataDate = today,首记录前空白 -> 仅 today 1 格
+        assertEquals(listOf(today), m.columns[0].cells.map { it.date })
+    }
+
+    @Test fun noDataTodayOnly() {
+        val m = buildHeatmapModel(emptyMap(), today) // today 2026-09-09 周三
+        val cells = m.columns.flatMap { it.cells }
+        assertEquals(listOf(today), cells.map { it.date }) // 仅 today 一个 cell(today 前/后无)
     }
 
     @Test fun unusedDaysAreCellsWithNoneNotMissing() {
-        val m = buildHeatmapModel(mapOf(today to 3_600_000L), today)
+        // 数据在周一(首记录),其后至 today 的未使用日仍渲染 NONE 格
+        val monday = LocalDate.of(2026, 9, 7)
+        val m = buildHeatmapModel(mapOf(monday to 3_600_000L), today)
         val cells = m.columns[0].cells
         assertEquals(3, cells.size)
-        assertEquals(HeatLevel.NONE, cells[0].level)
-        assertEquals(0L, cells[0].millis)
-        assertEquals(HeatLevel.L2, cells[2].level)
+        assertEquals(monday, cells[0].date)
+        assertEquals(HeatLevel.L2, cells[0].level)
+        assertEquals(HeatLevel.NONE, cells[1].level)
+        assertEquals(0L, cells[1].millis)
+        assertEquals(HeatLevel.NONE, cells[2].level)
+    }
+
+    @Test fun daysBeforeFirstRecordAreBlank() {
+        // 首数据 2026-08-28(周五);窗口首列 = 8/24 周
+        val m = buildHeatmapModel(mapOf(LocalDate.of(2026, 8, 28) to 60_000L), today)
+        val cells = m.columns.flatMap { it.cells }
+        assertTrue(cells.none { it.date.isBefore(LocalDate.of(2026, 8, 28)) }) // 首数据前无 cell
+        assertTrue(cells.any { it.date == LocalDate.of(2026, 8, 28) })
     }
 
     @Test fun levelsThresholdsUnchanged() {
@@ -42,24 +61,20 @@ class HeatmapModelTest {
         assertEquals(3_600_000L, c.millis)
     }
 
-    @Test fun everyColumnLabeledWithItsWeekStartMonth() {
-        // 跨月数据:9/1 所在周周一是 8/31(8 月),9/8 所在周周一是 9/7(Sep)
-        // 列标签 = 列 weekStart 的月份缩写,故首列为 Aug、次列为 Sep
-        val d1 = LocalDate.of(2026, 9, 1)
-        val d2 = LocalDate.of(2026, 9, 8)
+    @Test fun monthLabelsOnlyOnMonthChange() {
+        // 两列:8/31 周(Aug 起始? 8/31 是周一)与 9/7 周;首列不标
+        val d1 = LocalDate.of(2026, 9, 1) // 8/31 周
+        val d2 = LocalDate.of(2026, 9, 8) // 9/7 周
         val m = buildHeatmapModel(mapOf(d1 to 60_000L, d2 to 60_000L), today)
-        assertTrue(m.columns.size >= 2)
-        assertEquals("Aug", m.monthLabels[0])
-        assertEquals("Sep", m.monthLabels[1])
+        assertEquals(mapOf(1 to "Sep"), m.monthLabels)
     }
 
-    @Test fun monthLabelCrossesYearBoundaryEveryColumn() {
+    @Test fun monthLabelCrossesYearBoundaryOnMonthChange() {
         val m = buildHeatmapModel(
             mapOf(LocalDate.of(2026, 12, 20) to 60_000L),
             LocalDate.of(2027, 1, 6),
         )
-        // weekStarts: 12/14(Dec), 12/21(Dec), 12/28(Dec), 1/4(Jan) -> 每列都标
-        assertEquals("Dec", m.monthLabels[0])
-        assertEquals("Jan", m.monthLabels[m.columns.lastIndex])
+        // weekStarts: 12/14, 12/21, 12/28(Dec), 1/4(Jan) -> 仅跨月的 1/4 列标 Jan
+        assertEquals(mapOf(3 to "Jan"), m.monthLabels)
     }
 }
