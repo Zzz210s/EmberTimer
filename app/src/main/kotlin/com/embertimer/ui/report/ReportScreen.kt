@@ -18,6 +18,7 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,10 +34,12 @@ import com.embertimer.ui.morph.PathIcon
 /** 设置页「周报/月报」入口打开的报表屏:周/月切换 + 明细 + 尾部各配置合计 + 空态 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ReportScreen(onBack: () -> Unit) {
+fun ReportScreen(onBack: () -> Unit, initialRange: ReportRange = ReportRange.WEEK) {
     val app = LocalContext.current.applicationContext as EmberApp
     val vm: ReportViewModel = viewModel(factory = app.graph.vmFactory)
     val ui by vm.ui.collectAsStateWithLifecycle()
+    // v1.1 顶栏汉堡/设置入口携带预选范围:VM 常驻 activity 级 store,每次进屏重放 setRange
+    LaunchedEffect(initialRange) { vm.setRange(initialRange) }
     // 系统返回等同 Toolbar BACK:REPORT -> SETTINGS(pop),不结束 Activity
     BackHandler(onBack = onBack)
 

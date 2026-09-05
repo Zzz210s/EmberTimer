@@ -13,6 +13,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import com.embertimer.ui.home.HomeScreen
+import com.embertimer.ui.report.ReportRange
 import com.embertimer.ui.report.ReportScreen
 import com.embertimer.ui.settings.SettingsScreen
 import com.embertimer.ui.theme.EmberTheme
@@ -37,13 +38,25 @@ class MainActivity : ComponentActivity() {
                 var screenOrdinal by rememberSaveable { mutableStateOf(Screen.HOME.ordinal) }
                 // 进程恢复兜底:enum 增删/重排后旧序数可能越界,回退主页
                 val screen = Screen.entries.getOrNull(screenOrdinal) ?: Screen.HOME
+                // v1.1 顶栏汉堡直达报表:携带预选 tab(周报/月报),与屏序数一并 rememberSaveable
+                var reportRangeOrdinal by rememberSaveable { mutableStateOf(ReportRange.WEEK.ordinal) }
+                val openReport: (ReportRange) -> Unit = { r ->
+                    reportRangeOrdinal = r.ordinal
+                    screenOrdinal = Screen.REPORT.ordinal
+                }
                 when (screen) {
-                    Screen.HOME -> HomeScreen(onSettings = { screenOrdinal = Screen.SETTINGS.ordinal })
+                    Screen.HOME -> HomeScreen(
+                        onSettings = { screenOrdinal = Screen.SETTINGS.ordinal },
+                        onOpenReport = openReport,
+                    )
                     Screen.SETTINGS -> SettingsScreen(
                         onBack = { screenOrdinal = Screen.HOME.ordinal },
-                        onOpenReport = { screenOrdinal = Screen.REPORT.ordinal },
+                        onOpenReport = { openReport(ReportRange.WEEK) },
                     )
-                    Screen.REPORT -> ReportScreen(onBack = { screenOrdinal = Screen.SETTINGS.ordinal })
+                    Screen.REPORT -> ReportScreen(
+                        onBack = { screenOrdinal = Screen.SETTINGS.ordinal },
+                        initialRange = ReportRange.entries.getOrElse(reportRangeOrdinal) { ReportRange.WEEK },
+                    )
                 }
             }
         }
