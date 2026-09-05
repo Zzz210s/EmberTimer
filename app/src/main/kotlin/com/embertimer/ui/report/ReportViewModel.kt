@@ -30,6 +30,9 @@ data class ReportUiState(
     val range: ReportRange = ReportRange.WEEK,
     val rows: List<ReportRow> = emptyList(),
     val profileTotals: List<ProfileTotalUi> = emptyList(),
+    /** v1.5:健康风指标与时段分布(仅周/月窗口,长期累计页签为空) */
+    val metrics: ReportMetrics? = null,
+    val timeSlots: List<SlotMinutes> = emptyList(),
 )
 
 /** 报表窗口(闭区间 ISO 日期):周 = 本周一(ISO 周一为一周首日)至 today;月 = 本月 1 日至 today。 */
@@ -124,10 +127,19 @@ class ReportViewModel(
         val today = clock()
         val (from, to) = reportWindow(range, today)
         val raw = graph.totalsRepo.rangeBreakdown(from, to)
+        val (prevFrom, prevTo) = prevWindowOf(from, to)
+        val prevTotal = graph.totalsRepo.rangeBreakdown(prevFrom, prevTo).sumOf { it.total }
+        val zone = java.time.ZoneId.systemDefault()
+        val startMs = LocalDate.parse(from).atStartOfDay(zone).toInstant().toEpochMilli()
+        val endMs = LocalDate.parse(to).plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+        val sessions = graph.totalsRepo.sessionsBetweenMs(startMs, endMs)
+        val (metrics, slots) = summarizeWindow(from, to, raw, sessions, prevTotal, zone)
         _ui.value = ReportUiState(
             range = range,
             rows = reportRows(range, today, raw),
             profileTotals = reportProfileTotals(profiles, raw),
+            metrics = metrics,
+            timeSlots = slots,
         )
     }
 

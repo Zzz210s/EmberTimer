@@ -29,9 +29,9 @@ internal class ServiceNotifier(
         // manifest 中的 specialUse 位,传该类型会抛 IllegalArgumentException
         // (androidx ServiceCompat 在 29-33 上同样把它掩码掉)。34 以下用无类型重载。
         if (Build.VERSION.SDK_INT >= 34) {
-            svc.startForeground(TimerNotifications.ID_PROGRESS, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+            svc.startForeground(TimerNotifications.ID_NOTIFY, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
         } else {
-            svc.startForeground(TimerNotifications.ID_PROGRESS, n)
+            svc.startForeground(TimerNotifications.ID_NOTIFY, n)
         }
     }
 
@@ -50,7 +50,7 @@ internal class ServiceNotifier(
             val nm = svc.getSystemService(NotificationManager::class.java) ?: return@launch
             TimerNotifications.ensureChannels(svc)
             runCatching {
-                nm.notify(TimerNotifications.ID_REMINDER, TimerNotifications.phaseDone(svc, workFinished))
+                nm.notify(TimerNotifications.ID_NOTIFY, TimerNotifications.phaseDone(svc, workFinished))
             }
         }
     }

@@ -79,6 +79,17 @@ fun ReportScreen(onBack: () -> Unit, initialRange: ReportRange = ReportRange.WEE
                     }
                 }
             }
+            // v1.5 健康风摘要(周/月;长期累计页签无指标)
+            if (ui.range != ReportRange.LIFETIME) {
+                ui.metrics?.let { m ->
+                    ReportSummary(
+                        metrics = m,
+                        slots = ui.timeSlots,
+                        totalMillis = ui.rows.sumOf { it.millis },
+                        isMonth = ui.range == ReportRange.MONTH,
+                    )
+                }
+            }
             // 周/月/时钟累计内容直渲(曾包 AnimatedContent 时内容停留首帧旧 ui,直渲零状态依赖)
             if (ui.range == ReportRange.LIFETIME) {
                 if (ui.profileTotals.isEmpty()) {

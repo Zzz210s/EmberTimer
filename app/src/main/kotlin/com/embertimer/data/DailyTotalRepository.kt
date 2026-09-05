@@ -50,4 +50,8 @@ class DailyTotalRepository(
     /** 某本地日 [dayStartMs, dayEndMs) 内的全部段(升序);供每日详情小行 */
     suspend fun sessionsBetween(dayStartMs: Long, dayEndMs: Long): List<FocusSessionEntity> =
         sessionDao.between(dayStartMs, dayEndMs)
+
+    /** 墙钟窗口内全部段(起点升序);供报表时段分布 */
+    suspend fun sessionsBetweenMs(startMs: Long, endMs: Long): List<FocusSessionEntity> =
+        sessionDao.betweenMs(startMs, endMs)
 }

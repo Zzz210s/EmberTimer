@@ -80,4 +80,17 @@
     <string name="done_rest_body">休息一下</string>
     <string name="report_bucket_week">第 %1$d 周(%2$s~%3$s)</string>
     <string name="act_start">开始</string>
+    <string name="ch_app">EmberTimer</string>
+    <string name="m_focus_days">专注天数</string>
+    <string name="m_streak">连续</string>
+    <string name="m_avg">日均</string>
+    <string name="m_best">最佳单日</string>
+    <string name="vs_last_week">较上周</string>
+    <string name="vs_last_month">较上月</string>
+    <string name="bucket_morning">上午 6-12</string>
+    <string name="bucket_afternoon">下午 12-18</string>
+    <string name="bucket_evening">晚上 18-23</string>
+    <string name="bucket_night">深夜 23-6</string>
+    <string name="ts_title">时段分布</string>
+    <string name="metric_trend">趋势</string>
 </resources>

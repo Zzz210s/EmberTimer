@@ -80,4 +80,17 @@
     <string name="report_bucket_week">Week %1$d (%2$s~%3$s)</string>
     <string name="no_records_short">no focus</string>
     <string name="act_start">Start</string>
+    <string name="ch_app">EmberTimer</string>
+    <string name="m_focus_days">Focus days</string>
+    <string name="m_streak">Streak</string>
+    <string name="m_avg">Avg / day</string>
+    <string name="m_best">Best day</string>
+    <string name="vs_last_week">vs last week</string>
+    <string name="vs_last_month">vs last month</string>
+    <string name="bucket_morning">Morning 6–12</string>
+    <string name="bucket_afternoon">Afternoon 12–18</string>
+    <string name="bucket_evening">Evening 18–23</string>
+    <string name="bucket_night">Night 23–6</string>
+    <string name="ts_title">Time of day</string>
+    <string name="metric_trend">Trend</string>
 </resources>
