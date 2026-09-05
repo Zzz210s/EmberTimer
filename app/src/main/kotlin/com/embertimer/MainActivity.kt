@@ -1,6 +1,7 @@
 package com.embertimer
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -9,9 +10,11 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import com.embertimer.service.ReportAlarmActions
 import com.embertimer.ui.home.HomeScreen
 import com.embertimer.ui.report.ReportRange
 import com.embertimer.ui.report.ReportScreen
@@ -25,6 +28,21 @@ class MainActivity : ComponentActivity() {
     private val notifPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
+    /** 报表通知点开直达(v1.1 #5):cold start 经 onCreate 解析,热启动经 onNewIntent */
+    private val pendingReportRange = mutableStateOf<ReportRange?>(null)
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        parseReportExtra(intent)
+    }
+
+    private fun parseReportExtra(intent: Intent?) {
+        when (intent?.getStringExtra(ReportAlarmActions.EXTRA_REPORT_RANGE)) {
+            "week" -> pendingReportRange.value = ReportRange.WEEK
+            "month" -> pendingReportRange.value = ReportRange.MONTH
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -33,6 +51,7 @@ class MainActivity : ComponentActivity() {
         ) {
             notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
+        parseReportExtra(intent)
         setContent {
             EmberTheme {
                 var screenOrdinal by rememberSaveable { mutableStateOf(Screen.HOME.ordinal) }
@@ -43,6 +62,13 @@ class MainActivity : ComponentActivity() {
                 val openReport: (ReportRange) -> Unit = { r ->
                     reportRangeOrdinal = r.ordinal
                     screenOrdinal = Screen.REPORT.ordinal
+                }
+                // 通知点开直达:每次值变化(冷启解析或 onNewIntent)触发一次跳转后清空
+                LaunchedEffect(pendingReportRange.value) {
+                    pendingReportRange.value?.let { r ->
+                        pendingReportRange.value = null
+                        openReport(r)
+                    }
                 }
                 when (screen) {
                     Screen.HOME -> HomeScreen(

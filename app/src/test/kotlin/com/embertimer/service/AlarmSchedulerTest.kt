@@ -5,6 +5,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.os.Build
 import androidx.test.core.app.ApplicationProvider
+import com.embertimer.EmberApp
 import com.embertimer.timer.TimeProvider
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -16,8 +17,11 @@ import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowAlarmManager
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34])
+@Config(sdk = [34], application = AlarmSchedulerTest.TestApp::class)
 class AlarmSchedulerTest {
+    /** 空 onCreate:EmberApp 冷启会武装报表闹钟(v1.1),会污染本类对 AlarmManager 的断言 */
+    class TestApp : EmberApp() { override fun onCreate() { /* 跳过真实装配 */ } }
+
     private val time = object : TimeProvider {
         override fun now() = 0L
         override fun elapsedRealtime() = 0L
