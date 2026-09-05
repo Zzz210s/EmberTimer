@@ -1,6 +1,15 @@
 package com.embertimer.ui.report
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import com.embertimer.ui.theme.MotionTokens
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -67,20 +76,33 @@ fun ReportScreen(onBack: () -> Unit, initialRange: ReportRange = ReportRange.WEE
                     ) { Text(label) }
                 }
             }
-            if (ui.rows.isEmpty()) {
-                Text(
-                    "本期无专注记录",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            } else {
-                ui.rows.forEach { row -> TotalRow(row.label, row.millis) }
-                Text(
-                    "各配置合计",
-                    style = MaterialTheme.typography.titleSmall,
-                    modifier = Modifier.padding(top = 8.dp),
-                )
-                ui.profileTotals.forEach { p -> TotalRow(p.profileName, p.millis) }
+            // v1.1 #7:周/月切换时内容交叉过渡(进 160 出 100,轻上移);关闭动画直切
+            AnimatedContent(
+                targetState = ui.range,
+                transitionSpec = {
+                    val enterMs = MotionTokens.TextSwapEnter.durationMillis
+                    val exitMs = MotionTokens.TextSwapExit.durationMillis
+                    (fadeIn(tween(enterMs)) + slideInVertically(tween(enterMs)) { it / 6 })
+                        .togetherWith(fadeOut(tween(exitMs)) + slideOutVertically(tween(exitMs)) { -it / 6 })
+                        .using(SizeTransform(clip = false))
+                },
+                label = "reportRange",
+            ) { _ ->
+                if (ui.rows.isEmpty()) {
+                    Text(
+                        "本期无专注记录",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
+                    ui.rows.forEach { row -> TotalRow(row.label, row.millis) }
+                    Text(
+                        "各配置合计",
+                        style = MaterialTheme.typography.titleSmall,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                    ui.profileTotals.forEach { p -> TotalRow(p.profileName, p.millis) }
+                }
             }
         }
     }

@@ -1,5 +1,12 @@
 package com.embertimer.ui.home
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
@@ -35,6 +42,8 @@ import com.embertimer.ui.heatmap.buildHeatmapModel
 import com.embertimer.ui.morph.IconPaths
 import com.embertimer.ui.morph.PathIcon
 import com.embertimer.ui.report.ReportRange
+import com.embertimer.ui.theme.MotionTokens
+import com.embertimer.ui.theme.rememberAnimationsEnabled
 import java.time.LocalDate
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -119,7 +128,25 @@ fun HomeScreen(onSettings: () -> Unit, onOpenReport: (ReportRange) -> Unit) {
             }, onPause = { TimerCommands.pause(ctx) }, onResume = { TimerCommands.resume(ctx) },
                 onSkip = { TimerCommands.skip(ctx) }, onStop = { TimerCommands.stop(ctx) },
                 onGoSettings = onSettings)
-            Text("今日 " + DurationFormat.hm(ui.todayMillis), style = MaterialTheme.typography.titleMedium)
+            // v1.1 #7:今日合计落账变化时滑切(落账频次低,不打扰);关闭动画直切
+            val todayText = "今日 " + DurationFormat.hm(ui.todayMillis)
+            val animationsOn = rememberAnimationsEnabled()
+            if (animationsOn) {
+                AnimatedContent(
+                    targetState = todayText,
+                    transitionSpec = {
+                        (fadeIn(tween(MotionTokens.TextSwapEnter.durationMillis)) +
+                            slideInVertically(tween(MotionTokens.TextSwapEnter.durationMillis)) { it / 3 })
+                            .togetherWith(
+                                fadeOut(tween(MotionTokens.TextSwapExit.durationMillis)) +
+                                    slideOutVertically(tween(MotionTokens.TextSwapExit.durationMillis)) { -it / 3 },
+                            )
+                    },
+                    label = "todayTotalSwap",
+                ) { t -> Text(t, style = MaterialTheme.typography.titleMedium) }
+            } else {
+                Text(todayText, style = MaterialTheme.typography.titleMedium)
+            }
             Card {
                 Column(Modifier.padding(12.dp)) {
                     // R8:模型只依赖 ui.days,remember 键控在 days 上 —— remaining 每 250ms 刷新

@@ -5,8 +5,10 @@ import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
@@ -93,15 +95,28 @@ internal fun TimerCard(
             }
             // #3 空态引导:无配置时倒计时数字位换文案(数字必为 00:00,无意义),
             // 开始键维持 disabled(activeProfileId == -1),另提供直达设置的按钮
-            if (empty) {
-                Text("先新建一个计时配置", style = MaterialTheme.typography.titleLarge)
-                TextButton(onClick = onGoSettings) { Text("去设置新建") }
-            } else {
-                Text(
-                    DurationFormat.ms(displayMillis),
-                    style = MaterialTheme.typography.displayMedium,
-                )
-                if (!countUpActive) CycleBadge(count = snap?.cycleCount ?: 0, animationsOn = animationsOn)
+            // v1.1 #7:空态 ↔ 计时内容交叉时淡入/展开(进 160ms 出 100ms);关闭动画直切
+            AnimatedContent(
+                targetState = empty,
+                transitionSpec = {
+                    val enterMs = MotionTokens.TextSwapEnter.durationMillis
+                    val exitMs = MotionTokens.TextSwapExit.durationMillis
+                    (fadeIn(tween(enterMs)) + expandVertically(tween(enterMs)))
+                        .togetherWith(fadeOut(tween(exitMs)) + shrinkVertically(tween(exitMs)))
+                        .using(SizeTransform(clip = false))
+                },
+                label = "emptyState",
+            ) { isEmpty ->
+                if (isEmpty) {
+                    Text("先新建一个计时配置", style = MaterialTheme.typography.titleLarge)
+                    TextButton(onClick = onGoSettings) { Text("去设置新建") }
+                } else {
+                    Text(
+                        DurationFormat.ms(displayMillis),
+                        style = MaterialTheme.typography.displayMedium,
+                    )
+                    if (!countUpActive) CycleBadge(count = snap?.cycleCount ?: 0, animationsOn = animationsOn)
+                }
             }
             val haptic = LocalHapticFeedback.current
             fun act(perform: () -> Unit) {

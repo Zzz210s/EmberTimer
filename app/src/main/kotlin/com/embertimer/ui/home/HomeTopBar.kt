@@ -1,5 +1,12 @@
 package com.embertimer.ui.home
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -23,6 +30,8 @@ import com.embertimer.timer.EngineStatus
 import com.embertimer.ui.morph.IconPaths
 import com.embertimer.ui.morph.PathIcon
 import com.embertimer.ui.report.ReportRange
+import com.embertimer.ui.theme.MotionTokens
+import com.embertimer.ui.theme.rememberAnimationsEnabled
 
 /**
  * 顶栏中央配置下拉(v1.1 #3/#1,取代已删除的 chips 行):当前配置名 + 展开箭头,
@@ -48,6 +57,7 @@ internal fun ProfileDropdown(
         }
         val running = ui.snap?.status == EngineStatus.RUNNING
         val activeName = ui.profiles.firstOrNull { it.id == ui.activeProfileId }?.name ?: "未选择"
+        val animationsOn = rememberAnimationsEnabled()
         var expanded by remember { mutableStateOf(false) }
         Box(
             Modifier
@@ -55,7 +65,23 @@ internal fun ProfileDropdown(
                 .padding(horizontal = 8.dp, vertical = 4.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(activeName, style = MaterialTheme.typography.titleMedium)
+                // v1.1 #7:配置切换时名称滑切(TextSwap 族);关闭动画则直切
+                if (animationsOn) {
+                    AnimatedContent(
+                        targetState = activeName,
+                        transitionSpec = {
+                            (fadeIn(tween(MotionTokens.TextSwapEnter.durationMillis)) +
+                                slideInVertically(tween(MotionTokens.TextSwapEnter.durationMillis)) { it / 3 })
+                                .togetherWith(
+                                    fadeOut(tween(MotionTokens.TextSwapExit.durationMillis)) +
+                                        slideOutVertically(tween(MotionTokens.TextSwapExit.durationMillis)) { -it / 3 },
+                                )
+                        },
+                        label = "profileNameSwap",
+                    ) { name -> Text(name, style = MaterialTheme.typography.titleMedium) }
+                } else {
+                    Text(activeName, style = MaterialTheme.typography.titleMedium)
+                }
                 PathIcon(IconPaths.CHEVRON_DOWN, size = 20.dp, contentDescription = null)
             }
             DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {

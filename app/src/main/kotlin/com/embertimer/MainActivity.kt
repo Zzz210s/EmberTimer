@@ -19,6 +19,17 @@ import com.embertimer.ui.home.HomeScreen
 import com.embertimer.ui.report.ReportRange
 import com.embertimer.ui.report.ReportScreen
 import com.embertimer.ui.settings.SettingsScreen
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.runtime.Composable
+import com.embertimer.ui.theme.MotionTokens
+import com.embertimer.ui.theme.rememberAnimationsEnabled
 import com.embertimer.ui.theme.EmberTheme
 
 /** 无导航库:三屏手写状态切换(主页/设置/报表,rememberSaveable 存 Int 序数) */
@@ -70,19 +81,41 @@ class MainActivity : ComponentActivity() {
                         openReport(r)
                     }
                 }
-                when (screen) {
-                    Screen.HOME -> HomeScreen(
-                        onSettings = { screenOrdinal = Screen.SETTINGS.ordinal },
-                        onOpenReport = openReport,
-                    )
-                    Screen.SETTINGS -> SettingsScreen(
-                        onBack = { screenOrdinal = Screen.HOME.ordinal },
-                        onOpenReport = { openReport(ReportRange.WEEK) },
-                    )
-                    Screen.REPORT -> ReportScreen(
-                        onBack = { screenOrdinal = Screen.SETTINGS.ordinal },
-                        initialRange = ReportRange.entries.getOrElse(reportRangeOrdinal) { ReportRange.WEEK },
-                    )
+                // v1.1 #7:三屏切换交叉过渡(进 160 出 100,轻上移);关闭动画直切。
+                // 过渡窗两屏短暂共存,各自 VM 均为 activity 级,无重复副作用。
+                val animationsOn = rememberAnimationsEnabled()
+                val screenContent: @Composable () -> Unit = {
+                    when (screen) {
+                        Screen.HOME -> HomeScreen(
+                            onSettings = { screenOrdinal = Screen.SETTINGS.ordinal },
+                            onOpenReport = openReport,
+                        )
+                        Screen.SETTINGS -> SettingsScreen(
+                            onBack = { screenOrdinal = Screen.HOME.ordinal },
+                            onOpenReport = { openReport(ReportRange.WEEK) },
+                        )
+                        Screen.REPORT -> ReportScreen(
+                            onBack = { screenOrdinal = Screen.SETTINGS.ordinal },
+                            initialRange = ReportRange.entries.getOrElse(reportRangeOrdinal) { ReportRange.WEEK },
+                        )
+                    }
+                }
+                if (animationsOn) {
+                    AnimatedContent(
+                        targetState = screen,
+                        transitionSpec = {
+                            (fadeIn(tween(MotionTokens.TextSwapEnter.durationMillis)) +
+                                slideInVertically(tween(MotionTokens.TextSwapEnter.durationMillis)) { it / 12 })
+                                .togetherWith(
+                                    fadeOut(tween(MotionTokens.TextSwapExit.durationMillis)) +
+                                        slideOutVertically(tween(MotionTokens.TextSwapExit.durationMillis)) { -it / 12 },
+                                )
+                                .using(SizeTransform(clip = false))
+                        },
+                        label = "screenSwap",
+                    ) { screenContent() }
+                } else {
+                    screenContent()
                 }
             }
         }
