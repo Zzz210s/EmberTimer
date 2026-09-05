@@ -31,6 +31,6 @@ object IconPaths {
     /** 加号(v1.3 时钟管理页标题栏新建入口,静态图标,无 XML 对应) */
     const val PLUS = "M12,5 L12,19 M5,12 L19,12"
 
-    /** 全部 9 个图标,供测试遍历(24 栅格合法性/可解析性守卫)。 */
+    /** 全部 11 个图标,供测试遍历(24 栅格合法性/可解析性守卫)。 */
     val ALL: List<String> = listOf(PLAY, PAUSE, SKIP, STOP, REPEAT, SETTINGS, BACK, MENU, CHEVRON_DOWN, CHECK, PLUS)
 }

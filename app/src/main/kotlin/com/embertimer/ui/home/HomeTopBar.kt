@@ -28,7 +28,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -49,8 +51,8 @@ import com.embertimer.ui.theme.rememberAnimationsEnabled
  * 主页顶栏(v1.2 #1):三件套 [齿轮 | 当前配置名(点击展开)| 汉堡] 之下挂**全屏宽展开面板**。
  * 面板在布局流内占位(AnimatedVisibility 高度动画),展开时把下方内容整体顺沿下移;
  * 收起回弹。两个面板互斥(开一个自动关另一个)。animationsOn=false 时面板直切无动画。
- * 面板行:配置面板 = 整宽行(仅配置名 + 当前勾选,计时中禁点,空态引导去设置);
- * 报表面板 = 周报/月报整宽行。菜单语义与 v1.1 下拉一致,仅形态改为推挤式全宽面板。
+ * 面板行:配置面板顶部固定「时钟管理」管理入口 + 各时钟名(当前勾选,计时中禁点);
+ * 报表面板 = 周报/月报。空态(无时钟)时点中央直接进时钟管理。返回键先收起面板。
  */
 @Composable
 internal fun HomeTopBar(
@@ -63,6 +65,8 @@ internal fun HomeTopBar(
     val animationsOn = rememberAnimationsEnabled()
     var open by remember { mutableStateOf<HomePanel?>(null) }
     val running = ui.snap?.status == EngineStatus.RUNNING
+    // 系统返回优先收起展开中的面板(而非把整个应用最小化);无面板时让外层 BackHandler 接管
+    BackHandler(enabled = open != null) { open = null }
 
     Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).statusBarsPadding()) {
         Row(
@@ -112,8 +116,9 @@ internal fun HomeTopBar(
         // 开/关由外层 AnimatedVisibility 承担;面板间切换用 AnimatedContent 交叉淡入;
         // 关闭时保留最后面板内容随 shrink 一起收起(避免中途闪空)。
         if (animationsOn) {
+            // SideEffect 记录最近非空面板:退出动画期间保留旧内容(不在组合期写状态)
             var last by remember { mutableStateOf<HomePanel?>(null) }
-            if (open != null) last = open
+            SideEffect { if (open != null) last = open }
             val shown = open ?: last
             AnimatedVisibility(
                 visible = open != null,
@@ -137,14 +142,14 @@ internal fun HomeTopBar(
                     label = "panelSwap",
                 ) { p ->
                     if (p != null) {
-                        PanelBody(p, ui, ui.profiles.isEmpty(), running, onSelectProfile, onManageProfiles, onOpenReport)
+                        PanelBody(p, ui, running, onSelectProfile, onManageProfiles, onOpenReport)
                     } else {
                         Box(Modifier.height(0.dp))
                     }
                 }
             }
         } else if (open != null) {
-            PanelBody(open!!, ui, ui.profiles.isEmpty(), running, onSelectProfile, onManageProfiles, onOpenReport)
+            PanelBody(open!!, ui, running, onSelectProfile, onManageProfiles, onOpenReport)
         }
     }
 }

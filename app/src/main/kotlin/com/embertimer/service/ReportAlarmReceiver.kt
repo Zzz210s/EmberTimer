@@ -26,8 +26,11 @@ class ReportAlarmReceiver : BroadcastReceiver() {
             else -> return
         }
         goAsyncWithGraph(context) { g ->
-            val today = LocalDate.now()
-            val (from, to) = reportWindow(range, today)
+            // 用计划送达日锚定汇总窗口(I1):Doze 下 setAndAllowWhileIdle 可能跨零点送达,
+            // 若按送达日算会得到"下周期迄今≈0"而被阈值门丢弃,整期汇总永久丢失
+            val anchor = intent.getStringExtra(ReportAlarmActions.EXTRA_ANCHOR_DATE)
+                ?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: LocalDate.now()
+            val (from, to) = reportWindow(range, anchor)
             val rows = g.totalsRepo.rangeBreakdown(from, to)
             val total = rows.sumOf { it.total }
             if (total > 0) {
@@ -38,8 +41,14 @@ class ReportAlarmReceiver : BroadcastReceiver() {
     }
 
     private fun post(context: Context, range: ReportRange, totalMillis: Long) {
-        val title = if (range == ReportRange.WEEK) "周报" else "月报"
-        val prefix = if (range == ReportRange.WEEK) "本周专注 " else "本月专注 "
+        val week = range == ReportRange.WEEK
+        val title = context.getString(
+            if (week) com.embertimer.R.string.report_week_title else com.embertimer.R.string.report_month_title,
+        )
+        val body = context.getString(
+            if (week) com.embertimer.R.string.report_week_body else com.embertimer.R.string.report_month_body,
+            DurationFormat.localizedHm(context, totalMillis),
+        )
         val contentIntent = PendingIntent.getActivity(
             context,
             range.hashCode(),
@@ -53,7 +62,7 @@ class ReportAlarmReceiver : BroadcastReceiver() {
         val n = NotificationCompat.Builder(context, TimerNotifications.CH_REPORT)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle(title)
-            .setContentText(prefix + DurationFormat.hm(totalMillis))
+            .setContentText(body)
             .setContentIntent(contentIntent)
             .setAutoCancel(true)
             .build()

@@ -1,15 +1,6 @@
 package com.embertimer.ui.report
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.SizeTransform
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.togetherWith
-import com.embertimer.ui.theme.MotionTokens
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -33,6 +24,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import com.embertimer.R
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -56,9 +49,9 @@ fun ReportScreen(onBack: () -> Unit, initialRange: ReportRange = ReportRange.WEE
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("报表") },
+                title = { Text(stringResource(R.string.report_title)) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) { PathIcon(IconPaths.BACK, size = 24.dp, contentDescription = "返回") }
+                    IconButton(onClick = onBack) { PathIcon(IconPaths.BACK, size = 24.dp, contentDescription = stringResource(R.string.report_back)) }
                 },
             )
         },
@@ -67,7 +60,7 @@ fun ReportScreen(onBack: () -> Unit, initialRange: ReportRange = ReportRange.WEE
             Modifier.padding(pad).padding(16.dp).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            val tabs = listOf(ReportRange.WEEK to "周报", ReportRange.MONTH to "月报", ReportRange.LIFETIME to "时钟累计")
+            val tabs = listOf(ReportRange.WEEK to stringResource(R.string.tab_week), ReportRange.MONTH to stringResource(R.string.tab_month), ReportRange.LIFETIME to stringResource(R.string.tab_lifetime))
             SingleChoiceSegmentedButtonRow {
                 tabs.forEachIndexed { index, (range, label) ->
                     SegmentedButton(
@@ -81,30 +74,30 @@ fun ReportScreen(onBack: () -> Unit, initialRange: ReportRange = ReportRange.WEE
             if (ui.range == ReportRange.LIFETIME) {
                 if (ui.profileTotals.isEmpty()) {
                     Text(
-                        "还没有专注记录",
+                        stringResource(R.string.empty_lifetime),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 } else {
                     Text(
-                        "各时钟累计(起用至今)",
+                        stringResource(R.string.total_lifetime),
                         style = MaterialTheme.typography.titleSmall,
                         modifier = Modifier.padding(top = 4.dp),
                     )
                     ui.profileTotals.forEach { p -> TotalRow(p.profileName, p.millis) }
                     HorizontalDivider(Modifier.padding(vertical = 8.dp))
-                    TotalRow("全部合计", ui.profileTotals.sumOf { it.millis })
+                    TotalRow(stringResource(R.string.total_all), ui.profileTotals.sumOf { it.millis })
                 }
             } else if (ui.rows.isEmpty()) {
                 Text(
-                    "本期无专注记录",
+                    stringResource(R.string.empty_period),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             } else {
                 ui.rows.forEach { row -> TotalRow(row.label, row.millis) }
                 Text(
-                    "各时钟合计",
+                    stringResource(R.string.total_window),
                     style = MaterialTheme.typography.titleSmall,
                     modifier = Modifier.padding(top = 8.dp),
                 )
@@ -118,6 +111,16 @@ fun ReportScreen(onBack: () -> Unit, initialRange: ReportRange = ReportRange.WEE
 private fun TotalRow(label: String, millis: Long) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-        Text(DurationFormat.hm(millis), style = MaterialTheme.typography.bodyMedium)
+        Text(durationLocalized(millis), style = MaterialTheme.typography.bodyMedium)
     }
+}
+
+/** 报表时长本地化(v1.3 EN 对照):默认中文,en 设备出 "1h 30m";与 DurationFormat.hm 同语义(向上取整) */
+@Composable
+private fun durationLocalized(millis: Long): String {
+    val totalMinutes = (millis + 59_999) / 60_000
+    val h = totalMinutes / 60
+    val m = totalMinutes % 60
+    return if (h == 0L) stringResource(R.string.duration_m, m)
+    else stringResource(R.string.duration_hm, h, m)
 }

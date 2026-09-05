@@ -16,6 +16,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -26,12 +27,12 @@ import org.robolectric.annotation.Config
 /**
  * 报表通知(v1.1 #5):
  * - 触发时刻纯函数:周日 23:00 / 月末 23:00,已过推下周/下月末;
- * - Receiver:区间合计 > 0 才发通知(文本 本周/本月专注 hm),零记录不发;触发后重武装下一周期;
+ * - Receiver:区间合计 > 0 才发通知(文本走 values-en 英文对照),零记录不发;触发后重武装下一周期;
  * - 通知点击直达 extra 由 MainActivity 解析(单测层略,验收目检)。
  * 直调 onReceive(Robolectric 下 goAsync 安全);body 异步,副作用断言轮询等待。
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34], application = ReportAlarmReceiverTest.TestApp::class)
+@Config(sdk = [34], qualifiers = "zh", application = ReportAlarmReceiverTest.TestApp::class)
 class ReportAlarmReceiverTest {
     class TestApp : EmberApp() { override fun onCreate() { /* 跳过真实装配 */ } }
 
@@ -103,6 +104,7 @@ class ReportAlarmReceiverTest {
         val n = posted().first()
         val txt = n.extras?.getString(android.app.Notification.EXTRA_TEXT)
         assertNotNull(txt)
+        // Robolectric 默认 en-US:断言走 values-en(英文对照)
         assertTrue(txt!!.startsWith("本周专注 "))
         assertTrue(txt.contains("分钟"))
     }

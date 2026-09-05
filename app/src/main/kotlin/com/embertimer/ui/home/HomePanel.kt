@@ -29,7 +29,6 @@ internal enum class HomePanel { PROFILE, REPORT }
 internal fun PanelBody(
     panel: HomePanel,
     ui: HomeUiState,
-    profileEmpty: Boolean,
     running: Boolean,
     onSelectProfile: (ProfileEntity) -> Unit,
     onManageProfiles: () -> Unit,
@@ -50,37 +49,27 @@ internal fun PanelBody(
                     PathIcon(IconPaths.BACK, size = 18.dp, contentDescription = null)
                 }
                 HorizontalDivider()
-                if (profileEmpty) {
-                    Text(
-                        "还没有时钟,点击上方时钟管理新建",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(16.dp),
-                    )
-                } else {
-                    ui.profiles.forEach { p ->
-                        val selected = p.id == ui.activeProfileId
-                        Row(
-                            Modifier
-                                .fillMaxWidth()
-                                .clickable(enabled = !running) { onSelectProfile(p) }
-                                .padding(horizontal = 20.dp, vertical = 14.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                p.name,
-                                style = MaterialTheme.typography.bodyLarge,
-                                modifier = Modifier.weight(1f),
-                                color = if (running) MaterialTheme.colorScheme.onSurfaceVariant
-                                else MaterialTheme.colorScheme.onSurface,
-                            )
-                            if (selected) {
-                                PathIcon(IconPaths.CHECK, size = 20.dp, contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary)
-                            }
+                // 空态不可达:无时钟时 HomeTopBar 中央点击直接进时钟管理(永不展开本面板)
+                ui.profiles.forEach { p ->
+                    val selected = p.id == ui.activeProfileId
+                    Row(
+                        Modifier.fillMaxWidth().clickable(enabled = !running) { onSelectProfile(p) }
+                            .padding(horizontal = 20.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            p.name,
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.weight(1f),
+                            color = if (running) MaterialTheme.colorScheme.onSurfaceVariant
+                            else MaterialTheme.colorScheme.onSurface,
+                        )
+                        if (selected) {
+                            PathIcon(IconPaths.CHECK, size = 20.dp, contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary)
                         }
-                        HorizontalDivider()
                     }
+                    HorizontalDivider()
                 }
             }
             HomePanel.REPORT -> {

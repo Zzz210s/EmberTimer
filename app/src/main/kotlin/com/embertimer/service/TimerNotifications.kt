@@ -38,7 +38,7 @@ object TimerNotifications {
             }
         )
         nm.createNotificationChannel(
-            NotificationChannel(CH_REPORT, "专注报表", NotificationManager.IMPORTANCE_DEFAULT).apply {
+            NotificationChannel(CH_REPORT, context.getString(com.embertimer.R.string.ch_report), NotificationManager.IMPORTANCE_DEFAULT).apply {
                 setSound(null, null)
                 setShowBadge(false)
             }
