@@ -132,9 +132,9 @@ fun HomeScreen(onSettings: () -> Unit, onOpenReport: (ReportRange) -> Unit, onMa
                             )
                     },
                     label = "todayTotalSwap",
-                ) { t -> Text(t, style = MaterialTheme.typography.titleMedium) }
+                ) { t -> Text(t, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             } else {
-                Text(todayText, style = MaterialTheme.typography.titleMedium)
+                Text(todayText, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Card {
                 Column(Modifier.padding(12.dp)) {
