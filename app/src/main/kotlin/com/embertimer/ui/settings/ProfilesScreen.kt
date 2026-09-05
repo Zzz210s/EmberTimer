@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
@@ -32,15 +31,14 @@ import com.embertimer.EmberApp
 import com.embertimer.data.db.ProfileEntity
 import com.embertimer.data.db.ProfileMode
 import com.embertimer.service.TimerCommands
-import com.embertimer.timer.DurationFormat
 import com.embertimer.timer.EngineStatus
 import com.embertimer.ui.morph.IconPaths
 import com.embertimer.ui.morph.PathIcon
 import kotlinx.coroutines.launch
 
 /**
- * 配置管理页(v1.3 设置重构):原设置页「时长配置」区块独立成页,由主页配置下拉面板
- * 顶部「时长配置」行进入。内容 = 配置卡片(名称/时长/模式标注/累计/编辑·删除,计时中
+ * 时钟管理页(v1.3 设置重构):原设置页「时钟管理」区块独立成页,由主页配置下拉面板
+ * 顶部「时钟管理」行进入。内容 = 配置卡片(名称/时长/模式标注/累计/编辑·删除,计时中
  * 锁定)+ 新建按钮 + 编辑/新建对话框。返回回主页。与设置页共享 activity 级 SettingsViewModel。
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -57,9 +55,15 @@ fun ProfilesScreen(onBack: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("配置管理") },
+                title = { Text("时钟管理") },
                 navigationIcon = {
                     IconButton(onClick = onBack) { PathIcon(IconPaths.BACK, size = 24.dp, contentDescription = "返回") }
+                },
+                actions = {
+                    // v1.3 #5:新建收进标题栏最右 "+"(替换原底部整行按钮)
+                    IconButton(onClick = { creating = true }) {
+                        PathIcon(IconPaths.PLUS, size = 24.dp, contentDescription = "新建时钟")
+                    }
                 },
             )
         },
@@ -77,7 +81,6 @@ fun ProfilesScreen(onBack: () -> Unit) {
                         val durationText = "${p.workMinutes} 分钟工作 / ${p.restMinutes} 分钟休息" +
                             if (countUp) " · 正计时" else ""
                         Text(durationText, style = MaterialTheme.typography.bodyMedium)
-                        Text("累计 " + DurationFormat.hm(ui.totals[p.id] ?: 0L))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             TextButton(enabled = !runningActive, onClick = { editing = p }) { Text("编辑") }
                             TextButton(
@@ -96,14 +99,11 @@ fun ProfilesScreen(onBack: () -> Unit) {
             if (ui.profiles.isEmpty()) {
                 item {
                     Text(
-                        "还没有配置,点击下方新建",
+                        "还没有时钟,点击右上角 + 新建",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-            }
-            item {
-                Button(onClick = { creating = true }) { Text("新建配置") }
             }
         }
     }
@@ -112,7 +112,7 @@ fun ProfilesScreen(onBack: () -> Unit) {
         ProfileEditDialog(
             initial = p,
             existing = ui.profiles,
-            title = "编辑配置",
+            title = "编辑时钟",
             onDismiss = { editing = null },
             onConfirm = { name, w, r, mode ->
                 scope.launch {
@@ -133,7 +133,7 @@ fun ProfilesScreen(onBack: () -> Unit) {
         ProfileEditDialog(
             initial = null,
             existing = ui.profiles,
-            title = "新建配置",
+            title = "新建时钟",
             onDismiss = { creating = false },
             onConfirm = { name, w, r, mode ->
                 scope.launch {

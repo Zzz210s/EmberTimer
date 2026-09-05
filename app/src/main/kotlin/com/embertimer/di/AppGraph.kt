@@ -46,7 +46,7 @@ class AppGraph(
     else EmberDatabase.build(context)
 
     val profileRepo = ProfileRepository(db.profileDao(), time)
-    val totalsRepo = DailyTotalRepository(db, db.dailyTotalDao(), time)
+    val totalsRepo = DailyTotalRepository(db, db.dailyTotalDao(), db.focusSessionDao(), time)
 
     private val ds = PreferenceDataStoreFactory.create(scope = appScope) {
         context.preferencesDataStoreFile(storeFileName)

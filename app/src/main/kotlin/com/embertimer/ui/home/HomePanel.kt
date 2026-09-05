@@ -40,19 +40,19 @@ internal fun PanelBody(
         HorizontalDivider()
         when (panel) {
             HomePanel.PROFILE -> {
-                // v1.3:置顶「时长配置」管理入口(固定行,位于配置列表上方)
+                // v1.3:置顶「时钟管理」管理入口(固定行,位于配置列表上方)
                 Row(
                     Modifier.fillMaxWidth().clickable(onClick = onManageProfiles)
                         .padding(horizontal = 20.dp, vertical = 14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text("时长配置", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                    Text("时钟管理", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
                     PathIcon(IconPaths.BACK, size = 18.dp, contentDescription = null)
                 }
                 HorizontalDivider()
                 if (profileEmpty) {
                     Text(
-                        "还没有配置,点击上方新建",
+                        "还没有时钟,点击上方时钟管理新建",
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(16.dp),

@@ -28,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.embertimer.timer.DurationFormat
+import java.time.Instant
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
@@ -67,8 +68,26 @@ fun DayDetailCard(detail: DayDetailUi?, modifier: Modifier = Modifier) {
                         Text(row.profileName, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                         Text(DurationFormat.hm(row.millis), style = MaterialTheme.typography.bodyMedium)
                     }
+                    // v1.3 #6:该时钟当日各段 开始~结束(仅时:分)
+                    if (row.sessions.isNotEmpty()) {
+                        row.sessions.forEach { (s, e) ->
+                            Row(
+                                Modifier.padding(start = 18.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    "   " + HHmm.format(java.time.Instant.ofEpochMilli(s).atZone(java.time.ZoneId.systemDefault())) +
+                                        " ~ " + HHmm.format(java.time.Instant.ofEpochMilli(e).atZone(java.time.ZoneId.systemDefault())),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
     }
 }
+
+private val HHmm = DateTimeFormatter.ofPattern("HH:mm")

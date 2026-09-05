@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -99,7 +100,7 @@ class MainActivity : ComponentActivity() {
                             onBack = { screenOrdinal = Screen.HOME.ordinal },
                         )
                         Screen.REPORT -> ReportScreen(
-                            onBack = { screenOrdinal = Screen.SETTINGS.ordinal },
+                            onBack = { screenOrdinal = Screen.HOME.ordinal },
                             initialRange = ReportRange.entries.getOrElse(reportRangeOrdinal) { ReportRange.WEEK },
                         )
                     }
@@ -120,6 +121,12 @@ class MainActivity : ComponentActivity() {
                     ) { screenContent() }
                 } else {
                     screenContent()
+                }
+                // v1.3 #1:手势/三键返回 = 子屏回主页,主页最小化到后台(不退出)。
+                // 系统真正销毁(最近任务上滑/系统回收)才结束进程。
+                BackHandler {
+                    if (screen == Screen.HOME) moveTaskToBack(true)
+                    else screenOrdinal = Screen.HOME.ordinal
                 }
             }
         }

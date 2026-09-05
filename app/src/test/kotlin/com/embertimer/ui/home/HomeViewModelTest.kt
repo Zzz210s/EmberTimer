@@ -112,7 +112,7 @@ class HomeViewModelTest {
         val d = vm.dayDetail.first { it != null }!!
         assertEquals(2, d.rows.size)
         assertEquals(120 * 60_000L, d.totalMillis) // 总额含孤儿行
-        assertEquals("已删除配置", d.rows[0].profileName) // 孤儿行 90 分钟,降序居首
+        assertEquals("已删除时钟", d.rows[0].profileName) // 孤儿行 90 分钟,降序居首
         assertEquals(90 * 60_000L, d.rows[0].millis)
         assertEquals("番茄", d.rows[1].profileName) // 存活配置显示真实名称
         assertEquals(30 * 60_000L, d.rows[1].millis)

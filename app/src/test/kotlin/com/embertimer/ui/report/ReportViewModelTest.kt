@@ -131,7 +131,7 @@ class ReportViewModelTest {
         assertEquals(listOf("番茄"), v.ui.value.profileTotals.map { it.profileName })
         g.profileRepo.delete(g.profileRepo.byId(a)!!) // daily_total 无 FK 成孤儿行
         v.refresh()
-        assertEquals(listOf("已删除配置"), v.ui.value.profileTotals.map { it.profileName })
+        assertEquals(listOf("已删除时钟"), v.ui.value.profileTotals.map { it.profileName })
         assertEquals(60 * 60_000L, v.ui.value.profileTotals[0].millis)
     }
 
@@ -179,7 +179,7 @@ class ReportViewModelTest {
         // 设置页删除配置(无新记录、无 refresh):占位文案应自动出现
         g.profileRepo.delete(g.profileRepo.byId(a)!!)
         shadowOf(Looper.getMainLooper()).idle()
-        assertEquals(listOf("已删除配置"), v.ui.value.profileTotals.map { it.profileName })
+        assertEquals(listOf("已删除时钟"), v.ui.value.profileTotals.map { it.profileName })
         assertEquals(30 * 60_000L, v.ui.value.profileTotals[0].millis)
     }
 }
