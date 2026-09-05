@@ -117,11 +117,23 @@ class ReportViewModel(
         val range = _range.value
         val profiles = graph.profileRepo.profiles.first()
         if (range == ReportRange.LIFETIME) {
-            val lt = graph.totalsRepo.profileTotals().first().map { p ->
-                val name = profiles.firstOrNull { it.id == p.profileId }?.name ?: "已删除时钟"
-                ProfileTotalUi(name, p.total)
-            }.sortedByDescending { it.millis }
-            _ui.value = ReportUiState(range = range, rows = emptyList(), profileTotals = lt)
+            // v1.6 总时长页:与周/月同款健康摘要(全历史)
+            val today = clock()
+            val (from, to) = reportWindow(range, today)
+            val raw = graph.totalsRepo.rangeBreakdown(from, to)
+            val zone = java.time.ZoneId.systemDefault()
+            val startMs = LocalDate.parse(from).atStartOfDay(zone).toInstant().toEpochMilli()
+            val endMs = today.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+            val sessions = graph.totalsRepo.sessionsBetweenMs(startMs, endMs)
+            val (metrics, slots) = summarizeWindow(from, to, raw, sessions, null, zone)
+            val lt = raw.groupBy { it.profileId }
+                .map { (id, rs) ->
+                    val name = profiles.firstOrNull { it.id == id }?.name ?: "已删除时钟"
+                    ProfileTotalUi(name, rs.sumOf { it.total })
+                }
+                .sortedByDescending { it.millis }
+            _ui.value = ReportUiState(range = range, rows = emptyList(), profileTotals = lt,
+                metrics = metrics, timeSlots = slots)
             return
         }
         val today = clock()

@@ -49,18 +49,21 @@ internal class EventApplier(
     suspend fun apply(ev: EngineEvent): Boolean {
         // v1.3 #6:工作段收尾(自动完成/终止/跳过/切换/重启)落一段专注 —— 窗口由引擎在
         // 事件内携带(同次转换赋值,无跨线程竞态);settle>0 才记,防空段
+        // v1.6 误触规则:整段 <1 分钟视为误触——不计入累计、不存储、不入库
+        var ignoreMisTouch = false
         if (ev.settleMillis() > 0) {
             val ss = ev.sessionStart()
             val se = ev.sessionEnd()
             val pid = ev.profileIdOf()
             if (ss != null && se != null && se > ss && pid != null) {
-                graph.totalsRepo.recordWorkSession(pid, ss, se)
+                if (se - ss < MIN_MIS_TOUCH_MS) ignoreMisTouch = true
+                else graph.totalsRepo.recordWorkSession(pid, ss, se)
             }
         }
         for (fx in EventPolicy.decide(ev, graph.engine.snapshot.value)) {
             when (fx) {
                 is EventEffect.Settle -> {
-                    if (fx.millis > 0) graph.totalsRepo.addWork(
+                    if (fx.millis > 0 && !ignoreMisTouch) graph.totalsRepo.addWork(
                         java.time.LocalDate.now().toString(), fx.profileId, fx.millis,
                     )
                 }
@@ -73,3 +76,6 @@ internal class EventApplier(
         return ev is EngineEvent.Reset
     }
 }
+
+/** 误触阈值:整段小于该值视为误触(v1.6) */
+private const val MIN_MIS_TOUCH_MS = 60_000L

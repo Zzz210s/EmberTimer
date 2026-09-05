@@ -31,6 +31,7 @@ fun ReportSummary(
     slots: List<SlotMinutes>,
     totalMillis: Long,
     isMonth: Boolean,
+    showAvg: Boolean = true,
 ) {
     val primary = MaterialTheme.colorScheme.primary
     val tileCard = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
@@ -60,11 +61,11 @@ fun ReportSummary(
                     )
                 }
             }
-            // 四指标
+            // 四指标(总时长页不计日均,避免长期跨度稀释误导)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 MetricTile(tileCard, stringResource(R.string.m_focus_days), "${metrics.focusDays}", Modifier.weight(1f))
                 MetricTile(tileCard, stringResource(R.string.m_streak), "${metrics.streakDays}", Modifier.weight(1f))
-                MetricTile(tileCard, stringResource(R.string.m_avg), localizedDur(metrics.avgMinutesPerDay * 60_000), Modifier.weight(1f))
+                if (showAvg) MetricTile(tileCard, stringResource(R.string.m_avg), localizedDur(metrics.avgMinutesPerDay * 60_000), Modifier.weight(1f))
                 MetricTile(
                     tileCard, stringResource(R.string.m_best),
                     metrics.bestDay?.let { localizedDur(metrics.bestMinutes * 60_000) } ?: "—",

@@ -54,4 +54,19 @@ class DailyTotalRepository(
     /** 墙钟窗口内全部段(起点升序);供报表时段分布 */
     suspend fun sessionsBetweenMs(startMs: Long, endMs: Long): List<FocusSessionEntity> =
         sessionDao.betweenMs(startMs, endMs)
+
+    /** v1.6 误触清理:删除短于 [minMs] 的段并把其时长从当日合计扣回(一次全量) */
+    suspend fun pruneMisTouchSessions(minMs: Long, zone: java.time.ZoneId = java.time.ZoneId.systemDefault()) {
+        val short = sessionDao.shorterThan(minMs)
+        if (short.isEmpty()) return
+        db.withTransaction {
+            short.forEach { r ->
+                sessionDao.deleteById(r.id)
+                val date = java.time.Instant.ofEpochMilli(r.startAt).atZone(zone).toLocalDate().toString()
+                val cur = dao.getWorkMillis(date, r.profileId) ?: 0L
+                val remain = (cur - (r.endAt - r.startAt)).coerceAtLeast(0L)
+                dao.upsert(DailyTotalEntity(date, r.profileId, remain, time.now()))
+            }
+        }
+    }
 }

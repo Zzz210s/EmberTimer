@@ -4,7 +4,7 @@
     <string name="report_title">Reports</string>
     <string name="tab_week">Weekly</string>
     <string name="tab_month">Monthly</string>
-    <string name="tab_lifetime">Clocks</string>
+    <string name="tab_lifetime">Total</string>
     <string name="total_window">Clock totals</string>
     <string name="total_lifetime">All-time totals</string>
     <string name="total_all">Grand total</string>
