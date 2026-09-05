@@ -63,7 +63,7 @@ class ReportAggregateTest {
         val profiles = listOf(ProfileEntity(5, "深度", 25, 5, 0))
         val raw = listOf(dp("2026-09-01", 5, 30), dp("2026-09-02", 9, 90), dp("2026-09-03", 5, 10))
         val totals = reportProfileTotals(profiles, raw)
-        assertEquals(listOf("已删除配置", "深度"), totals.map { it.profileName })
+        assertEquals(listOf("已删除时钟", "深度"), totals.map { it.profileName })
         assertEquals(listOf(minutes(90), minutes(40)), totals.map { it.millis })
     }
 }
