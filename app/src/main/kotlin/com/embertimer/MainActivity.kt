@@ -27,12 +27,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Modifier
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.runtime.Composable
 import com.embertimer.ui.theme.MotionTokens
@@ -119,13 +116,8 @@ class MainActivity : ComponentActivity() {
                     AnimatedContent(
                         targetState = screen,
                         transitionSpec = {
-                            (fadeIn(tween(MotionTokens.TextSwapEnter.durationMillis)) +
-                                slideInVertically(tween(MotionTokens.TextSwapEnter.durationMillis)) { it / 12 })
-                                .togetherWith(
-                                    fadeOut(tween(MotionTokens.TextSwapExit.durationMillis)) +
-                                        slideOutVertically(tween(MotionTokens.TextSwapExit.durationMillis)) { -it / 12 },
-                                )
-                                .using(SizeTransform(clip = false))
+                            // v1.6:平缓交叉淡入淡出(去掉滑动/位移,时长放缓,不再有强动效)
+                            fadeIn(tween(220)).togetherWith(fadeOut(tween(140)))
                         },
                         label = "screenSwap",
                     ) { screenContent() }

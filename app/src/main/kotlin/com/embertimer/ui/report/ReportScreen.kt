@@ -23,7 +23,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.embertimer.R
@@ -69,13 +68,7 @@ fun ReportScreen(onBack: () -> Unit, initialRange: ReportRange = ReportRange.WEE
                         onClick = { vm.setRange(range) },
                         shape = SegmentedButtonDefaults.itemShape(index = index, count = tabs.size),
                     ) {
-                        Text(
-                            label,
-                            maxLines = 1,
-                            softWrap = false,
-                            overflow = TextOverflow.Ellipsis,
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
+                        Text(label, style = MaterialTheme.typography.bodyMedium)
                     }
                 }
             }
@@ -92,6 +85,15 @@ fun ReportScreen(onBack: () -> Unit, initialRange: ReportRange = ReportRange.WEE
             }
             // 周/月/时钟累计内容直渲(曾包 AnimatedContent 时内容停留首帧旧 ui,直渲零状态依赖)
             if (ui.range == ReportRange.LIFETIME) {
+                ui.metrics?.let { m ->
+                    ReportSummary(
+                        metrics = m,
+                        slots = ui.timeSlots,
+                        totalMillis = ui.profileTotals.sumOf { it.millis },
+                        isMonth = false,
+                        showAvg = false,
+                    )
+                }
                 if (ui.profileTotals.isEmpty()) {
                     Text(
                         stringResource(R.string.empty_lifetime),
