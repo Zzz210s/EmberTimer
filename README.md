@@ -65,7 +65,7 @@ For a signed release build: generate a keystore and set the four keys (`storeFil
 
 A single-module Compose app with clean layering:
 
-![Architecture](docs/architecture.svg)
+<img src="docs/architecture.svg" alt="Architecture" width="700">
 
 - `timer/` pure Kotlin timing engine (state machine, checkpoint reconciliation, dual-clock recovery) with no Android dependency, JVM-testable.
 - `service/` foreground service (event-driven: notifications/alarms/alerts/settlement), exact-alarm scheduling, boot/alarm receivers.
