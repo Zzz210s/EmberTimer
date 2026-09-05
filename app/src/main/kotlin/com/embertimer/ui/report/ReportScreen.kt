@@ -76,35 +76,24 @@ fun ReportScreen(onBack: () -> Unit, initialRange: ReportRange = ReportRange.WEE
                     ) { Text(label) }
                 }
             }
-            // v1.1 #7:周/月切换时内容交叉过渡(进 160 出 100,轻上移);关闭动画直切
-            AnimatedContent(
-                targetState = ui.range,
-                transitionSpec = {
-                    val enterMs = MotionTokens.TextSwapEnter.durationMillis
-                    val exitMs = MotionTokens.TextSwapExit.durationMillis
-                    (fadeIn(tween(enterMs)) + slideInVertically(tween(enterMs)) { it / 6 })
-                        .togetherWith(fadeOut(tween(exitMs)) + slideOutVertically(tween(exitMs)) { -it / 6 })
-                        .using(SizeTransform(clip = false))
-                },
-                label = "reportRange",
-            ) { _ ->
-                if (ui.rows.isEmpty()) {
-                    Text(
-                        "本期无专注记录",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                } else {
-                    ui.rows.forEach { row -> TotalRow(row.label, row.millis) }
-                    Text(
-                        "各配置合计",
-                        style = MaterialTheme.typography.titleSmall,
-                        modifier = Modifier.padding(top = 8.dp),
-                    )
-                    ui.profileTotals.forEach { p -> TotalRow(p.profileName, p.millis) }
-                }
-            }
-        }
+            // TEMP bypass AnimatedContent for isolation
+            // 周/月内容直渲(曾包 AnimatedContent(ui.range) 时内容停留在首帧旧 ui,
+            // 设备复现数据刷新后不重渲;直渲正确且零状态依赖,切换动画由段按钮自带)
+            if (ui.rows.isEmpty()) {
+                Text(
+                    "本期无专注记录",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                ui.rows.forEach { row -> TotalRow(row.label, row.millis) }
+                Text(
+                    "各配置合计",
+                    style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+                ui.profileTotals.forEach { p -> TotalRow(p.profileName, p.millis) }
+            }        }
     }
 }
 

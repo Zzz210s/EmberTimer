@@ -18,6 +18,7 @@ import com.embertimer.service.ReportAlarmActions
 import com.embertimer.ui.home.HomeScreen
 import com.embertimer.ui.report.ReportRange
 import com.embertimer.ui.report.ReportScreen
+import com.embertimer.ui.settings.ProfilesScreen
 import com.embertimer.ui.settings.SettingsScreen
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
@@ -33,7 +34,7 @@ import com.embertimer.ui.theme.rememberAnimationsEnabled
 import com.embertimer.ui.theme.EmberTheme
 
 /** 无导航库:三屏手写状态切换(主页/设置/报表,rememberSaveable 存 Int 序数) */
-private enum class Screen { HOME, SETTINGS, REPORT }
+private enum class Screen { HOME, SETTINGS, REPORT, PROFILES }
 
 class MainActivity : ComponentActivity() {
     private val notifPermission =
@@ -89,10 +90,13 @@ class MainActivity : ComponentActivity() {
                         Screen.HOME -> HomeScreen(
                             onSettings = { screenOrdinal = Screen.SETTINGS.ordinal },
                             onOpenReport = openReport,
+                            onManageProfiles = { screenOrdinal = Screen.PROFILES.ordinal },
                         )
                         Screen.SETTINGS -> SettingsScreen(
                             onBack = { screenOrdinal = Screen.HOME.ordinal },
-                            onOpenReport = { openReport(ReportRange.WEEK) },
+                        )
+                        Screen.PROFILES -> ProfilesScreen(
+                            onBack = { screenOrdinal = Screen.HOME.ordinal },
                         )
                         Screen.REPORT -> ReportScreen(
                             onBack = { screenOrdinal = Screen.SETTINGS.ordinal },

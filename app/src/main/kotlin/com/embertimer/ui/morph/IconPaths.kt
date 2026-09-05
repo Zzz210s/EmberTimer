@@ -26,7 +26,9 @@ object IconPaths {
     const val MENU = "M4,6 L20,6 M4,12 L20,12 M4,18 L20,18"
     /** 下拉展开箭头:V 形(v1.1 顶栏中央配置下拉指示,静态图标,无 XML 对应) */
     const val CHEVRON_DOWN = "M6,9 L12,15 L18,9"
+    /** 对勾(v1.2 面板当前配置选中指示,静态图标,无 XML 对应) */
+    const val CHECK = "M4.5,12.5 L10,18 L19.5,6.5"
 
     /** 全部 9 个图标,供测试遍历(24 栅格合法性/可解析性守卫)。 */
-    val ALL: List<String> = listOf(PLAY, PAUSE, SKIP, STOP, REPEAT, SETTINGS, BACK, MENU, CHEVRON_DOWN)
+    val ALL: List<String> = listOf(PLAY, PAUSE, SKIP, STOP, REPEAT, SETTINGS, BACK, MENU, CHEVRON_DOWN, CHECK)
 }

@@ -5,6 +5,7 @@ import android.database.sqlite.SQLiteDatabase
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.embertimer.data.db.EmberDatabase
+import com.embertimer.data.db.ProfileDao
 import com.embertimer.data.db.ProfileMode
 import com.embertimer.timer.TimeProvider
 import kotlinx.coroutines.flow.first
@@ -77,6 +78,9 @@ class ModeMigrationTest {
         v1.version = 1 // PRAGMA user_version:Room 据此走 onUpgrade
         v1.execSQL("INSERT INTO `profile` (`name`, `workMinutes`, `restMinutes`, `createdAt`) " +
             "VALUES ('老番茄', 25, 5, 1700000000000)")
+        // v1.2 #2:首签名版(v0.3.0,schema v1)累积的专注明细同样必须继承
+        v1.execSQL("INSERT INTO `daily_total` (`date`, `profileId`, `workMillis`, `updatedAt`) " +
+            "VALUES ('2026-08-30', 1, 3600000, 1700000001000)")
         v1.close()
 
         // EmberDatabase.build 内含 addMigrations(MIGRATION_1_2)
@@ -94,5 +98,12 @@ class ModeMigrationTest {
         assertTrue(id2 > old.id)
         assertEquals(ProfileMode.COUNTUP, repo.modeOf(id2))
         assertEquals(2, repo.count())
+        // daily_total 明细逐值保留(日期/归属/时长/时间戳)
+        val totals = DailyTotalRepository(db!!, db!!.dailyTotalDao(), time)
+            .rangeBreakdown("2026-08-30", "2026-08-30")
+        assertEquals(1, totals.size)
+        assertEquals("2026-08-30", totals.single().date)
+        assertEquals(1L, totals.single().profileId)
+        assertEquals(3_600_000L, totals.single().total)
     }
 }
