@@ -65,6 +65,8 @@ cd EmberTimer
 
 单模块 Compose 应用,分层清晰:
 
+![架构图](docs/architecture.svg)
+
 - `timer/` 纯 Kotlin 计时引擎(状态机、checkpoint 对账、双时钟恢复),无 Android 依赖,可 JVM 直测
 - `service/` 前台服务(事件驱动:通知/闹钟/提醒/落账)、精确闹钟调度、开机/闹钟接收器
 - `data/` Room(profile、daily_total)+ DataStore(设置、运行时状态)
