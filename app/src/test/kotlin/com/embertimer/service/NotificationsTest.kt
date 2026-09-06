@@ -40,11 +40,9 @@ class NotificationsTest {
         TimerNotifications.ensureChannels(ctx)
         val running = TimerNotifications.inProgress(ctx, snap)
         val paused = TimerNotifications.inProgress(ctx, snap.copy(status = EngineStatus.PAUSED))
-        // v1.8.5 完全重构:图标按钮 + 倒计时走 RemoteViews 自定义布局,不再依赖系统 action 行
-        assertNotNull(running.contentView)
-        assertNotNull(paused.contentView)
-        assertEquals(0, (running.actions ?: emptyArray()).size)
-        assertEquals(0, (paused.actions ?: emptyArray()).size)
+        // v1.9.0 通知重构:系统原生动作按钮(停止|暂停/恢复|跳过),内容为阶段文案;不再用自定义 RemoteViews
+        assertEquals(3, (running.actions ?: emptyArray()).size)
+        assertEquals(3, (paused.actions ?: emptyArray()).size)
         assertEquals("工作中", running.extras.getCharSequence(NotificationCompat.EXTRA_TITLE).toString())
         assertEquals("工作中", paused.extras.getCharSequence(NotificationCompat.EXTRA_TITLE).toString())
     }
@@ -68,8 +66,7 @@ class NotificationsTest {
     @Test fun countUpRunningUsesForwardChronometer() {
         TimerNotifications.ensureChannels(ctx)
         val n = TimerNotifications.inProgress(ctx, snap.copy(countUp = true))
-        assertNotNull(n.contentView)
-        assertEquals(0, (n.actions ?: emptyArray()).size)
+        assertEquals(2, (n.actions ?: emptyArray()).size) // 正计时:停止+暂停/恢复(无跳过)
         assertEquals("工作中", n.extras.getCharSequence(NotificationCompat.EXTRA_TITLE).toString())
     }
 
@@ -77,8 +74,7 @@ class NotificationsTest {
         TimerNotifications.ensureChannels(ctx)
         val paused = snap.copy(countUp = true, status = EngineStatus.PAUSED, timeAtPause = 45_000)
         val n = TimerNotifications.inProgress(ctx, paused)
-        assertNotNull(n.contentView)
-        assertEquals(0, (n.actions ?: emptyArray()).size)
+        assertEquals(2, (n.actions ?: emptyArray()).size)
         assertEquals("工作中", n.extras.getCharSequence(NotificationCompat.EXTRA_TITLE).toString())
     }
 }

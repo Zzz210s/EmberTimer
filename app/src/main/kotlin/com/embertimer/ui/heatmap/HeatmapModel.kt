@@ -15,7 +15,7 @@ data class WeekColumn(val weekStart: LocalDate, val cells: List<DayCell>)
 data class HeatmapModel(
     val columns: List<WeekColumn>,
     val monthLabels: Map<Int, String>,
-    val weekLabels: List<String> = listOf("1", "", "3", "", "5", "", ""),
+    val weekLabels: List<String> = listOf("", "Mon", "", "Wed", "", "Fri", ""), // GitHub:行=周日→周六,标 Mon/Wed/Fri
 )
 
 enum class HeatLevel { NONE, L1, L2, L3, L4 }
@@ -38,16 +38,17 @@ private val MONTH_ABBREVIATIONS = mapOf(
     Month.OCTOBER to "Oct", Month.NOVEMBER to "Nov", Month.DECEMBER to "Dec",
 )
 
-/** 全历史构建:窗口从最早数据所在周的周一到 today 所在周;首记录前的日期不产出格子(纯空白) */
+/** 全历史构建(GitHub 布局):行 = 周日→周六(周日顶行);列 = 周;星期标签 Mon/Wed/Fri;
+ * 月份标签放在"含该月 1 日"的那一列顶;首记录前/未来日不产出格子 */
 fun buildHeatmapModel(days: Map<LocalDate, Long>, today: LocalDate): HeatmapModel {
     val firstDataDate = days.keys.minOrNull() ?: today
-    val first = firstDataDate.with(DayOfWeek.MONDAY)
+    // 周日对齐:首个使用日所在周的周日
+    val first = firstDataDate.minusDays((firstDataDate.dayOfWeek.value % 7).toLong())
     val weekStarts = generateSequence(first) { it.plusWeeks(1) }
         .takeWhile { !it.isAfter(today) }
         .toList()
         .ifEmpty { listOf(first) }
 
-    // 未来日剔除;首记录前剔除(GitHub 式空白,非 NONE 格)
     fun cellOf(d: LocalDate): DayCell? = when {
         d.isAfter(today) -> null
         d.isBefore(firstDataDate) -> null
@@ -58,11 +59,14 @@ fun buildHeatmapModel(days: Map<LocalDate, Long>, today: LocalDate): HeatmapMode
         WeekColumn(ws, (0..6).mapNotNull { dowIdx -> cellOf(ws.plusDays(dowIdx.toLong())) })
     }
 
-    // D4(v1.1):GitHub 式月份标签——仅跨月列标注(与前一列 weekStart 不同月),首列不标
-    val monthLabels = weekStarts.mapIndexedNotNull { i, ws ->
-        if (i > 0 && ws.month != weekStarts[i - 1].month) {
-            i to MONTH_ABBREVIATIONS.getValue(ws.month)
-        } else null
-    }.toMap()
+    // GitHub 月份标签:每个月的 1 日落到哪一列,就在该列顶标注该月缩写(1 日居中的列也标注)
+    val monthLabels = LinkedHashMap<Int, String>()
+    var cursor = firstDataDate.withDayOfMonth(1)
+    while (!cursor.isAfter(today)) {
+        val colIdx = (java.time.temporal.ChronoUnit.DAYS.between(first, cursor) / 7L)
+            .toInt().coerceAtLeast(0)
+        if (colIdx < weekStarts.size) monthLabels[colIdx] = MONTH_ABBREVIATIONS.getValue(cursor.month)
+        cursor = cursor.plusMonths(1)
+    }
     return HeatmapModel(columns, monthLabels)
 }
