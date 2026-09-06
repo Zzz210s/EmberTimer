@@ -19,7 +19,7 @@ fun HeatmapItem.itemId(): String = when (this) {
  */
 fun gridItems(model: HeatmapModel): List<HeatmapItem> =
     model.columns.flatMap { col ->
-        val prefix = col.cells.firstOrNull()?.let { it.date.dayOfWeek.value - 1 } ?: 0
+        val prefix = col.cells.firstOrNull()?.let { it.date.dayOfWeek.value % 7 } ?: 0 // 周日=0
         List(prefix) { i -> HeatmapItem.Blank(col.weekStart.plusDays(i.toLong())) } +
             col.cells.map { HeatmapItem.Cell(it) }
     }

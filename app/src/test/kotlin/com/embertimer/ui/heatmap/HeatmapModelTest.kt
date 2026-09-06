@@ -66,7 +66,8 @@ class HeatmapModelTest {
         val d1 = LocalDate.of(2026, 9, 1) // 8/31 周
         val d2 = LocalDate.of(2026, 9, 8) // 9/7 周
         val m = buildHeatmapModel(mapOf(d1 to 60_000L, d2 to 60_000L), today)
-        assertEquals(mapOf(1 to "Sep"), m.monthLabels)
+        // GitHub:月份标签放在"含该月 1 日"的那一列 —— 9/1 落在首列(8/30 周),故标 col0
+        assertEquals(mapOf(0 to "Sep"), m.monthLabels)
     }
 
     @Test fun monthLabelCrossesYearBoundaryOnMonthChange() {
@@ -74,7 +75,7 @@ class HeatmapModelTest {
             mapOf(LocalDate.of(2026, 12, 20) to 60_000L),
             LocalDate.of(2027, 1, 6),
         )
-        // weekStarts: 12/14, 12/21, 12/28(Dec), 1/4(Jan) -> 仅跨月的 1/4 列标 Jan
-        assertEquals(mapOf(3 to "Jan"), m.monthLabels)
+        // GitHub:月份标签按"含 1 日"列 —— 12/1 在首列(12/20 周起点前,标 col0),1/1 在第二列(col1)
+        assertEquals(mapOf(0 to "Dec", 1 to "Jan"), m.monthLabels)
     }
 }
