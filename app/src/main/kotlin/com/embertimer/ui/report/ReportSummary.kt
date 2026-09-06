@@ -14,6 +14,9 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -21,6 +24,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.embertimer.ui.theme.BarAnim
+import com.embertimer.ui.theme.MotionTokens
+import com.embertimer.ui.theme.rememberAnimationsEnabled
 import com.embertimer.R
 
 /** 健康风报表可视化(指标 2×2 + 时段分布条 + 通用条形行),字段完整不裁切。 */
@@ -107,7 +113,14 @@ fun FocusBarRow(
             Modifier.weight(1.5f).height(12.dp).padding(end = 6.dp)
                 .background(MaterialTheme.colorScheme.surfaceContainerHighest, RoundedCornerShape(6.dp)),
         ) {
-            val fraction = (if (max > 0) value.toFloat() / max else 0f).coerceIn(0f, 1f)
+            val target = (if (max > 0) value.toFloat() / max else 0f).coerceIn(0f, 1f)
+            val anim = rememberAnimationsEnabled()
+            // 条形从 0 -> 目标弹性生长(系统关闭动画时直切);重放时随数据/目标变化自然重绘
+            val fraction by animateFloatAsState(
+                targetValue = if (anim) target else target,
+                animationSpec = if (anim) BarAnim else tween(0),
+                label = "barFraction",
+            )
             Box(
                 Modifier.fillMaxWidth(fraction).height(12.dp)
                     .background(color, RoundedCornerShape(6.dp)),

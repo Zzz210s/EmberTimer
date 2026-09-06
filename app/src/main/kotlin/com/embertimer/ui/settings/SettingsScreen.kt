@@ -126,44 +126,57 @@ fun SettingsScreen(onBack: () -> Unit) {
                 }
             }
             item {
-                Text(stringResource(R.string.color_theme), style = MaterialTheme.typography.titleMedium)
-                Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ThemePack.entries.forEach { pack ->
-                        Swatch(
-                            name = stringResource(pack.labelRes),
-                            color = pack.primary,
-                            selected = ui.themePack == pack,
-                            onClick = { scope.launch { vm.setThemePack(pack) } },
-                        )
+                Card {
+                    Column(Modifier.fillMaxWidth().padding(12.dp)) {
+                        Text(stringResource(R.string.color_theme), style = MaterialTheme.typography.titleMedium)
+                        Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            ThemePack.entries.forEach { pack ->
+                                Swatch(
+                                    name = stringResource(pack.labelRes),
+                                    color = pack.primary,
+                                    selected = ui.themePack == pack,
+                                    onClick = { scope.launch { vm.setThemePack(pack) } },
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
+                        }
                     }
                 }
             }
             item {
-                Text(stringResource(R.string.data_section), style = MaterialTheme.typography.titleMedium)
-                Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { exportLauncher.launch("embertimer-backup.json") }) { Text(stringResource(R.string.export_data)) }
-                    OutlinedButton(onClick = { importLauncher.launch(arrayOf("application/json", "application/octet-stream", "text/plain", "*/*")) }) { Text(stringResource(R.string.import_data)) }
+                Card {
+                    Column(Modifier.fillMaxWidth().padding(12.dp)) {
+                        Text(stringResource(R.string.data_section), style = MaterialTheme.typography.titleMedium)
+                        Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(onClick = { exportLauncher.launch("embertimer-backup.json") }) { Text(stringResource(R.string.export_data)) }
+                            OutlinedButton(onClick = { importLauncher.launch(arrayOf("application/json", "application/octet-stream", "text/plain", "*/*")) }) { Text(stringResource(R.string.import_data)) }
+                        }
+                    }
                 }
             }
             item {
-                Text(stringResource(R.string.reminder_intensity), style = MaterialTheme.typography.titleMedium)
-                SingleChoiceSegmentedButtonRow {
-                    ReminderIntensity.entries.forEachIndexed { index, intensity ->
-                        SegmentedButton(
-                            selected = ui.intensity == intensity,
-                            onClick = { scope.launch { vm.setIntensity(intensity) } },
-                            shape = SegmentedButtonDefaults.itemShape(
-                                index = index,
-                                count = ReminderIntensity.entries.size,
-                            ),
-                        ) {
-                            Text(
-                                when (intensity) {
-                                    ReminderIntensity.LIGHT -> stringResource(R.string.intensity_light)
-                                    ReminderIntensity.STANDARD -> stringResource(R.string.intensity_standard)
-                                    ReminderIntensity.STRONG -> stringResource(R.string.intensity_strong)
-                                },
-                            )
+                Card {
+                    Column(Modifier.fillMaxWidth().padding(12.dp)) {
+                        Text(stringResource(R.string.reminder_intensity), style = MaterialTheme.typography.titleMedium)
+                        SingleChoiceSegmentedButtonRow {
+                            ReminderIntensity.entries.forEachIndexed { index, intensity ->
+                                SegmentedButton(
+                                    selected = ui.intensity == intensity,
+                                    onClick = { scope.launch { vm.setIntensity(intensity) } },
+                                    shape = SegmentedButtonDefaults.itemShape(
+                                        index = index,
+                                        count = ReminderIntensity.entries.size,
+                                    ),
+                                ) {
+                                    Text(
+                                        when (intensity) {
+                                            ReminderIntensity.LIGHT -> stringResource(R.string.intensity_light)
+                                            ReminderIntensity.STANDARD -> stringResource(R.string.intensity_standard)
+                                            ReminderIntensity.STRONG -> stringResource(R.string.intensity_strong)
+                                        },
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -173,10 +186,11 @@ fun SettingsScreen(onBack: () -> Unit) {
 }
 
 @Composable
-private fun Swatch(name: String, color: androidx.compose.ui.graphics.Color, selected: Boolean, onClick: () -> Unit) {
+private fun Swatch(name: String, color: androidx.compose.ui.graphics.Color, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val border = if (selected) 2.dp else 1.dp
     Column(
-        Modifier.clip(RoundedCornerShape(8.dp))
+        modifier
+            .clip(RoundedCornerShape(8.dp))
             .background(MaterialTheme.colorScheme.surfaceContainerLow)
             .clickable(onClick = onClick)
             .border(border, MaterialTheme.colorScheme.onSurfaceVariant, RoundedCornerShape(8.dp))
