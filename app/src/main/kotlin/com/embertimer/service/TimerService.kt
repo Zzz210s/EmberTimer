@@ -5,6 +5,7 @@ import android.content.Intent
 import android.util.Log
 import com.embertimer.EmberApp
 import com.embertimer.di.AppGraph
+import com.embertimer.service.TimerNotifications
 import com.embertimer.timer.EngineEvent
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -69,6 +70,7 @@ class TimerService : Service() {
             notifier = notifier,
             onSelfStop = {
                 stopForeground(STOP_FOREGROUND_REMOVE)
+                TimerNotifications.showIdle(this) // 常驻:终止/空闲后通知不彻底消失
                 stopSelf()
             },
         )
@@ -160,6 +162,7 @@ class TimerService : Service() {
                 stopDraining -> {}
                 else -> {
                     stopForeground(STOP_FOREGROUND_REMOVE)
+                    TimerNotifications.showIdle(this) // 常驻:空闲态通知保留
                     stopSelf()
                 }
             }

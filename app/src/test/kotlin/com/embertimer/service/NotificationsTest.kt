@@ -89,4 +89,18 @@ class NotificationsTest {
         // 实际应用 RemoteViews 到容器:若布局含不受支持属性(如 tint/?attr)会抛异常(之前真机崩溃点)
         n.contentView.apply(ctx, android.widget.FrameLayout(ctx))
     }
+
+    // ---- v1.9.4:Chronometer base 必须基于 elapsedRealtime(墙钟 endWall 会错/空) ----
+
+    @Test fun clockSpecCountdownUsesElapsedEnd() {
+        val spec = buildClockSpec(snap) // countUp=false
+        assertEquals(100_000L, spec.base) // endElapsed(elapsed时间轴),而非 endWall
+        assertEquals(true, spec.countDown)
+    }
+
+    @Test fun clockSpecCountUpUsesStartPlusPaused() {
+        val spec = buildClockSpec(snap.copy(countUp = true, startElapsed = 5_000, timeSpentPaused = 2_000))
+        assertEquals(7_000L, spec.base) // startElapsed + timeSpentPaused
+        assertEquals(false, spec.countDown)
+    }
 }

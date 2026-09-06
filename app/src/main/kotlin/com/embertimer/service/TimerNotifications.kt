@@ -89,13 +89,14 @@ object TimerNotifications {
         rv.setInt(R.id.notif_cycle, "setColorFilter", fg)
         rv.setTextViewText(R.id.notif_cycle_text, if (countUp) "" else snap.cycleCount.toString())
         rv.setTextColor(R.id.notif_cycle_text, fg)
-        // 时间:运行态 chronometer(倒計/正計),暂停态定格文本
+        // 时间:v1.9.4 —— Chronometer 的 base 必须基于 SystemClock.elapsedRealtime()(官方),
+        // 不能用墙钟 endWall(正是倒计时错/空的根因);运行态用 buildClockSpec 的 elapsed 基线,暂停态定格文本
         if (paused) {
             rv.setTextViewText(R.id.notif_time, DurationFormat.ms(snap.timeAtPause))
         } else {
-            val base = if (countUp) snap.endWall - snap.durationMillis else snap.endWall
-            rv.setChronometerCountDown(R.id.notif_time, !countUp)
-            rv.setChronometer(R.id.notif_time, base, null, true)
+            val spec = buildClockSpec(snap)
+            rv.setChronometerCountDown(R.id.notif_time, spec.countDown)
+            rv.setChronometer(R.id.notif_time, spec.base, null, true)
         }
         rv.setTextColor(R.id.notif_time, fg)
 
@@ -123,6 +124,9 @@ object TimerNotifications {
             .setShowWhen(false)
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)
             .setContentIntent(activityIntent(context))
+            // DecoratedCustomViewStyle:系统提供装饰(应用名/时间头部),自定内容作正文 —— 比纯 RemoteViews 更稳,
+            // 也规避自定义按钮更新导致的"通知消失"问题类
+            .setStyle(NotificationCompat.DecoratedCustomViewStyle())
             .setCustomContentView(rv)
             .setCustomBigContentView(rv)
             .build()
@@ -158,3 +162,10 @@ object TimerNotifications {
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
 }
+
+/** 运行态时钟基线(v1.9.4):基于 SystemClock.elapsedRealtime() 的绝对基 —— Chronometer 只认这条时间轴。 */
+internal data class ClockSpec(val base: Long, val countDown: Boolean)
+
+internal fun buildClockSpec(snap: RuntimeSnapshot): ClockSpec =
+    if (snap.countUp) ClockSpec(snap.startElapsed + snap.timeSpentPaused, false)
+    else ClockSpec(snap.endElapsed, true)
