@@ -95,6 +95,10 @@ cd EmberTimer
 
 本项目为独立实现,未复制上述项目源代码(见 [NOTICE](NOTICE))。
 
+## 贡献
+
+见 [CONTRIBUTING.md](CONTRIBUTING.md)。变更记录见 [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)。
+
 ## 许可证
 
 [GPL-3.0](LICENSE)

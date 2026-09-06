@@ -95,6 +95,9 @@ Timing-correctness design: engine event replay=0 + subscription handshake, a sin
 
 This project is an independent implementation and does not copy their source code (see [NOTICE](NOTICE)).
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Changes are tracked in [CHANGELOG.md](CHANGELOG.md).
 ## License
 
 [GPL-3.0](LICENSE)
