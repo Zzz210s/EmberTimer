@@ -5,6 +5,12 @@ import androidx.compose.ui.res.stringResource
 import android.content.Intent
 import android.os.Build
 import android.provider.Settings
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import com.embertimer.data.DataTransfer
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,6 +20,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -61,6 +68,32 @@ fun SettingsScreen(onBack: () -> Unit) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
+    val exportedMsg = stringResource(R.string.data_exported)
+    val importFailedMsg = stringResource(R.string.data_import_failed)
+
+    // v1.9.1 数据导出/导入(SAF):导出为 JSON 存到用户所选文件;导入 JSON 并 upsert 合并
+    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri != null) scope.launch {
+            runCatching {
+                val json = DataTransfer.exportJson(app.graph.db)
+                withContext(Dispatchers.IO) { ctx.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) } }
+            }
+            Toast.makeText(ctx, exportedMsg, Toast.LENGTH_SHORT).show()
+        }
+    }
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) scope.launch {
+            val ok = runCatching {
+                val text = withContext(Dispatchers.IO) {
+                    ctx.contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) } ?: ""
+                }
+                val counts = DataTransfer.importJson(app.graph.db, text)
+                Toast.makeText(ctx, ctx.getString(R.string.data_imported, counts.dailyTotals), Toast.LENGTH_SHORT).show()
+                true
+            }.getOrDefault(false)
+            if (!ok) Toast.makeText(ctx, importFailedMsg, Toast.LENGTH_SHORT).show()
+        }
+    }
 
     LaunchedEffect(Unit) { vm.refreshExactAlarm(ctx) }
 
@@ -103,6 +136,13 @@ fun SettingsScreen(onBack: () -> Unit) {
                             onClick = { scope.launch { vm.setThemePack(pack) } },
                         )
                     }
+                }
+            }
+            item {
+                Text(stringResource(R.string.data_section), style = MaterialTheme.typography.titleMedium)
+                Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = { exportLauncher.launch("embertimer-backup.json") }) { Text(stringResource(R.string.export_data)) }
+                    OutlinedButton(onClick = { importLauncher.launch(arrayOf("application/json", "application/octet-stream", "text/plain", "*/*")) }) { Text(stringResource(R.string.import_data)) }
                 }
             }
             item {

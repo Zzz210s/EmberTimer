@@ -15,7 +15,7 @@ data class WeekColumn(val weekStart: LocalDate, val cells: List<DayCell>)
 data class HeatmapModel(
     val columns: List<WeekColumn>,
     val monthLabels: Map<Int, String>,
-    val weekLabels: List<String> = listOf("", "Mon", "", "Wed", "", "Fri", ""), // GitHub:行=周日→周六,标 Mon/Wed/Fri
+    val weekLabels: List<String> = listOf("", "1", "", "3", "", "5", ""), // 周标为数字:行=周日→周六,标 周一=1/周三=3/周五=5
 )
 
 enum class HeatLevel { NONE, L1, L2, L3, L4 }

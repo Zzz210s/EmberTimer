@@ -2,12 +2,17 @@ package com.embertimer.data.db
 
 import androidx.room.Dao
 import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
 
 @Dao
 interface FocusSessionDao {
     @Insert
     suspend fun insertAll(rows: List<FocusSessionEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insertAllIgnore(rows: List<FocusSessionEntity>)
+
+    @Query("SELECT * FROM focus_session ORDER BY startAt") suspend fun getAll(): List<FocusSessionEntity>
 
     /** 某日(本地时区 [dayStartMs, dayEndMs))内全部段,按开始时间升序 */
     @Query(
