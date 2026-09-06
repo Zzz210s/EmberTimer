@@ -49,15 +49,12 @@
                 android:maxLines="1" />
         </LinearLayout>
 
-        <Space
-            android:layout_width="0dp"
-            android:layout_height="1dp"
-            android:layout_weight="1" />
-
         <Chronometer
             android:id="@+id/notif_time"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="end"
             android:textSize="15sp"
             android:textStyle="bold" />
     </LinearLayout>

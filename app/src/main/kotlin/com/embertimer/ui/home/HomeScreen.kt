@@ -116,7 +116,7 @@ fun HomeScreen(onSettings: () -> Unit, onOpenReport: (ReportRange) -> Unit, onMa
                 }
             }, onPause = { TimerCommands.pause(ctx) }, onResume = { TimerCommands.resume(ctx) },
                 onSkip = { TimerCommands.skip(ctx) }, onStop = { TimerCommands.stop(ctx) },
-                onGoSettings = onSettings)
+                onGoSettings = onManageProfiles)
             // v1.1 #7:今日合计落账变化时滑切(落账频次低,不打扰);关闭动画直切
             val todayText = stringResource(R.string.today_total, localizedDuration(ui.todayMillis))
             val animationsOn = rememberAnimationsEnabled()
