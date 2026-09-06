@@ -9,6 +9,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 
 /** D6:animator 缩放为 0 = 系统"关闭动画",所有动效退化为瞬时切换 */
 fun animationsEnabledFor(animatorScale: Float): Boolean = animatorScale != 0f
@@ -62,3 +63,14 @@ object MotionTokens {
     /** 重排子项错峰间隔;20..80ms 为验收区间(MotionTokensTest 断言) */
     const val StaggerMs: Int = 40
 }
+/** 间距 token(v1.9.3 设计系统一致性):全局统一留白/间距,替代散落的字面 dp */
+object Spacing {
+    val xs = 4.dp
+    val sm = 8.dp
+    val md = 12.dp
+    val lg = 16.dp
+    val xl = 24.dp
+}
+
+/** 报表条形生长动画(v1.9.3 可视化增强):比例条从 0 -> 目标弹性展开 */
+val BarAnim: SpringSpec<Float> = spring(dampingRatio = 0.7f, stiffness = Spring.StiffnessMediumLow)
