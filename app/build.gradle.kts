@@ -16,8 +16,8 @@ android {
         applicationId = "com.embertimer"
         minSdk = 26
         targetSdk = 35
-        versionCode = 18
-        versionName = "1.6.1"
+        versionCode = 19
+        versionName = "1.7.0"
     }
     val keystoreProps = rootProject.file("local.properties").let { f ->
         if (f.exists()) Properties().apply { f.inputStream().use { load(it) } } else null

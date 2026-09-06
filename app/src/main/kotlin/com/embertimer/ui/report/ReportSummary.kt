@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -18,12 +17,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.embertimer.R
 
 /**
- * 健康风报表摘要(v1.5):总时长 Hero + 对比上期、四指标卡、时段分布小条。
- * 参考健康/屏幕时间周月报范式(总览→关键指标→趋势→时段)。
+ * 健康风报表可视化(v1.7 重构):摘要 Hero 卡 + 指标格 + 时段分布条 + 通用「标签/条形/数值」行。
+ * 参考健康与屏幕时间报表的多级信息层级(总览→关键指标→趋势→时段)。
  */
 @Composable
 fun ReportSummary(
@@ -33,100 +33,125 @@ fun ReportSummary(
     isMonth: Boolean,
     showAvg: Boolean = true,
 ) {
-    val primary = MaterialTheme.colorScheme.primary
-    val tileCard = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
-    Card {
+    val card = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+    Card(colors = card) {
         Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            // Hero:总时长 + 较上期
+            // 摘要 Hero
             Row(verticalAlignment = Alignment.Bottom) {
                 Text(
                     localizedDur(totalMillis),
                     style = MaterialTheme.typography.headlineMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
                     modifier = Modifier.weight(1f),
                 )
                 metrics.prevDeltaPercent?.let { d ->
-                    val sign = if (d > 0) "+" else if (d < 0) "-" else ""
-                    val abs = kotlin.math.abs(d)
                     val color = when {
                         d > 0 -> MaterialTheme.colorScheme.primary
                         d < 0 -> MaterialTheme.colorScheme.error
                         else -> MaterialTheme.colorScheme.onSurfaceVariant
                     }
+                    val sign = when { d > 0 -> "+"; d < 0 -> "-"; else -> "" }
                     Text(
                         stringResource(if (isMonth) R.string.vs_last_month else R.string.vs_last_week) +
-                            " $sign$abs%",
-                        style = MaterialTheme.typography.labelMedium,
+                            " $sign${kotlin.math.abs(d)}%",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
                         color = color,
                     )
                 }
             }
-            // 四指标(总时长页不计日均,避免长期跨度稀释误导)
+            // 指标行(专注天数/连续/日均/最佳)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                MetricTile(tileCard, stringResource(R.string.m_focus_days), "${metrics.focusDays}", Modifier.weight(1f))
-                MetricTile(tileCard, stringResource(R.string.m_streak), "${metrics.streakDays}", Modifier.weight(1f))
-                if (showAvg) MetricTile(tileCard, stringResource(R.string.m_avg), localizedDur(metrics.avgMinutesPerDay * 60_000), Modifier.weight(1f))
+                MetricTile(caption = stringResource(R.string.m_focus_days), value = "${metrics.focusDays}", mod = Modifier.weight(1f))
+                MetricTile(caption = stringResource(R.string.m_streak), value = "${metrics.streakDays}", mod = Modifier.weight(1f))
+                if (showAvg) MetricTile(caption = stringResource(R.string.m_avg), value = localizedDur(metrics.avgMinutesPerDay * 60_000), mod = Modifier.weight(1f))
                 MetricTile(
-                    tileCard, stringResource(R.string.m_best),
-                    metrics.bestDay?.let { localizedDur(metrics.bestMinutes * 60_000) } ?: "—",
-                    Modifier.weight(1f), sub = metrics.bestDay,
+                    caption = stringResource(R.string.m_best),
+                    value = metrics.bestDay?.let { localizedDur(metrics.bestMinutes * 60_000) } ?: "—",
+                    sub = metrics.bestDay, mod = Modifier.weight(1f),
                 )
             }
-            // 时段分布(取前三)
+            // 时段分布
             if (slots.isNotEmpty()) {
-                Text(stringResource(R.string.ts_title), style = MaterialTheme.typography.labelLarge)
-                slots.take(3).forEach { slot ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            bucketLabel(slot.bucket),
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.weight(1f),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Box(
-                            Modifier
-                                .weight(2f)
-                                .height(8.dp)
-                                .background(
-                                    MaterialTheme.colorScheme.surfaceContainerHighest,
-                                    RoundedCornerShape(4.dp),
-                                ),
-                        ) {
-                            val max = slots.first().minutes
-                            Box(
-                                Modifier
-                                    .fillMaxHeight()
-                                    .fillMaxWidth(slot.minutes.toFloat() / max)
-                                    .background(primary, RoundedCornerShape(4.dp)),
-                            )
-                        }
-                        Text(
-                            localizedDur(slot.minutes * 60_000),
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
+                Text(
+                    stringResource(R.string.ts_title),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                )
+                slots.take(3).forEach { s ->
+                    FocusBarRow(
+                        label = bucketLabel(s.bucket),
+                        value = s.minutes,
+                        max = slots.first().minutes.coerceAtLeast(1),
+                        color = MaterialTheme.colorScheme.primary,
+                    )
                 }
             }
         }
     }
 }
 
+/** 通用可视化行:标签 — 比例条 — 数值(用于每日/每周/各时钟) */
 @Composable
-private fun MetricTile(
-    colors: androidx.compose.material3.CardColors,
-    caption: String,
-    value: String,
-    modifier: Modifier,
-    sub: String? = null,
+fun FocusBarRow(label: String, value: Long, max: Long, color: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.primary) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1.2f),
+            maxLines = 1,
+        )
+        Box(
+            Modifier.weight(2f).height(12.dp)
+                .background(MaterialTheme.colorScheme.surfaceContainerHighest, RoundedCornerShape(6.dp)),
+        ) {
+            val fraction = (if (max > 0) value.toFloat() / max else 0f).coerceIn(0f, 1f)
+            Box(
+                Modifier.fillMaxWidth(fraction).height(12.dp)
+                    .background(color, RoundedCornerShape(6.dp)),
+            )
+        }
+        Text(
+            localizedDur(value * 60_000),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f),
+            maxLines = 1,
+        )
+    }
+}
+
+/** 带标题的条形列表(每个条形按 max 比例) */
+@Composable
+fun BarsList(
+    title: String,
+    rows: List<Pair<String, Long>>,
+    unitMinutes: Long = 1,
 ) {
-    Card(colors = colors, modifier = modifier) {
+    val max = (rows.maxOfOrNull { it.second } ?: 1).coerceAtLeast(1)
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(title, style = MaterialTheme.typography.titleSmall)
+        rows.forEach { (label, minutes) ->
+            FocusBarRow(label = label, value = minutes, max = max)
+        }
+    }
+}
+
+@Composable
+private fun MetricTile(caption: String, value: String, mod: Modifier = Modifier, sub: String? = null) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        modifier = mod,
+    ) {
         Column(Modifier.padding(horizontal = 8.dp, vertical = 8.dp)) {
-            Text(value, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+            Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Text(
                 if (sub != null) "$caption·$sub" else caption,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
             )
         }
     }

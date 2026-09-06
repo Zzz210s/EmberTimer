@@ -103,14 +103,15 @@ fun ReportScreen(onBack: () -> Unit, initialRange: ReportRange = ReportRange.WEE
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 } else {
-                    Text(
-                        stringResource(R.string.total_lifetime),
-                        style = MaterialTheme.typography.titleSmall,
-                        modifier = Modifier.padding(top = 4.dp),
+                    BarsList(
+                        title = stringResource(R.string.total_lifetime),
+                        rows = ui.profileTotals.map { it.profileName to (it.millis / 60_000) },
                     )
-                    ui.profileTotals.forEach { p -> TotalRow(p.profileName, p.millis) }
                     HorizontalDivider(Modifier.padding(vertical = 8.dp))
-                    TotalRow(stringResource(R.string.total_all), ui.profileTotals.sumOf { it.millis })
+                    Text(
+                        stringResource(R.string.total_all) + "  " + localizedDur(ui.profileTotals.sumOf { it.millis }),
+                        style = MaterialTheme.typography.titleSmall,
+                    )
                 }
             } else if (ui.rows.isEmpty()) {
                 Text(
@@ -119,30 +120,25 @@ fun ReportScreen(onBack: () -> Unit, initialRange: ReportRange = ReportRange.WEE
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             } else {
-                ui.rows.forEach { row ->
-                        val label = if (row.weekIndex > 0)
-                            stringResource(R.string.report_bucket_week, row.weekIndex, row.rangeFrom, row.rangeTo)
-                        else row.label
-                        TotalRow(label, row.millis)
-                    }
-                Text(
-                    stringResource(R.string.total_window),
-                    style = MaterialTheme.typography.titleSmall,
-                    modifier = Modifier.padding(top = 8.dp),
-                )
-                ui.profileTotals.forEach { p -> TotalRow(p.profileName, p.millis) }
+                val trendRows = ui.rows.map { row ->
+                    val label = if (row.weekIndex > 0)
+                        stringResource(R.string.report_bucket_week, row.weekIndex, row.rangeFrom, row.rangeTo)
+                    else row.label
+                    label to (row.millis / 60_000)
+                }
+                BarsList(title = stringResource(R.string.metric_trend), rows = trendRows)
+                if (ui.profileTotals.isNotEmpty()) {
+                    HorizontalDivider(Modifier.padding(vertical = 8.dp))
+                    BarsList(
+                        title = stringResource(R.string.total_window),
+                        rows = ui.profileTotals.map { it.profileName to (it.millis / 60_000) },
+                    )
+                }
             }
         }
     }
 }
 
-@Composable
-private fun TotalRow(label: String, millis: Long) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-        Text(durationLocalized(millis), style = MaterialTheme.typography.bodyMedium)
-    }
-}
 
 /** 报表时长本地化(v1.3 EN 对照):默认中文,en 设备出 "1h 30m";与 DurationFormat.hm 同语义(向上取整) */
 @Composable
