@@ -81,4 +81,12 @@ class NotificationsTest {
         assertEquals(0, (n.actions ?: emptyArray()).size)
         assertEquals("工作中", n.extras.getCharSequence(NotificationCompat.EXTRA_TITLE).toString())
     }
+
+    @Test fun remoteViewsInflatesWithoutCrash() {
+        TimerNotifications.ensureChannels(ctx)
+        val n = TimerNotifications.inProgress(ctx, snap)
+        assertNotNull(n.contentView)
+        // 实际应用 RemoteViews 到容器:若布局含不受支持属性(如 tint/?attr)会抛异常(之前真机崩溃点)
+        n.contentView.apply(ctx, android.widget.FrameLayout(ctx))
+    }
 }
