@@ -19,6 +19,9 @@ interface DailyTotalDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(e: DailyTotalEntity)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(rows: List<DailyTotalEntity>)
+
     @Query("SELECT date, SUM(workMillis) AS total FROM daily_total WHERE date >= :from GROUP BY date ORDER BY date")
     fun observeDayTotals(from: String): Flow<List<DayTotal>>
 
@@ -33,4 +36,6 @@ interface DailyTotalDao {
             "WHERE date >= :from AND date <= :to GROUP BY date, profileId ORDER BY date, profileId"
     )
     suspend fun rangeBreakdown(from: String, to: String): List<DayProfileTotal>
+
+    @Query("SELECT * FROM daily_total ORDER BY date, profileId") suspend fun getAll(): List<DailyTotalEntity>
 }

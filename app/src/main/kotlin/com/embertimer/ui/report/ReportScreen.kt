@@ -17,6 +17,7 @@ import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -72,6 +73,15 @@ fun ReportScreen(onBack: () -> Unit, initialRange: ReportRange = ReportRange.WEE
                     ) {
                         Text(label, style = MaterialTheme.typography.bodyMedium, maxLines = 1)
                     }
+                }
+            }
+            // v1.9.1 回顾以往报表:上一期/下一期 切历史窗口(仅周/月),显示当前窗口标签
+            if (ui.range != ReportRange.LIFETIME) {
+                val label = periodLabel(ui.range, ui.anchor)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = { vm.prevPeriod() }) { Text(stringResource(R.string.report_prev)) }
+                    Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    TextButton(onClick = { vm.nextPeriod() }, enabled = ui.canGoNext) { Text(stringResource(R.string.report_next)) }
                 }
             }
             // v1.5 健康风摘要(周/月;长期累计页签无指标)
@@ -148,4 +158,14 @@ private fun durationLocalized(millis: Long): String {
     val m = totalMinutes % 60
     return if (h == 0L) stringResource(R.string.duration_m, m)
     else stringResource(R.string.duration_hm, h, m)
+}
+
+/** 报表窗口标签:v1.9.1 —— 周显示 MM-dd ~ MM-dd;月显示 yyyy-MM */
+private fun periodLabel(range: ReportRange, anchor: java.time.LocalDate): String {
+    val (from, to) = reportWindow(range, anchor)
+    return when (range) {
+        ReportRange.WEEK -> "${from.substring(5)} ~ ${to.substring(5)}"
+        ReportRange.MONTH -> from.substring(0, 7)
+        ReportRange.LIFETIME -> ""
+    }
 }

@@ -33,6 +33,9 @@ data class ReportUiState(
     /** v1.5:健康风指标与时段分布(仅周/月窗口,长期累计页签为空) */
     val metrics: ReportMetrics? = null,
     val timeSlots: List<SlotMinutes> = emptyList(),
+    /** v1.9.1:历史回顾 —— 当前报表窗口末日期(锚点)与是否仍可往后切(未到今日) */
+    val anchor: LocalDate = LocalDate.now(),
+    val canGoNext: Boolean = false,
 )
 
 /** 报表窗口(闭区间 ISO 日期):周 = 本周一(ISO 周一为一周首日)至 today;月 = 本月 1 日至 today。 */
@@ -85,6 +88,7 @@ class ReportViewModel(
     private val clock: () -> LocalDate = { LocalDate.now() },
 ) : ViewModel() {
     private val _range = MutableStateFlow(ReportRange.WEEK)
+    private val _anchor = MutableStateFlow(clock())
     private val _ui = MutableStateFlow(ReportUiState())
     val ui: StateFlow<ReportUiState> = _ui.asStateFlow()
 
@@ -95,17 +99,34 @@ class ReportViewModel(
         viewModelScope.launch {
             combine(
                 _range,
+                _anchor,
                 graph.totalsRepo.dayTotals(EPOCH),
                 graph.profileRepo.profiles,
-            ) { range, _, _ -> range }
+            ) { range, _, _, _ -> range }
                 .collect { refreshInternal() }
         }
     }
 
     fun setRange(r: ReportRange) {
         _range.value = r
+        // 切换页签回到最新(历史位置不跨页签保留,各 tab 从当前期起)
+        _anchor.value = clock()
         // 乐观同步选中档:按钮立即切换,数据随后由自动重建落地(避免 DB 往返期间滞留旧高亮)
         _ui.value = _ui.value.copy(range = r)
+    }
+
+    /** 回顾上一期:周→往前一周;月→往前一月;长期累计无历史 */
+    fun prevPeriod() {
+        if (_range.value == ReportRange.LIFETIME) return
+        val d = if (_range.value == ReportRange.WEEK) _anchor.value.minusWeeks(1) else _anchor.value.minusMonths(1)
+        _anchor.value = d
+    }
+
+    /** 回顾下一期:往后切,但不越过今日 */
+    fun nextPeriod() {
+        if (_range.value == ReportRange.LIFETIME) return
+        val d = if (_range.value == ReportRange.WEEK) _anchor.value.plusWeeks(1) else _anchor.value.plusMonths(1)
+        _anchor.value = if (d.isAfter(clock())) clock() else d
     }
 
     /** 挂起重建:测试与自动刷新共用同一实现(避开 stateIn/flatMapLatest 的测试环境悬挂) */
@@ -117,6 +138,7 @@ class ReportViewModel(
         val range = _range.value
         val profiles = graph.profileRepo.profiles.first()
         if (range == ReportRange.LIFETIME) {
+            _ui.value = _ui.value.copy(anchor = clock(), canGoNext = false)
             // v1.6 总时长页:与周/月同款健康摘要(全历史)
             val today = clock()
             val (from, to) = reportWindow(range, today)
@@ -136,7 +158,7 @@ class ReportViewModel(
                 metrics = metrics, timeSlots = slots)
             return
         }
-        val today = clock()
+        val today = _anchor.value
         val (from, to) = reportWindow(range, today)
         val raw = graph.totalsRepo.rangeBreakdown(from, to)
         val (prevFrom, prevTo) = prevWindowOf(from, to)
@@ -152,6 +174,8 @@ class ReportViewModel(
             profileTotals = reportProfileTotals(profiles, raw),
             metrics = metrics,
             timeSlots = slots,
+            anchor = today,
+            canGoNext = today.isBefore(clock()),
         )
     }
 
