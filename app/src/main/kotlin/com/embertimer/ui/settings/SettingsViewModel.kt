@@ -24,6 +24,7 @@ data class SettingsUiState(
     val intensity: ReminderIntensity = ReminderIntensity.STANDARD,
     val snap: RuntimeSnapshot? = null,
     val exactAlarmBlocked: Boolean = false,
+    val themePack: com.embertimer.ui.theme.ThemePack = com.embertimer.ui.theme.ThemePack.EMBER,
 )
 
 class SettingsViewModel(val graph: AppGraph) : ViewModel() {
@@ -31,14 +32,18 @@ class SettingsViewModel(val graph: AppGraph) : ViewModel() {
     private val _exactAlarmBlocked = kotlinx.coroutines.flow.MutableStateFlow(false)
 
     val ui: StateFlow<SettingsUiState> = combine(
-        graph.profileRepo.profiles,
-        graph.totalsRepo.profileTotals(),
-        graph.settingsRepo.reminderIntensity,
-        graph.engine.snapshot,
-        _exactAlarmBlocked,
-    ) { profiles, totals, intensity, snap, blocked ->
-        SettingsUiState(profiles, totals.associate { it.profileId to it.total }, intensity, snap, blocked)
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsUiState())
+        combine(
+            graph.profileRepo.profiles,
+            graph.totalsRepo.profileTotals(),
+            graph.settingsRepo.reminderIntensity,
+            graph.engine.snapshot,
+            _exactAlarmBlocked,
+        ) { profiles, totals, intensity, snap, blocked ->
+            SettingsUiState(profiles, totals.associate { it.profileId to it.total }, intensity, snap, blocked, com.embertimer.ui.theme.ThemePack.EMBER)
+        },
+        graph.settingsRepo.themePack,
+    ) { s, pack -> s.copy(themePack = pack) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsUiState())
 
     fun refreshExactAlarm(context: Context) {
         viewModelScope.launch {
@@ -79,4 +84,6 @@ class SettingsViewModel(val graph: AppGraph) : ViewModel() {
     /** suspend 落库(非计划里的 viewModelScope 发射后不管):Robolectric 主循环暂停, fire-and-forget
      *  对测试不可见;改为挂起语义与 selectProfile(H1 pin settings writes)一致 */
     suspend fun setIntensity(i: ReminderIntensity) = graph.settingsRepo.setReminderIntensity(i)
+
+    suspend fun setThemePack(pack: com.embertimer.ui.theme.ThemePack) = graph.settingsRepo.setThemePack(pack)
 }

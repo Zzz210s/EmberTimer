@@ -10,6 +10,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
@@ -71,7 +72,11 @@ class MainActivity : ComponentActivity() {
         }
         parseReportExtra(intent)
         setContent {
-            EmberTheme {
+            val app = application as EmberApp
+            // 配色包(设置页切换,持久化 DataStore)
+            val themeFlow = androidx.compose.runtime.remember { app.graph.settingsRepo.themePack }
+            val themePack by themeFlow.collectAsState(initial = com.embertimer.ui.theme.ThemePack.EMBER)
+            EmberTheme(pack = themePack) {
                 // 全屏底色垫底:切换过渡/透明层永不透出窗口白底(真机 edge-to-edge 闪白修复)
                 Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
                 var screenOrdinal by rememberSaveable { mutableStateOf(Screen.HOME.ordinal) }

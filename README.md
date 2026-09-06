@@ -41,6 +41,7 @@ The core problem of pomodoro-style apps is background reliability: lock screen, 
 - Health-report-style Weekly/Monthly summary (total + vs previous period, focus days, streak, daily average, best day, time-of-day distribution); button icon rendering is jank-free (geometry cached, no per-frame path rebuilds); notifications always occupy a single row via one channel and one notification id.
 - Gentle crossfade-only screen transitions; focus segments shorter than one minute are treated as mis-touches (never counted, stored or shown; historical ones are purged once on upgrade); the lifetime report tab is renamed 总时长/Total and shows the same health summary as weekly/monthly.
 - Equal-duration cross-fade screen transitions (no white-frame gaps); redesigned Weekly/Monthly/总报 reports with a hero summary card, metric tiles, time-of-day distribution bars and per-day/per-clock proportional bar visualization.
+- Report time-of-day labels are name-only (Morning/Afternoon/Evening/Night); seven color theme packs (Ember, Light green, Blue, Purple, Rose, Teal, Nord) switchable in Settings, persisted, light-only.
 
 ## Install
 

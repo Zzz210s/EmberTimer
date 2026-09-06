@@ -87,10 +87,18 @@
     <string name="m_best">最佳单日</string>
     <string name="vs_last_week">较上周</string>
     <string name="vs_last_month">较上月</string>
-    <string name="bucket_morning">上午 6-12</string>
-    <string name="bucket_afternoon">下午 12-18</string>
-    <string name="bucket_evening">晚上 18-23</string>
-    <string name="bucket_night">深夜 23-6</string>
+    <string name="bucket_morning">上午</string>
+    <string name="bucket_afternoon">下午</string>
+    <string name="bucket_evening">晚上</string>
+    <string name="bucket_night">深夜</string>
     <string name="ts_title">时段分布</string>
     <string name="metric_trend">趋势</string>
+    <string name="color_theme">配色</string>
+    <string name="pack_ember">经典橙</string>
+    <string name="pack_green">浅绿</string>
+    <string name="pack_blue">蓝</string>
+    <string name="pack_purple">紫</string>
+    <string name="pack_rose">玫红</string>
+    <string name="pack_teal">青</string>
+    <string name="pack_nord">暮色</string>
 </resources>
