@@ -70,6 +70,8 @@ sealed interface EngineEvent {
         val finished: Phase, val settleMillis: Long, val profileId: Long, val next: Phase, val auto: Boolean,
         /** v1.3 #6:本次工作段墙钟窗口(仅 finished=WORK 时有值);终止/暂停等由对应事件携带 */
         val sessionStartWall: Long? = null, val sessionEndWall: Long? = null,
+        /** v1.8.3:本工作段内的暂停窗口 [[start,end]](供 >5 分钟暂停分段展示) */
+        val pauseWindows: List<LongArray> = emptyList(),
     ) : EngineEvent
     /**
      * settleMillis = 待落库的工作增量(已扣除 checkpoint 游标);
@@ -79,6 +81,7 @@ sealed interface EngineEvent {
     data class PhaseRestarted(
         val phase: Phase, val settleMillis: Long, val profileId: Long, val endElapsed: Long, val endWall: Long,
         val sessionStartWall: Long? = null, val sessionEndWall: Long? = null,
+        val pauseWindows: List<LongArray> = emptyList(),
     ) : EngineEvent
     data class Paused(val timeAtPause: Long) : EngineEvent
     data class Resumed(val endElapsed: Long, val endWall: Long) : EngineEvent
@@ -86,5 +89,6 @@ sealed interface EngineEvent {
     data class Reset(
         val settleMillis: Long, val profileId: Long,
         val sessionStartWall: Long? = null, val sessionEndWall: Long? = null,
+        val pauseWindows: List<LongArray> = emptyList(),
     ) : EngineEvent
 }

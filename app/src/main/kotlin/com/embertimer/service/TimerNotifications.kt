@@ -37,6 +37,7 @@ object TimerNotifications {
             .setContentTitle("EmberTimer")
             .setOngoing(true)
             .setOnlyAlertOnce(true)
+            .setShowWhen(false) // 隐藏通知时间戳相对文案("刚刚"),倒计时/时长由 chronometer 展示
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)
             .setContentIntent(activityIntent(context))
             .build()
@@ -51,6 +52,7 @@ object TimerNotifications {
             .setContentTitle(phaseText)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
+            .setShowWhen(false) // 隐藏通知时间戳相对文案("刚刚"),倒计时/时长由 chronometer 展示
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)
             .setContentIntent(activityIntent(context))
         if (snap.countUp) {
@@ -62,10 +64,10 @@ object TimerNotifications {
             )
                 .addAction(
                     if (paused) R.drawable.ic_play else R.drawable.ic_pause,
-                    if (paused) context.getString(R.string.act_resume) else context.getString(R.string.act_pause),
+                    "", // v1.8.3 图标按钮,不显示文字
                     serviceIntent(context, if (paused) TimerService.ACTION_RESUME else TimerService.ACTION_PAUSE),
                 )
-                .addAction(R.drawable.ic_stop, context.getString(R.string.act_stop), serviceIntent(context, TimerService.ACTION_STOP))
+                .addAction(R.drawable.ic_stop, "", serviceIntent(context, TimerService.ACTION_STOP))
             if (!paused) {
                 // when = 本次运行已走时长的墙钟起点(endWall - 名义跨度 = startWall;
                 // 每次 resume 引擎重锚 endWall,起点同步平移,暂停不计入)
@@ -79,11 +81,11 @@ object TimerNotifications {
             )
                 .addAction(
                     if (paused) R.drawable.ic_play else R.drawable.ic_pause,
-                    if (paused) context.getString(R.string.act_resume) else context.getString(R.string.act_pause),
+                    "", // v1.8.3 图标按钮,不显示文字
                     serviceIntent(context, if (paused) TimerService.ACTION_RESUME else TimerService.ACTION_PAUSE),
                 )
-                .addAction(R.drawable.ic_skip_next, context.getString(R.string.act_skip), serviceIntent(context, TimerService.ACTION_SKIP))
-                .addAction(R.drawable.ic_stop, context.getString(R.string.act_stop), serviceIntent(context, TimerService.ACTION_STOP))
+                .addAction(R.drawable.ic_skip_next, "", serviceIntent(context, TimerService.ACTION_SKIP))
+                .addAction(R.drawable.ic_stop, "", serviceIntent(context, TimerService.ACTION_STOP))
             if (!paused) {
                 // D2 方案 A:倒计时占标题行时间位(系统 chronometer 自动走秒);当前阶段进度条
                 builder.setUsesChronometer(true)

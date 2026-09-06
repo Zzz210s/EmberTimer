@@ -47,6 +47,10 @@ class TimerEngine(
     /** v1.3 #6:当前工作段墙钟起点(引擎内维护,WORK 段 RUNNING 起置,暂停保留,结束经事件携带出) */
     private var workWinStart: Long? = null
 
+    /** v1.8.3:本工作段内的暂停窗口(墙钟),供 >5 分钟暂停分段;进入/离开 WORK 时清空 */
+    private val workPauseGaps = mutableListOf<LongArray>()
+    private var pauseStartWall: Long? = null
+
     suspend fun awaitReady() { ready.first { it } }
 
     /** 应用启动时从持久化恢复;之后置 ready */
@@ -73,6 +77,7 @@ class TimerEngine(
             savedAtWall = w, savedAtElapsed = e, ckptDate = null, ckptAccum = 0, countUp = countUp,
         )
         workWinStart = w
+        workPauseGaps.clear(); pauseStartWall = null
         save()
         emit(EngineEvent.PhaseStarted(Phase.WORK, e + workMillis, w + workMillis))
     }
@@ -81,6 +86,7 @@ class TimerEngine(
         val cur = _snapshot.value ?: return
         if (cur.status != EngineStatus.RUNNING) return
         val e = el; val w = wall
+        if (cur.phase == Phase.WORK && cur.countUp == false || cur.phase == Phase.WORK) pauseStartWall = w
         // 暂停存“剩余”(倒计时)或“暂停时已走时长”(正计时 accrued,可超 workMillis)
         val atPause = (if (cur.countUp) (e - cur.startElapsed - cur.timeSpentPaused) else (cur.endElapsed - e)).coerceAtLeast(0)
         _snapshot.value = cur.copy(
@@ -111,6 +117,9 @@ class TimerEngine(
             savedAtWall = w, savedAtElapsed = e,
         )
         if (cur.phase == Phase.WORK && workWinStart == null) workWinStart = w
+        if (cur.phase == Phase.WORK && pauseStartWall != null) {
+            workPauseGaps += longArrayOf(pauseStartWall!!, w); pauseStartWall = null
+        }
         save()
         emit(EngineEvent.Resumed(newEnd, newEndWall))
     }
@@ -151,9 +160,11 @@ class TimerEngine(
         val (sesStart, sesEnd) = if (cur.phase == Phase.WORK) {
             val st = workWinStart ?: wall; workWinStart = null; st to wall
         } else null to null
+        val gaps = if (cur.phase == Phase.WORK) workPauseGaps.toList() else emptyList()
+        workPauseGaps.clear(); pauseStartWall = null
         _snapshot.value = null
         save()
-        emit(EngineEvent.Reset(settle, profileId, sesStart, sesEnd))
+        emit(EngineEvent.Reset(settle, profileId, sesStart, sesEnd, gaps))
     }
 
     fun restartPhase(profileId: Long, workMillis: Long, restMillis: Long, countUp: Boolean = false) {
@@ -165,6 +176,8 @@ class TimerEngine(
         val (sesStart, sesEnd) = if (cur.phase == Phase.WORK) {
             val st = workWinStart ?: w; workWinStart = null; st to w
         } else null to null
+        val gaps = if (cur.phase == Phase.WORK) workPauseGaps.toList() else emptyList()
+        workPauseGaps.clear(); pauseStartWall = null
         if (countUp || cur.phase == Phase.WORK) workWinStart = w
         _snapshot.value = RuntimeSnapshot(
             profileId = profileId, workMillis = workMillis, restMillis = restMillis,
@@ -175,7 +188,7 @@ class TimerEngine(
         )
         save()
         // 结算归属旧 profile:换 profile 重开时已累计工作量不跟新 profile 走
-        emit(EngineEvent.PhaseRestarted(cur.phase, cur.settleMillis(cur.lastPauseTime), cur.profileId, e + dur, w + dur, sesStart, sesEnd))
+        emit(EngineEvent.PhaseRestarted(cur.phase, cur.settleMillis(cur.lastPauseTime), cur.profileId, e + dur, w + dur, sesStart, sesEnd, gaps))
     }
 
     private fun finishAndAdvance(cur: RuntimeSnapshot, settleAtElapsed: Long, auto: Boolean) {
@@ -188,6 +201,8 @@ class TimerEngine(
         val (sesStart, sesEnd) = if (cur.phase == Phase.WORK) {
             val st = workWinStart ?: w; workWinStart = null; st to w
         } else null to null
+        val gaps = if (cur.phase == Phase.WORK) workPauseGaps.toList() else emptyList()
+        workPauseGaps.clear(); pauseStartWall = null
         if (next == Phase.WORK) workWinStart = w
         _snapshot.value = RuntimeSnapshot(
             profileId = cur.profileId, workMillis = cur.workMillis, restMillis = cur.restMillis,
@@ -197,7 +212,7 @@ class TimerEngine(
             savedAtWall = w, savedAtElapsed = e, ckptDate = null, ckptAccum = 0, countUp = cur.countUp,
         )
         save()
-        emit(EngineEvent.PhaseFinished(cur.phase, settle, cur.profileId, next, auto, sesStart, sesEnd))
+        emit(EngineEvent.PhaseFinished(cur.phase, settle, cur.profileId, next, auto, sesStart, sesEnd, gaps))
         emit(EngineEvent.PhaseStarted(next, e + dur, w + dur))
     }
 

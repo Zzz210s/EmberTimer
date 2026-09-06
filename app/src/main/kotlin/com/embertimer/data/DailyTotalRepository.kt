@@ -55,6 +55,26 @@ class DailyTotalRepository(
     suspend fun sessionsBetweenMs(startMs: Long, endMs: Long): List<FocusSessionEntity> =
         sessionDao.betweenMs(startMs, endMs)
 
+    /** v1.8.3:按暂停窗口分段落库——>=[minMs] 的暂停把整段切分为多段(每段不含长暂停间隙) */
+    suspend fun recordWorkSessionSplit(
+        profileId: Long,
+        startAt: Long,
+        endAt: Long,
+        pauses: List<LongArray>,
+        minMs: Long,
+        zone: java.time.ZoneId = java.time.ZoneId.systemDefault(),
+    ) {
+        val cur = startAt
+        val segs = mutableListOf<Pair<Long, Long>>()
+        var from = startAt
+        pauses.filter { (it[1] - it[0]) >= minMs }.sortedBy { it[0] }.forEach { p ->
+            if (p[0] > from) segs += (from to p[0])
+            from = p[1]
+        }
+        if (endAt > from) segs += (from to endAt)
+        segs.forEach { (st, en) -> recordWorkSession(profileId, st, en, zone) }
+    }
+
     /** v1.6 误触清理:删除短于 [minMs] 的段并把其时长从当日合计扣回(一次全量) */
     suspend fun pruneMisTouchSessions(minMs: Long, zone: java.time.ZoneId = java.time.ZoneId.systemDefault()) {
         val short = sessionDao.shorterThan(minMs)

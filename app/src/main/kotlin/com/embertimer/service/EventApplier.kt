@@ -57,7 +57,9 @@ internal class EventApplier(
             val pid = ev.profileIdOf()
             if (ss != null && se != null && se > ss && pid != null) {
                 if (se - ss < MIN_MIS_TOUCH_MS) ignoreMisTouch = true
-                else graph.totalsRepo.recordWorkSession(pid, ss, se)
+                else graph.totalsRepo.recordWorkSessionSplit(
+                    pid, ss, se, ev.pauseWindows(), MIN_MIS_TOUCH_MS,
+                )
             }
         }
         for (fx in EventPolicy.decide(ev, graph.engine.snapshot.value)) {
@@ -79,3 +81,11 @@ internal class EventApplier(
 
 /** 误触阈值:整段小于该值视为误触(v1.6) */
 private const val MIN_MIS_TOUCH_MS = 60_000L
+
+/** v1.8.3:事件携带的暂停窗口(结算类事件) */
+private fun EngineEvent.pauseWindows(): List<LongArray> = when (this) {
+    is EngineEvent.PhaseFinished -> pauseWindows
+    is EngineEvent.PhaseRestarted -> pauseWindows
+    is EngineEvent.Reset -> pauseWindows
+    else -> emptyList()
+}

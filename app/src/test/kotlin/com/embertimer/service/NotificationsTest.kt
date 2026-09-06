@@ -40,8 +40,8 @@ class NotificationsTest {
         TimerNotifications.ensureChannels(ctx)
         val running = TimerNotifications.inProgress(ctx, snap)
         val paused = TimerNotifications.inProgress(ctx, snap.copy(status = EngineStatus.PAUSED))
-        assertEquals(listOf("暂停", "跳过", "终止"), running.actions.map { it.title.toString() })
-        assertEquals(listOf("恢复", "跳过", "终止"), paused.actions.map { it.title.toString() })
+        assertEquals(listOf("", "", ""), running.actions.map { it.title.toString() }) // v1.8.3 图标按钮无文字
+        assertEquals(listOf("", "", ""), paused.actions.map { it.title.toString() })
         assertEquals("com.embertimer.action.STOP", shadowOf(paused.actions[2].actionIntent).savedIntent.action)
         // D2:title 只剩阶段文案(倒计时由 chronometer 占标题行时间位)
         assertEquals("工作中", running.extras.getCharSequence(NotificationCompat.EXTRA_TITLE).toString())
@@ -77,7 +77,7 @@ class NotificationsTest {
     @Test fun countUpRunningUsesForwardChronometer() {
         TimerNotifications.ensureChannels(ctx)
         val n = TimerNotifications.inProgress(ctx, snap.copy(countUp = true))
-        assertEquals(listOf("暂停", "终止"), n.actions.map { it.title.toString() })
+        assertEquals(listOf("", ""), n.actions.map { it.title.toString() })
         assertEquals("工作中", n.extras.getCharSequence(NotificationCompat.EXTRA_TITLE).toString())
         assertEquals("正计时", n.extras.getCharSequence(NotificationCompat.EXTRA_TEXT).toString())
         // 正向 chronometer:起点 = endWall - 名义跨度(重锚后即每次 resume 的已走时长起点墙钟)
@@ -91,7 +91,7 @@ class NotificationsTest {
         TimerNotifications.ensureChannels(ctx)
         val paused = snap.copy(countUp = true, status = EngineStatus.PAUSED, timeAtPause = 45_000)
         val n = TimerNotifications.inProgress(ctx, paused)
-        assertEquals(listOf("恢复", "终止"), n.actions.map { it.title.toString() })
+        assertEquals(listOf("", ""), n.actions.map { it.title.toString() })
         assertEquals("已暂停 · 已进行 00:45", n.extras.getCharSequence(NotificationCompat.EXTRA_TEXT).toString())
         assertEquals(false, n.extras.getBoolean(NotificationCompat.EXTRA_SHOW_CHRONOMETER, false))
     }
