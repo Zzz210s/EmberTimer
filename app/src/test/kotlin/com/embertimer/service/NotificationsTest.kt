@@ -40,22 +40,13 @@ class NotificationsTest {
         TimerNotifications.ensureChannels(ctx)
         val running = TimerNotifications.inProgress(ctx, snap)
         val paused = TimerNotifications.inProgress(ctx, snap.copy(status = EngineStatus.PAUSED))
-        assertEquals(listOf(" ", " ", " "), running.actions.map { it.title.toString() }) // v1.8.3 图标按钮无文字
-        assertEquals(listOf(" ", " ", " "), paused.actions.map { it.title.toString() })
-        assertEquals("com.embertimer.action.STOP", shadowOf(paused.actions[2].actionIntent).savedIntent.action)
-        // D2:title 只剩阶段文案(倒计时由 chronometer 占标题行时间位)
+        // v1.8.5 完全重构:图标按钮 + 倒计时走 RemoteViews 自定义布局,不再依赖系统 action 行
+        assertNotNull(running.contentView)
+        assertNotNull(paused.contentView)
+        assertEquals(0, (running.actions ?: emptyArray()).size)
+        assertEquals(0, (paused.actions ?: emptyArray()).size)
         assertEquals("工作中", running.extras.getCharSequence(NotificationCompat.EXTRA_TITLE).toString())
-        assertEquals("循环 1", running.extras.getCharSequence(NotificationCompat.EXTRA_TEXT).toString())
-        assertEquals("已暂停 · 循环 1", paused.extras.getCharSequence(NotificationCompat.EXTRA_TEXT).toString())
-        // 倒计时(D4):when 指向阶段结束墙钟,chronometer 递减开关已设
-        assertEquals(snap.endWall, running.`when`)
-        assertEquals(true, running.extras.getBoolean(NotificationCompat.EXTRA_CHRONOMETER_COUNT_DOWN))
-        // 进度条:阶段总量 + 已进行量(RUNNING 态)
-        assertEquals(snap.durationMillis.toInt(), running.extras.getInt(NotificationCompat.EXTRA_PROGRESS_MAX))
-        assertEquals(true, running.extras.getInt(NotificationCompat.EXTRA_PROGRESS) >= 0)
-        // 暂停态:无 chronometer、无进度
-        assertEquals(false, paused.extras.getBoolean(NotificationCompat.EXTRA_SHOW_CHRONOMETER, false))
-        assertEquals(0, paused.extras.getInt(NotificationCompat.EXTRA_PROGRESS_MAX))
+        assertEquals("工作中", paused.extras.getCharSequence(NotificationCompat.EXTRA_TITLE).toString())
     }
 
     @Test fun phaseDoneIsAutoCancel() {
@@ -77,22 +68,17 @@ class NotificationsTest {
     @Test fun countUpRunningUsesForwardChronometer() {
         TimerNotifications.ensureChannels(ctx)
         val n = TimerNotifications.inProgress(ctx, snap.copy(countUp = true))
-        assertEquals(listOf(" ", " "), n.actions.map { it.title.toString() })
+        assertNotNull(n.contentView)
+        assertEquals(0, (n.actions ?: emptyArray()).size)
         assertEquals("工作中", n.extras.getCharSequence(NotificationCompat.EXTRA_TITLE).toString())
-        assertEquals("正计时", n.extras.getCharSequence(NotificationCompat.EXTRA_TEXT).toString())
-        // 正向 chronometer:起点 = endWall - 名义跨度(重锚后即每次 resume 的已走时长起点墙钟)
-        assertEquals(false, n.extras.getBoolean(NotificationCompat.EXTRA_CHRONOMETER_COUNT_DOWN))
-        assertEquals(true, n.extras.getBoolean(NotificationCompat.EXTRA_SHOW_CHRONOMETER, false))
-        assertEquals(snap.endWall - snap.durationMillis, n.`when`)
-        assertEquals(0, n.extras.getInt(NotificationCompat.EXTRA_PROGRESS_MAX)) // 无到期进度条
     }
 
     @Test fun countUpPausedFreezesElapsedInText() {
         TimerNotifications.ensureChannels(ctx)
         val paused = snap.copy(countUp = true, status = EngineStatus.PAUSED, timeAtPause = 45_000)
         val n = TimerNotifications.inProgress(ctx, paused)
-        assertEquals(listOf(" ", " "), n.actions.map { it.title.toString() })
-        assertEquals("已暂停 · 已进行 00:45", n.extras.getCharSequence(NotificationCompat.EXTRA_TEXT).toString())
-        assertEquals(false, n.extras.getBoolean(NotificationCompat.EXTRA_SHOW_CHRONOMETER, false))
+        assertNotNull(n.contentView)
+        assertEquals(0, (n.actions ?: emptyArray()).size)
+        assertEquals("工作中", n.extras.getCharSequence(NotificationCompat.EXTRA_TITLE).toString())
     }
 }

@@ -6,6 +6,8 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.os.SystemClock
+import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
 import com.embertimer.MainActivity
 import com.embertimer.R
@@ -47,56 +49,42 @@ object TimerNotifications {
             if (snap.phase == Phase.WORK) R.string.state_work else R.string.state_rest,
         )
         val paused = snap.status == EngineStatus.PAUSED
-        val builder = NotificationCompat.Builder(context, CH_TIMER)
+        val rv = RemoteViews(context.packageName, R.layout.notification_actions)
+        rv.setTextViewText(R.id.notif_title, if (snap.countUp) context.getString(R.string.mode_countup) else "$phaseText · ${context.getString(if (paused) R.string.nt_cycle else R.string.nt_cycle, snap.cycleCount)}")
+        // 时间:运行态 Chronometer(倒计时 backward / 正计时 forward),暂停态定格文本
+        if (paused) {
+            rv.setTextViewText(R.id.notif_time, DurationFormat.ms(snap.timeAtPause))
+            rv.setViewVisibility(R.id.notif_time, android.view.View.VISIBLE)
+        } else {
+            val base = if (snap.countUp) snap.endWall - snap.durationMillis else snap.endWall
+            rv.setChronometerCountDown(R.id.notif_time, !snap.countUp)
+            rv.setChronometer(R.id.notif_time, base, null, true)
+            rv.setViewVisibility(R.id.notif_time, android.view.View.VISIBLE)
+        }
+        // 图标操作按钮(正计时隐藏 跳过)
+        rv.setImageViewResource(R.id.btn_pause, if (paused) R.drawable.ic_play else R.drawable.ic_pause)
+        rv.setOnClickPendingIntent(R.id.btn_pause, serviceIntent(context, if (paused) TimerService.ACTION_RESUME else TimerService.ACTION_PAUSE))
+        if (snap.countUp) {
+            rv.setViewVisibility(R.id.btn_skip, android.view.View.GONE)
+        } else {
+            rv.setViewVisibility(R.id.btn_skip, android.view.View.VISIBLE)
+            rv.setImageViewResource(R.id.btn_skip, R.drawable.ic_skip_next)
+            rv.setOnClickPendingIntent(R.id.btn_skip, serviceIntent(context, TimerService.ACTION_SKIP))
+        }
+        rv.setImageViewResource(R.id.btn_stop, R.drawable.ic_stop)
+        rv.setOnClickPendingIntent(R.id.btn_stop, serviceIntent(context, TimerService.ACTION_STOP))
+
+        return NotificationCompat.Builder(context, CH_TIMER)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle(phaseText)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
-            .setShowWhen(false) // 隐藏通知时间戳相对文案("刚刚"),倒计时/时长由 chronometer 展示
+            .setShowWhen(false) // 隐藏通知时间戳相对文案("刚刚"),倒计时由 RemoteViews chronometer 展示
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)
             .setContentIntent(activityIntent(context))
-        if (snap.countUp) {
-            // 正计时(Task 7 / #10):无循环/到期/跳过 —— 文本只留模式;运行态用正向 chronometer
-            // 显示已走时长(与倒计时 chronometer 同一机制,countDown=false),暂停态定格于文本
-            builder.setContentText(
-                if (paused) context.getString(R.string.nt_paused_elapsed, DurationFormat.ms(snap.timeAtPause))
-                else context.getString(R.string.mode_countup),
-            )
-                .addAction(
-                    if (paused) R.drawable.ic_play else R.drawable.ic_pause,
-                    " ", // v1.8.3 图标按钮(单空格占位,保证渲染且无可见文字)
-                    serviceIntent(context, if (paused) TimerService.ACTION_RESUME else TimerService.ACTION_PAUSE),
-                )
-                .addAction(R.drawable.ic_stop, " ", serviceIntent(context, TimerService.ACTION_STOP))
-            if (!paused) {
-                // when = 本次运行已走时长的墙钟起点(endWall - 名义跨度 = startWall;
-                // 每次 resume 引擎重锚 endWall,起点同步平移,暂停不计入)
-                builder.setUsesChronometer(true)
-                builder.setChronometerCountDown(false)
-                builder.setWhen(snap.endWall - snap.durationMillis)
-            }
-        } else {
-            builder.setContentText(
-                context.getString(if (paused) R.string.nt_paused_cycle else R.string.nt_cycle, snap.cycleCount),
-            )
-                .addAction(
-                    if (paused) R.drawable.ic_play else R.drawable.ic_pause,
-                    " ", // v1.8.3 图标按钮(单空格占位,保证渲染且无可见文字)
-                    serviceIntent(context, if (paused) TimerService.ACTION_RESUME else TimerService.ACTION_PAUSE),
-                )
-                .addAction(R.drawable.ic_skip_next, " ", serviceIntent(context, TimerService.ACTION_SKIP))
-                .addAction(R.drawable.ic_stop, " ", serviceIntent(context, TimerService.ACTION_STOP))
-            if (!paused) {
-                // D2 方案 A:倒计时占标题行时间位(系统 chronometer 自动走秒);当前阶段进度条
-                builder.setUsesChronometer(true)
-                builder.setChronometerCountDown(true)
-                builder.setWhen(snap.endWall)
-                val remaining = (snap.endElapsed - android.os.SystemClock.elapsedRealtime()).coerceAtLeast(0)
-                val total = snap.durationMillis
-                builder.setProgress(total.toInt(), (total - remaining).coerceIn(0, total).toInt(), false)
-            }
-        }
-        return builder.build()
+            .setCustomContentView(rv)
+            .setCustomBigContentView(rv)
+            .build()
     }
 
     fun phaseDone(context: Context, workFinished: Boolean): Notification {
