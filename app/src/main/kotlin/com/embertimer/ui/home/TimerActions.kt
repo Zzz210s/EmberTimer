@@ -55,7 +55,7 @@ private fun Modifier.pressScale(pressed: Boolean): Modifier = composed {
  * 见 v1.0 #9/#11/#8)。容器 AnimatedContent 的键是 isIdle 而非 status —— RUNNING⇄PAUSED
  * 不触发容器过渡,MorphIcon 在原组合槽内就地形变、另两键原位静止。IDLE⇄运行态才做槽位交换:
  * 开始键上滑淡出(TextSwapExit 时长,与状态文本同族),三键行本体不挂容器入场,
- * 由各键 StaggerKey 自带错峰展开(暂停/恢复 0ms 原位、终止 +40ms、跳过 +80ms 自下滑入);
+ * 由各键 StaggerKey 自带错峰展开(终止 0ms、暂停/恢复 +40ms 原位、跳过 +80ms 自下滑入);
  * 反向(终止回空闲)以 0.6x 时长收拢。animationsOn=false 时 snap 直切。
  */
 @Composable
@@ -128,7 +128,13 @@ private fun ActiveKeys(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(20.dp),
     ) {
-        StaggerKey(animationsOn, delaySteps = 0, slide = 0.dp) { // 暂停/恢复键原位展开(不滑入)
+        // 键序(v1.8.7 #3):停止 | 暂停/恢复 | 跳过
+        StaggerKey(animationsOn, delaySteps = 0) {
+            FilledTonalIconButton(onClick = onStop, modifier = Modifier.size(56.dp)) {
+                PathIcon(d = IconPaths.STOP, size = 24.dp, contentDescription = stringResource(R.string.act_stop))
+            }
+        }
+        StaggerKey(animationsOn, delaySteps = 1, slide = 0.dp) { // 暂停/恢复
             val interaction = remember { MutableInteractionSource() }
             val pressed by interaction.collectIsPressedAsState()
             FilledIconToggleButton(
@@ -144,11 +150,6 @@ private fun ActiveKeys(
                     contentDescription = if (running) "暂停" else "恢复",
                     modifier = if (animationsOn) Modifier.pressScale(pressed) else Modifier,
                 )
-            }
-        }
-        StaggerKey(animationsOn, delaySteps = 1) {
-            FilledTonalIconButton(onClick = onStop, modifier = Modifier.size(56.dp)) {
-                PathIcon(d = IconPaths.STOP, size = 24.dp, contentDescription = stringResource(R.string.act_stop))
             }
         }
         if (showSkip) {

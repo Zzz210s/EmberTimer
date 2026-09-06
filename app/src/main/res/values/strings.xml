@@ -101,4 +101,5 @@
     <string name="pack_rose">Rose</string>
     <string name="pack_teal">Teal</string>
     <string name="pack_nord">Nord</string>
+    <string name="app_name">EmberTimer</string>
 </resources>

@@ -12,7 +12,7 @@
         android:name=".EmberApp"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
-        android:label="EmberTimer"
+        android:label="@string/app_name"
         android:theme="@style/Theme.EmberTimer">
 
         <activity

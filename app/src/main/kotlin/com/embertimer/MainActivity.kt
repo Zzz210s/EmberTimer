@@ -70,6 +70,7 @@ class MainActivity : ComponentActivity() {
         ) {
             notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
+        com.embertimer.service.TimerNotifications.ensureChannels(this)
         parseReportExtra(intent)
         setContent {
             val app = application as EmberApp
