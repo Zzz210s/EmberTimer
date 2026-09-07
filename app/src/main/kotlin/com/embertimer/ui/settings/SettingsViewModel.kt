@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+
 data class SettingsUiState(
     val profiles: List<ProfileEntity> = emptyList(),
     val totals: Map<Long, Long> = emptyMap(),

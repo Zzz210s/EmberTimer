@@ -5,12 +5,6 @@ import androidx.compose.ui.res.stringResource
 import android.content.Intent
 import android.os.Build
 import android.provider.Settings
-import android.widget.Toast
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import com.embertimer.data.DataTransfer
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -56,10 +50,7 @@ import com.embertimer.ui.morph.IconPaths
 import com.embertimer.ui.morph.PathIcon
 import kotlinx.coroutines.launch
 
-/**
- * 设置页(v1.3 重构后瘦身):仅保留 精确闹钟授权横幅 + 提醒强度 两块;
- * 时钟管理已独立为「时钟管理」页(主页配置下拉面板顶部入口)。
- */
+/** 设置页:精确闹钟横幅 + 配色 + 数据(备份/恢复) + 提醒强度。 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(onBack: () -> Unit) {
@@ -68,33 +59,7 @@ fun SettingsScreen(onBack: () -> Unit) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
-    val exportedMsg = stringResource(R.string.data_exported)
-    val importFailedMsg = stringResource(R.string.data_import_failed)
-
-    // v1.9.1 数据导出/导入(SAF):导出为 JSON 存到用户所选文件;导入 JSON 并 upsert 合并
-    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
-        if (uri != null) scope.launch {
-            runCatching {
-                val json = DataTransfer.exportJson(app.graph.db)
-                withContext(Dispatchers.IO) { ctx.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) } }
-            }
-            Toast.makeText(ctx, exportedMsg, Toast.LENGTH_SHORT).show()
-        }
-    }
-    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) scope.launch {
-            val ok = runCatching {
-                val text = withContext(Dispatchers.IO) {
-                    ctx.contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) } ?: ""
-                }
-                val counts = DataTransfer.importJson(app.graph.db, text)
-                Toast.makeText(ctx, ctx.getString(R.string.data_imported, counts.dailyTotals), Toast.LENGTH_SHORT).show()
-                true
-            }.getOrDefault(false)
-            if (!ok) Toast.makeText(ctx, importFailedMsg, Toast.LENGTH_SHORT).show()
-        }
-    }
-
+    val (launchExport, launchImport) = rememberBackupLaunchers()
     LaunchedEffect(Unit) { vm.refreshExactAlarm(ctx) }
 
     Scaffold(
@@ -148,9 +113,15 @@ fun SettingsScreen(onBack: () -> Unit) {
                     Column(Modifier.fillMaxWidth().padding(12.dp)) {
                         Text(stringResource(R.string.data_section), style = MaterialTheme.typography.titleMedium)
                         Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(onClick = { exportLauncher.launch("embertimer-backup.json") }) { Text(stringResource(R.string.export_data)) }
-                            OutlinedButton(onClick = { importLauncher.launch(arrayOf("application/json", "application/octet-stream", "text/plain", "*/*")) }) { Text(stringResource(R.string.import_data)) }
+                            OutlinedButton(onClick = { launchExport("embertimer-backup.json") }) { Text(stringResource(R.string.export_data)) }
+                            OutlinedButton(onClick = { launchImport() }) { Text(stringResource(R.string.import_data)) }
                         }
+                        Text(
+                            stringResource(R.string.backup_hint),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 6.dp),
+                        )
                     }
                 }
             }

@@ -105,13 +105,14 @@
     <string name="report_prev">上一期</string>
     <string name="report_next">下一期</string>
     <string name="report_period">%1$s</string>
-    <string name="data_section">数据</string>
-    <string name="export_data">导出数据</string>
-    <string name="import_data">导入数据</string>
-    <string name="data_exported">已导出</string>
-    <string name="data_imported">已导入 %1$d 条</string>
-    <string name="data_import_failed">导入失败</string>
+    <string name="data_section">数据备份</string>
+    <string name="export_data">备份到文件/网盘</string>
+    <string name="import_data">从文件恢复</string>
+    <string name="data_exported">已备份</string>
+    <string name="data_imported">已从备份恢复 %1$d 条</string>
+    <string name="data_import_failed">备份文件无效或损坏</string>
     <string name="report_pick_period">选择周期</string>
     <string name="report_search_hint">yyyy-MM-dd / yyyy-MM</string>
     <string name="report_search_empty">没有匹配的周期</string>
+    <string name="backup_hint">可存到任意网盘/文件夹(含 Google 网盘、本地文件),恢复时选同一文件</string>
 </resources>

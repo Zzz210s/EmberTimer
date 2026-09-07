@@ -105,13 +105,14 @@
     <string name="report_prev">Previous</string>
     <string name="report_next">Next</string>
     <string name="report_period">%1$s</string>
-    <string name="data_section">Data</string>
-    <string name="export_data">Export</string>
-    <string name="import_data">Import</string>
-    <string name="data_exported">Exported</string>
-    <string name="data_imported">Imported %1$d records</string>
-    <string name="data_import_failed">Import failed</string>
+    <string name="data_section">Backup</string>
+    <string name="export_data">Backup to file/cloud</string>
+    <string name="import_data">Restore from file</string>
+    <string name="data_exported">Backed up</string>
+    <string name="data_imported">Restored %1$d records</string>
+    <string name="data_import_failed">Invalid backup file</string>
     <string name="report_pick_period">Pick period</string>
     <string name="report_search_hint">yyyy-MM-dd / yyyy-MM</string>
     <string name="report_search_empty">No matching period</string>
+    <string name="backup_hint">Save to any cloud drive or folder (incl. Google Drive, local files); pick the same file to restore</string>
 </resources>
