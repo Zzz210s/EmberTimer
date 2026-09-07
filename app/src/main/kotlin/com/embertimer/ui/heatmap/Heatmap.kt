@@ -35,6 +35,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import com.embertimer.timer.DurationFormat
 import java.time.LocalDate
 
@@ -125,7 +126,9 @@ private fun MonthLabels(model: HeatmapModel, state: LazyGridState) {
     val visibleItems by remember(state, model.monthLabels) {
         derivedStateOf { state.layoutInfo.visibleItemsInfo }
     }
-    Box(Modifier.fillMaxWidth().height(16.dp)) {
+    // v1.9.8:修复月份标签(如 Sep 的 p 降部)被下方方框覆盖 —— 行高 16->20dp 完整容纳文本行高,
+    // 并 zIndex 抬高到其余行之上(布局顺序在前的叠加层默认画在下面,重叠时会被后画的行盖住)
+    Box(Modifier.fillMaxWidth().height(20.dp).zIndex(2f)) {
         // 首帧可见列表为空则本帧不画,布局完成后的下一帧自动补上
         visibleItems.forEach { item ->
             if (item.index % 7 == 0) {

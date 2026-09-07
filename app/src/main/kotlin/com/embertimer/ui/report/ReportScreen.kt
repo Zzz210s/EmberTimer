@@ -2,8 +2,18 @@ package com.embertimer.ui.report
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -75,14 +85,16 @@ fun ReportScreen(onBack: () -> Unit, initialRange: ReportRange = ReportRange.WEE
                     }
                 }
             }
-            // v1.9.1 回顾以往报表:上一期/下一期 切历史窗口(仅周/月),显示当前窗口标签
+            // v1.9.8 回顾以往报表:标签可点击弹下拉(搜索栏自由选择);两侧保留上一期/下一期
             if (ui.range != ReportRange.LIFETIME) {
-                val label = periodLabel(ui.range, ui.anchor)
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(onClick = { vm.prevPeriod() }) { Text(stringResource(R.string.report_prev)) }
-                    Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    TextButton(onClick = { vm.nextPeriod() }, enabled = ui.canGoNext) { Text(stringResource(R.string.report_next)) }
-                }
+                PeriodPicker(
+                    range = ui.range,
+                    anchor = ui.anchor,
+                    canGoNext = ui.canGoNext,
+                    onPrev = { vm.prevPeriod() },
+                    onNext = { vm.nextPeriod() },
+                    onJump = { vm.jumpTo(it) },
+                )
             }
             // v1.5 健康风摘要(周/月;长期累计页签无指标)
             if (ui.range != ReportRange.LIFETIME) {
@@ -158,14 +170,4 @@ private fun durationLocalized(millis: Long): String {
     val m = totalMinutes % 60
     return if (h == 0L) stringResource(R.string.duration_m, m)
     else stringResource(R.string.duration_hm, h, m)
-}
-
-/** 报表窗口标签:v1.9.1 —— 周显示 MM-dd ~ MM-dd;月显示 yyyy-MM */
-private fun periodLabel(range: ReportRange, anchor: java.time.LocalDate): String {
-    val (from, to) = reportWindow(range, anchor)
-    return when (range) {
-        ReportRange.WEEK -> "${from.substring(5)} ~ ${to.substring(5)}"
-        ReportRange.MONTH -> from.substring(0, 7)
-        ReportRange.LIFETIME -> ""
-    }
 }

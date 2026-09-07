@@ -32,7 +32,13 @@ object IconPaths {
     const val PLUS = "M12,5 L12,19 M5,12 L19,12"
     /** 垃圾桶(v1.4 时钟管理删除模式入口,静态图标,无 XML 对应) */
     const val TRASH = "M5,7 L19,7 M9,7 L9,5 L15,5 L15,7 M7,7 L8,19 L16,19 L17,7 M10,10 L10,16 M14,10 L14,16"
+    /** 空闲相位:月牙(Lucide moon 中心线,静态图标,首页计时模块状态行) */
+    const val PHASE_IDLE = "M12,3 a6,6 0 0 0 9,9 a9,9 0 1 1 -9,-9 z"
+    /** 工作中相位:火焰(Lucide flame 中心线,静态图标) */
+    const val PHASE_WORK = "M8.5,14.5 A2.5,2.5 0 0 0 11,12 A2.5,2.5 0 0 1 9,7 a5,5 0 1 0 7,8.5 A5,5 0 1 1 8.5,14.5 z M12,22 a7,7 0 0 0 7,-7 c0,-2 -1,-3.9 -3,-5.5 c-0.5,1.5 -1.5,2.5 -3,3 c0.5,-2 -0.5,-4 -2,-5.5 c-0.4,1.5 -1.2,2.6 -2.5,3.5 A7,7 0 0 0 12,22 z"
+    /** 休息中相位:咖啡杯(Lucide coffee 中心线,静态图标) */
+    const val PHASE_REST = "M17,8 h1 a4,4 0 0 1 0,8 h-1 M3,8 h14 v6 a4,4 0 0 1 -4,4 h-6 a4,4 0 0 1 -4,-4 z M6,2 L6,4 M10,2 L10,4 M14,2 L14,4"
 
-    /** 全部 11 个图标,供测试遍历(24 栅格合法性/可解析性守卫)。 */
-    val ALL: List<String> = listOf(PLAY, PAUSE, SKIP, STOP, REPEAT, SETTINGS, BACK, MENU, CHEVRON_DOWN, CHECK, PLUS, TRASH)
+    /** 全部图标,供测试遍历(24 栅格合法性/可解析性守卫)。 */
+    val ALL: List<String> = listOf(PLAY, PAUSE, SKIP, STOP, REPEAT, SETTINGS, BACK, MENU, CHEVRON_DOWN, CHECK, PLUS, TRASH, PHASE_IDLE, PHASE_WORK, PHASE_REST)
 }

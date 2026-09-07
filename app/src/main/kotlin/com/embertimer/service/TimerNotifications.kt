@@ -80,7 +80,15 @@ object TimerNotifications {
         val countUp = snap.countUp
         val rv = RemoteViews(context.packageName, R.layout.notification_actions)
 
-        // 行1 标题 + 循环图标/计数 + 倒计时(同排等宽)
+        // 行1 相位图标 + 标题 + 循环图标/计数 + 倒计时(同排等宽)
+        rv.setImageViewResource(
+            R.id.notif_phase,
+            when {
+                snap == null -> R.drawable.ic_phase_idle
+                snap.phase == Phase.WORK -> R.drawable.ic_phase_work
+                else -> R.drawable.ic_phase_rest
+            },
+        )
         rv.setTextViewText(R.id.notif_title, phaseText)
         rv.setViewVisibility(R.id.cycle_cell, if (countUp) android.view.View.GONE else android.view.View.VISIBLE)
         rv.setTextViewText(R.id.notif_cycle_text, if (countUp) "" else snap.cycleCount.toString())

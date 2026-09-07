@@ -116,6 +116,13 @@ class ReportViewModel(
     }
 
     /** 回顾上一期:周→往前一周;月→往前一月;长期累计无历史 */
+    /** v1.9.8 下拉自由选择:跳到包含 [date] 的周期(周/月) */
+    fun jumpTo(date: LocalDate) {
+        if (_range.value == ReportRange.LIFETIME) return
+        val d = if (date.isAfter(clock())) clock() else date
+        _anchor.value = d
+    }
+
     fun prevPeriod() {
         if (_range.value == ReportRange.LIFETIME) return
         val d = if (_range.value == ReportRange.WEEK) _anchor.value.minusWeeks(1) else _anchor.value.minusMonths(1)

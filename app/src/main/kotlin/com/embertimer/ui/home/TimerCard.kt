@@ -13,10 +13,13 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -62,11 +65,12 @@ internal fun TimerCard(
         ui.profiles.firstOrNull { it.id == ui.activeProfileId }?.mode == ProfileMode.COUNTUP
     val animationsOn = rememberAnimationsEnabled()
     Card(Modifier.fillMaxWidth()) {
-        Column(
-            Modifier.padding(16.dp).fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
+        Box {
+            Column(
+                Modifier.padding(16.dp).fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
             val phaseRes = when {
                 snap == null -> R.string.state_idle
                 snap.phase == Phase.WORK -> R.string.state_work
@@ -91,10 +95,10 @@ internal fun TimerCard(
                     },
                     label = "phaseText",
                 ) { text ->
-                    Text(text, style = MaterialTheme.typography.titleMedium)
+                    PhaseRow(text, phaseRes)
                 }
             } else {
-                Text(phaseText, style = MaterialTheme.typography.titleMedium)
+                PhaseRow(phaseText, phaseRes)
             }
             // #3 空态引导:无配置时倒计时数字位换文案(数字必为 00:00,无意义),
             // 开始键维持 disabled(activeProfileId == -1),另提供直达时钟管理的按钮
@@ -111,9 +115,6 @@ internal fun TimerCard(
                             DurationFormat.ms(displayMillis),
                             style = MaterialTheme.typography.displayMedium,
                         )
-                        if (!countUpActive) {
-                            CycleBadge(count = snap?.cycleCount ?: 0, animationsOn = animationsOn)
-                        }
                     }
                 }
             }
@@ -148,9 +149,19 @@ internal fun TimerCard(
                 onSkip = { act(onSkip) },
                 onStop = { act(onStop) },
             )
+            }
+            // v1.9.8:循环徽标移到计时模块右上角(倒计时不再与其同排;正计时隐藏)
+            if (!countUpActive) {
+                CycleBadge(
+                    count = snap?.cycleCount ?: 0,
+                    animationsOn = animationsOn,
+                    modifier = Modifier.align(Alignment.TopEnd).padding(12.dp),
+                )
+            }
         }
     }
 }
+
 
 /** D4:循环徽标(仅图标);count 递增时 repeat 图标弹跳一次(scale 1->1.25->1,约 220ms),animationsOn=false 时无动画。
  * 数字由 PathIcon 的 contentDescription 承载(TalkBack 可读),不渲染可见文本。 */

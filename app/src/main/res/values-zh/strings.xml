@@ -111,4 +111,7 @@
     <string name="data_exported">已导出</string>
     <string name="data_imported">已导入 %1$d 条</string>
     <string name="data_import_failed">导入失败</string>
+    <string name="report_pick_period">选择周期</string>
+    <string name="report_search_hint">yyyy-MM-dd / yyyy-MM</string>
+    <string name="report_search_empty">没有匹配的周期</string>
 </resources>
