@@ -79,57 +79,55 @@ object TimerNotifications {
         )
         val paused = snap.status == EngineStatus.PAUSED
         val countUp = snap.countUp
-        val fg = foregroundColor(context)
-        val rv = RemoteViews(context.packageName, R.layout.notification_actions)
 
-        // 行1 标题 + 循环图标/计数 + 倒计时(同排等宽)
-        rv.setTextViewText(R.id.notif_title, phaseText)
-        rv.setTextColor(R.id.notif_title, fg)
-        rv.setViewVisibility(R.id.cycle_cell, if (countUp) android.view.View.GONE else android.view.View.VISIBLE)
-        rv.setInt(R.id.notif_cycle, "setColorFilter", fg)
-        rv.setTextViewText(R.id.notif_cycle_text, if (countUp) "" else snap.cycleCount.toString())
-        rv.setTextColor(R.id.notif_cycle_text, fg)
-        // 时间:v1.9.4 —— Chronometer 的 base 必须基于 SystemClock.elapsedRealtime()(官方),
-        // 不能用墙钟 endWall(正是倒计时错/空的根因);运行态用 buildClockSpec 的 elapsed 基线,暂停态定格文本
-        if (paused) {
-            rv.setTextViewText(R.id.notif_time, DurationFormat.ms(snap.timeAtPause))
-        } else {
-            val spec = buildClockSpec(snap)
-            rv.setChronometerCountDown(R.id.notif_time, spec.countDown)
-            rv.setChronometer(R.id.notif_time, spec.base, null, true)
-        }
-        rv.setTextColor(R.id.notif_time, fg)
-
-        // 行2 图标按钮:终止 | 开始/暂停 | 跳过(正计时无跳过)
-        rv.setImageViewResource(R.id.btn_stop, R.drawable.ic_stop)
-        rv.setInt(R.id.btn_stop, "setColorFilter", fg)
-        rv.setOnClickPendingIntent(R.id.btn_stop, serviceIntent(context, TimerService.ACTION_STOP))
-        rv.setImageViewResource(R.id.btn_pause, if (paused) R.drawable.ic_play else R.drawable.ic_pause)
-        rv.setInt(R.id.btn_pause, "setColorFilter", fg)
-        rv.setOnClickPendingIntent(R.id.btn_pause, serviceIntent(context, if (paused) TimerService.ACTION_RESUME else TimerService.ACTION_PAUSE))
-        if (countUp) {
-            rv.setViewVisibility(R.id.btn_skip, android.view.View.GONE)
-        } else {
-            rv.setViewVisibility(R.id.btn_skip, android.view.View.VISIBLE)
-            rv.setImageViewResource(R.id.btn_skip, R.drawable.ic_skip_next)
-            rv.setInt(R.id.btn_skip, "setColorFilter", fg)
-            rv.setOnClickPendingIntent(R.id.btn_skip, serviceIntent(context, TimerService.ACTION_SKIP))
-        }
-
-        return NotificationCompat.Builder(context, CH_TIMER)
+        val b = NotificationCompat.Builder(context, CH_TIMER)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle(phaseText)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
-            .setShowWhen(false)
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)
             .setContentIntent(activityIntent(context))
-            // DecoratedCustomViewStyle:系统提供装饰(应用名/时间头部),自定内容作正文 —— 比纯 RemoteViews 更稳,
-            // 也规避自定义按钮更新导致的"通知消失"问题类
-            .setStyle(NotificationCompat.DecoratedCustomViewStyle())
-            .setCustomContentView(rv)
-            .setCustomBigContentView(rv)
-            .build()
+
+        // 时间:运行态走系统模板 chronometer(setWhen+setChronometerCountDown,由系统渲染,自定义视图空白问题的根治);
+        // 倒计时 = 到期墙钟,正计时 = 起点墙钟。暂停态定格文本。
+        if (paused) {
+            b.setContentText(DurationFormat.ms(snap.timeAtPause))
+            b.setShowWhen(false)
+        } else if (countUp) {
+            b.setUsesChronometer(true)
+            b.setChronometerCountDown(false)
+            b.setWhen(snap.endWall - snap.durationMillis)
+        } else {
+            b.setUsesChronometer(true)
+            b.setChronometerCountDown(true)
+            b.setWhen(snap.endWall)
+        }
+
+        // 循环计数入正文(倒计时态);正计时正文显示模式名
+        b.setContentText(
+            if (countUp) context.getString(R.string.mode_countup)
+            else context.getString(R.string.nt_cycle, snap.cycleCount),
+        )
+
+        // 按钮顺序:终止 | 暂停/恢复 | 跳过(正计时无跳过)。系统 action 行,稳定渲染。
+        b.addAction(
+            R.drawable.ic_stop,
+            context.getString(R.string.act_stop),
+            serviceIntent(context, TimerService.ACTION_STOP),
+        )
+        b.addAction(
+            if (paused) R.drawable.ic_play else R.drawable.ic_pause,
+            context.getString(if (paused) R.string.act_resume else R.string.act_pause),
+            serviceIntent(context, if (paused) TimerService.ACTION_RESUME else TimerService.ACTION_PAUSE),
+        )
+        if (!countUp) {
+            b.addAction(
+                R.drawable.ic_skip_next,
+                context.getString(R.string.act_skip),
+                serviceIntent(context, TimerService.ACTION_SKIP),
+            )
+        }
+        return b.build()
     }
 
     fun phaseDone(context: Context, workFinished: Boolean): Notification {

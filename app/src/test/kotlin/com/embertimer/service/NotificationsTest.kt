@@ -35,18 +35,21 @@ class NotificationsTest {
         assertNotNull(nm.getNotificationChannel(TimerNotifications.CH_TIMER))
     }
 
-    /** 三态通知契约:title 为阶段;text 承载循环;运行态 chronometer 倒计时 + 进度条;动作图标 + STOP intent */
+    /** v1.9.4 标准通知契约:title=阶段;text=循环;运行态系统 chronometer;action 行 终止|暂停|跳过(STOP intent) */
     @Test fun inProgressLayoutAndActions() {
         TimerNotifications.ensureChannels(ctx)
         val running = TimerNotifications.inProgress(ctx, snap)
         val paused = TimerNotifications.inProgress(ctx, snap.copy(status = EngineStatus.PAUSED))
-        // v1.9.1 通知重构:自定义 RemoteViews(图标按钮 终止|开始/暂停|跳过 + 倒计时同排 + 循环图标);不再用系统 action 行
-        assertNotNull(running.contentView)
-        assertNotNull(paused.contentView)
-        assertEquals(0, (running.actions ?: emptyArray()).size)
-        assertEquals(0, (paused.actions ?: emptyArray()).size)
         assertEquals("工作中", running.extras.getCharSequence(NotificationCompat.EXTRA_TITLE).toString())
         assertEquals("工作中", paused.extras.getCharSequence(NotificationCompat.EXTRA_TITLE).toString())
+        // 系统模板:chronometer 开启(运行态)
+        assertEquals(true, running.extras.getBoolean(NotificationCompat.EXTRA_SHOW_CHRONOMETER))
+        // action 行:倒计时三键 终止|暂停|跳过;暂停态 终止|恢复|跳过
+        assertEquals(3, (running.actions ?: emptyArray()).size)
+        assertEquals(3, (paused.actions ?: emptyArray()).size)
+        assertEquals("跳过", running.actions!![2].title.toString())
+        // 终止键 intent 指向 STOP
+        assertEquals("com.embertimer.action.STOP", shadowOf(running.actions!![0].actionIntent).savedIntent.action)
     }
 
     @Test fun phaseDoneIsAutoCancel() {
@@ -68,26 +71,16 @@ class NotificationsTest {
     @Test fun countUpRunningUsesForwardChronometer() {
         TimerNotifications.ensureChannels(ctx)
         val n = TimerNotifications.inProgress(ctx, snap.copy(countUp = true))
-        assertNotNull(n.contentView)
-        assertEquals(0, (n.actions ?: emptyArray()).size)
         assertEquals("工作中", n.extras.getCharSequence(NotificationCompat.EXTRA_TITLE).toString())
+        // 正计时:无跳过键
+        assertEquals(2, (n.actions ?: emptyArray()).size)
     }
 
     @Test fun countUpPausedFreezesElapsedInText() {
         TimerNotifications.ensureChannels(ctx)
         val paused = snap.copy(countUp = true, status = EngineStatus.PAUSED, timeAtPause = 45_000)
         val n = TimerNotifications.inProgress(ctx, paused)
-        assertNotNull(n.contentView)
-        assertEquals(0, (n.actions ?: emptyArray()).size)
-        assertEquals("工作中", n.extras.getCharSequence(NotificationCompat.EXTRA_TITLE).toString())
-    }
-
-    @Test fun remoteViewsInflatesWithoutCrash() {
-        TimerNotifications.ensureChannels(ctx)
-        val n = TimerNotifications.inProgress(ctx, snap)
-        assertNotNull(n.contentView)
-        // 实际应用 RemoteViews 到容器:若布局含不受支持属性(如 tint/?attr)会抛异常(之前真机崩溃点)
-        n.contentView.apply(ctx, android.widget.FrameLayout(ctx))
+        assertEquals(2, (n.actions ?: emptyArray()).size)
     }
 
     // ---- v1.9.4:Chronometer base 必须基于 elapsedRealtime(墙钟 endWall 会错/空) ----
