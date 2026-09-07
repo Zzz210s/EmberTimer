@@ -7,7 +7,6 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.SystemClock
-import android.util.TypedValue
 import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
 import com.embertimer.MainActivity
@@ -22,7 +21,7 @@ import com.embertimer.timer.RuntimeSnapshot
  * 常驻:app 启动即弹空闲通知;计时开始后同 ID 替换为计时态。
  * 自定义 RemoteViews:图标按钮(终止|开始/暂停|跳过)、倒计时与标题同排等宽、循环图标。
  * 安全属性集:布局不含 android:tint / ?android:attr 背景(会 inflate 崩溃);
- * 图标与文字颜色均在代码里用 setColorFilter / setTextColor 注入。
+ * 颜色由布局 XML 主题属性(?android:attr/textColorPrimary/tint)解析,适配深浅通知底。
  */
 object TimerNotifications {
     const val CH_TIMER = "ember_timer"
@@ -79,55 +78,49 @@ object TimerNotifications {
         )
         val paused = snap.status == EngineStatus.PAUSED
         val countUp = snap.countUp
+        val rv = RemoteViews(context.packageName, R.layout.notification_actions)
 
-        val b = NotificationCompat.Builder(context, CH_TIMER)
+        // 行1 标题 + 循环图标/计数 + 倒计时(同排等宽)
+        rv.setTextViewText(R.id.notif_title, phaseText)
+        rv.setViewVisibility(R.id.cycle_cell, if (countUp) android.view.View.GONE else android.view.View.VISIBLE)
+        rv.setTextViewText(R.id.notif_cycle_text, if (countUp) "" else snap.cycleCount.toString())
+        // 时间:v1.9.4 —— Chronometer 的 base 必须基于 SystemClock.elapsedRealtime()(官方),
+        // 不能用墙钟 endWall(正是倒计时错/空的根因);运行态用 buildClockSpec 的 elapsed 基线,暂停态定格文本
+        if (paused) {
+            rv.setTextViewText(R.id.notif_time, DurationFormat.ms(snap.timeAtPause))
+        } else {
+            val spec = buildClockSpec(snap)
+            rv.setChronometerCountDown(R.id.notif_time, spec.countDown)
+            rv.setChronometer(R.id.notif_time, spec.base, null, true)
+        }
+
+        // 行2 图标按钮:终止 | 开始/暂停 | 跳过(正计时无跳过)
+        rv.setImageViewResource(R.id.btn_stop, R.drawable.ic_stop)
+        rv.setOnClickPendingIntent(R.id.btn_stop, serviceIntent(context, TimerService.ACTION_STOP))
+        rv.setImageViewResource(R.id.btn_pause, if (paused) R.drawable.ic_play else R.drawable.ic_pause)
+        rv.setOnClickPendingIntent(R.id.btn_pause, serviceIntent(context, if (paused) TimerService.ACTION_RESUME else TimerService.ACTION_PAUSE))
+        if (countUp) {
+            rv.setViewVisibility(R.id.btn_skip, android.view.View.GONE)
+        } else {
+            rv.setViewVisibility(R.id.btn_skip, android.view.View.VISIBLE)
+            rv.setImageViewResource(R.id.btn_skip, R.drawable.ic_skip_next)
+            rv.setOnClickPendingIntent(R.id.btn_skip, serviceIntent(context, TimerService.ACTION_SKIP))
+        }
+
+        return NotificationCompat.Builder(context, CH_TIMER)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle(phaseText)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
+            .setShowWhen(false)
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)
             .setContentIntent(activityIntent(context))
-
-        // 时间:运行态走系统模板 chronometer(setWhen+setChronometerCountDown,由系统渲染,自定义视图空白问题的根治);
-        // 倒计时 = 到期墙钟,正计时 = 起点墙钟。暂停态定格文本。
-        if (paused) {
-            b.setContentText(DurationFormat.ms(snap.timeAtPause))
-            b.setShowWhen(false)
-        } else if (countUp) {
-            b.setUsesChronometer(true)
-            b.setChronometerCountDown(false)
-            b.setWhen(snap.endWall - snap.durationMillis)
-        } else {
-            b.setUsesChronometer(true)
-            b.setChronometerCountDown(true)
-            b.setWhen(snap.endWall)
-        }
-
-        // 循环计数入正文(倒计时态);正计时正文显示模式名
-        b.setContentText(
-            if (countUp) context.getString(R.string.mode_countup)
-            else context.getString(R.string.nt_cycle, snap.cycleCount),
-        )
-
-        // 按钮顺序:终止 | 暂停/恢复 | 跳过(正计时无跳过)。系统 action 行,稳定渲染。
-        b.addAction(
-            R.drawable.ic_stop,
-            context.getString(R.string.act_stop),
-            serviceIntent(context, TimerService.ACTION_STOP),
-        )
-        b.addAction(
-            if (paused) R.drawable.ic_play else R.drawable.ic_pause,
-            context.getString(if (paused) R.string.act_resume else R.string.act_pause),
-            serviceIntent(context, if (paused) TimerService.ACTION_RESUME else TimerService.ACTION_PAUSE),
-        )
-        if (!countUp) {
-            b.addAction(
-                R.drawable.ic_skip_next,
-                context.getString(R.string.act_skip),
-                serviceIntent(context, TimerService.ACTION_SKIP),
-            )
-        }
-        return b.build()
+            // v1.9.6:去掉 DecoratedCustomViewStyle —— 部分机型(华为/鸿蒙)该样式与自定内容组合渲染异常;
+            // 纯 custom content view 是本设备已验证可用的公式(v1.8.6/1.9.2)。
+            // 颜色/图标色全部由布局 XML 主题属性解析(适配深浅通知底),不再代码注入。
+            .setCustomContentView(rv)
+            .setCustomBigContentView(rv)
+            .build()
     }
 
     fun phaseDone(context: Context, workFinished: Boolean): Notification {
@@ -141,13 +134,6 @@ object TimerNotifications {
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setContentIntent(activityIntent(context))
             .build()
-    }
-
-    /** 主题前景色(可着色的文字/图标色),供 setColorFilter / setTextColor 注入 */
-    private fun foregroundColor(context: Context): Int {
-        val tv = TypedValue()
-        context.theme.resolveAttribute(android.R.attr.textColorPrimary, tv, true)
-        return if (tv.type == TypedValue.TYPE_REFERENCE) context.getColor(tv.resourceId) else tv.data
     }
 
     private fun activityIntent(context: Context): PendingIntent = PendingIntent.getActivity(
