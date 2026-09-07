@@ -81,6 +81,7 @@ object TimerNotifications {
         val rv = RemoteViews(context.packageName, R.layout.notification_actions)
 
         // 行1 相位图标 + 标题 + 循环图标/计数 + 倒计时(同排等宽)
+        // v1.9.9:相位由 notif_phase 图标表达(仅图标,不并列文字);notif_title 清空
         rv.setImageViewResource(
             R.id.notif_phase,
             when {
@@ -89,7 +90,7 @@ object TimerNotifications {
                 else -> R.drawable.ic_phase_rest
             },
         )
-        rv.setTextViewText(R.id.notif_title, phaseText)
+        rv.setTextViewText(R.id.notif_title, "")
         rv.setViewVisibility(R.id.cycle_cell, if (countUp) android.view.View.GONE else android.view.View.VISIBLE)
         rv.setTextViewText(R.id.notif_cycle_text, if (countUp) "" else snap.cycleCount.toString())
         // 时间:v1.9.4 —— Chronometer 的 base 必须基于 SystemClock.elapsedRealtime()(官方),

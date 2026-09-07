@@ -66,40 +66,16 @@ internal fun TimerCard(
     val animationsOn = rememberAnimationsEnabled()
     Card(Modifier.fillMaxWidth()) {
         Box {
-            Column(
-                Modifier.padding(16.dp).fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
             val phaseRes = when {
                 snap == null -> R.string.state_idle
                 snap.phase == Phase.WORK -> R.string.state_work
                 else -> R.string.state_rest
             }
-            val phaseText = stringResource(phaseRes)
-            // D7 状态文本交叉交换:新文案自下方 1/4 高度滑入(进 160ms),旧文案向上
-            // 滑出淡出(出 100ms,快于进避免交叉发糊);时长全部取自 TextSwap* token。
-            // animationsOn=false 直切纯文本
-            if (animationsOn) {
-                AnimatedContent(
-                    targetState = phaseText,
-                    contentAlignment = Alignment.Center,
-                    transitionSpec = {
-                        val enterMs = MotionTokens.TextSwapEnter.durationMillis
-                        val exitMs = MotionTokens.TextSwapExit.durationMillis
-                        (slideInVertically(tween(enterMs)) { it / 4 } + fadeIn(tween(enterMs)))
-                            .togetherWith(
-                                slideOutVertically(tween(exitMs)) { -it / 4 } + fadeOut(tween(exitMs)),
-                            )
-                            .using(SizeTransform(clip = false))
-                    },
-                    label = "phaseText",
-                ) { text ->
-                    PhaseRow(text, phaseRes)
-                }
-            } else {
-                PhaseRow(phaseText, phaseRes)
-            }
+            Column(
+                Modifier.padding(16.dp).fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
             // #3 空态引导:无配置时倒计时数字位换文案(数字必为 00:00,无意义),
             // 开始键维持 disabled(activeProfileId == -1),另提供直达时钟管理的按钮
             // v1.1 #7:空态 ↔ 计时内容交叉淡入/展开;关闭动画直切(M1 门控)
@@ -150,13 +126,16 @@ internal fun TimerCard(
                 onStop = { act(onStop) },
             )
             }
-            // v1.9.8:循环徽标移到计时模块右上角(倒计时不再与其同排;正计时隐藏)
-            if (!countUpActive) {
-                CycleBadge(
-                    count = snap?.cycleCount ?: 0,
-                    animationsOn = animationsOn,
-                    modifier = Modifier.align(Alignment.TopEnd).padding(12.dp),
-                )
+            // v1.9.9:右上角同排 [相位图标][循环徽标];相位图标始终显示(空闲/工作/休息),循环徽标仅倒计时显示
+            Row(
+                Modifier.align(Alignment.TopEnd).padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                PhaseIndicator(phaseRes)
+                if (!countUpActive) {
+                    Spacer(Modifier.width(10.dp))
+                    CycleBadge(count = snap?.cycleCount ?: 0, animationsOn = animationsOn)
+                }
             }
         }
     }

@@ -2,7 +2,7 @@
     android:width="24dp" android:height="24dp"
     android:viewportWidth="24" android:viewportHeight="24">
     <path
-        android:pathData="M8.5,14.5 A2.5,2.5 0 0 0 11,12 A2.5,2.5 0 0 1 9,7 a5,5 0 1 0 7,8.5 A5,5 0 1 1 8.5,14.5 z M12,22 a7,7 0 0 0 7,-7 c0,-2 -1,-3.9 -3,-5.5 c-0.5,1.5 -1.5,2.5 -3,3 c0.5,-2 -0.5,-4 -2,-5.5 c-0.4,1.5 -1.2,2.6 -2.5,3.5 A7,7 0 0 0 12,22 z"
+        android:pathData="M8.5,14.5 A2.5,2.5 0 0 0 11,12 c0,-1.38 -0.5,-2 -1,-3 -1.072,-2.143 -0.224,-4.054 2,-6 0.5,2.5 2,4.9 4,6.5 2,1.6 3,3.5 3,5.5 a7,7 0 1 1 -14,0 c0,-1.153 0.433,-2.294 1,-3 a2.5,2.5 0 0 0 2.5,2.5 z"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
         android:strokeWidth="2"
