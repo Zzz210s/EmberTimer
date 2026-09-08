@@ -31,6 +31,7 @@ class AppGraph(
     useInMemoryDb: Boolean = false,
     storeFileName: String = "ember_settings",
 ) {
+    val appContext: Context = context.applicationContext
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     val time = SystemTimeProvider()
 

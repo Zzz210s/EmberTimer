@@ -79,12 +79,18 @@ internal fun ProfileDialogHost(
                 TextButton(onClick = {
                     onConfirmDeleteChange(false)
                     scope.launch {
+                        // v1.9.12 修复删除模式无法真正删除:全选时不再静默跳过整个删除,
+                        // 而是按“至少保留 1 个时钟”规则删到剩 1(修复前:targets.size == profiles.size
+                        // 直接 return,用户确认了却什么都没删);单个删除加 try-catch 防协程中断。
                         val targets = profiles.filter { it.id in selectedIds }
-                        if (targets.size < profiles.size) {
-                            targets.forEach { p ->
+                        val deletable = if (targets.size >= profiles.size) targets.dropLast(1) else targets
+                        deletable.forEach { p ->
+                            try {
                                 if (vm.deleteProfile(p)) {
                                     if (runningActiveId == p.id) TimerCommands.stop(ctx)
                                 }
+                            } catch (_: Exception) {
+                                // 单个失败不阻断其余删除
                             }
                         }
                         onDeleteModeExit()

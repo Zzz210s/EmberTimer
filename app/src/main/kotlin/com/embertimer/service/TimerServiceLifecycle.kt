@@ -11,9 +11,8 @@ internal suspend fun TimerService.awaitStopDrainedAndTearDown() {
         Log.w("TimerService", "stop/Reset-event settle drain timed out (bounded 3s); settle may be lost")
     }
     if (g.engine.snapshot.value == null) {
-        // v1.9.7:终止不再关闭通知 —— DETACH 脱离前台但保留通知,再原地换为空闲常驻(同 ID 原子替换,无 remove-then-post 空档)
-        stopForeground(Service.STOP_FOREGROUND_DETACH)
-        TimerNotifications.showIdle(this)
+        // v1.9.12 #36:空闲不再保留通知 —— 撤除并停服务(仅计时中才前台常驻),降耗电
+        stopForeground(Service.STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
 }

@@ -69,9 +69,8 @@ class TimerService : Service() {
             isAwaitingStart = { awaitingSnapshot },
             notifier = notifier,
             onSelfStop = {
-                // v1.9.7:DETACH 保留通知(不撤),再原地换为空闲常驻
-                stopForeground(STOP_FOREGROUND_DETACH)
-                TimerNotifications.showIdle(this) // 常驻:终止/空闲后通知不彻底消失
+                // v1.9.12 #36:空闲不再保留通知 —— 撤除并停服务(仅计时中才前台常驻),降耗电
+                stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
             },
         )
@@ -162,9 +161,8 @@ class TimerService : Service() {
                 // F3a:STOP 排空中,拆除由 ACTION_STOP 派发协程在 settle 落库后负责
                 stopDraining -> {}
                 else -> {
-                    // v1.9.7:DETACH 保留通知(不撤),再原地换为空闲常驻(避免 REMOVE+重发的闪断竞态)
-                    stopForeground(STOP_FOREGROUND_DETACH)
-                    TimerNotifications.showIdle(this) // 常驻:空闲态通知保留
+                    // v1.9.12 #36:空闲不再保留通知 —— 随服务撤除(仅计时中才前台常驻),降耗电
+                    stopForeground(STOP_FOREGROUND_REMOVE)
                     stopSelf()
                 }
             }

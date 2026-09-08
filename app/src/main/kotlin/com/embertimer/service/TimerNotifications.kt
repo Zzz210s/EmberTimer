@@ -51,6 +51,11 @@ object TimerNotifications {
             .build()
 
     /** 空闲常驻通知(app 启动即驻;计时开始后被同 ID 计时通知覆盖) */
+    /*
+     * v1.9.12 #36 已停用空闲常驻通知(仅计时中前台常驻,降耗电)。
+     * idle()/showIdle() 保留为无调用方死代码的占位说明;后续如有需求可由 service 在
+     * 空闲时调用,但默认不再显示。
+     */
     fun idle(context: Context): Notification =
         NotificationCompat.Builder(context, CH_TIMER)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)

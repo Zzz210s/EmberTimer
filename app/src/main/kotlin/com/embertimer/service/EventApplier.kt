@@ -61,6 +61,13 @@ internal class EventApplier(
                     pid, ss, se, ev.pauseWindows(), MIN_MIS_TOUCH_MS,
                 )
             }
+            // v1.9.12 #37:一段工作结束(settle>0 且非误触)自动备份一次(已启用且已选目录时,
+            // Worker 内自检;OneTime REPLACE 合并不堆积)。 fire-and-forget:备份失败不影响计时。
+            if (!ignoreMisTouch) {
+                runCatching {
+                    com.embertimer.data.AutoBackupScheduler.scheduleNow(graph.appContext)
+                }
+            }
         }
         for (fx in EventPolicy.decide(ev, graph.engine.snapshot.value)) {
             when (fx) {

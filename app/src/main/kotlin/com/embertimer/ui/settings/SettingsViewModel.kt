@@ -61,17 +61,18 @@ class SettingsViewModel(val graph: AppGraph) : ViewModel() {
     }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsUiState())
 
-    // 自动备份开关:开则调度 Worker(用 app context),关则取消
+    // v1.9.12 #37:开关只持久化 —— 备份时机改为工作段结束事件触发(EventApplier 调 scheduleNow),
+    // 不再每日周期注册;选目录后立即做一次备份(立即验证目录可用)。
     fun setAutoBackup(context: Context, on: Boolean) {
         viewModelScope.launch { graph.settingsRepo.setAutoBackupEnabled(on) }
-        if (on) com.embertimer.data.AutoBackupScheduler.schedule(context)
+        if (on) com.embertimer.data.AutoBackupScheduler.scheduleNow(context)
         else com.embertimer.data.AutoBackupScheduler.cancel(context)
     }
 
     suspend fun setBackupUri(context: Context, uri: String) {
         graph.settingsRepo.setBackupUri(uri)
         graph.settingsRepo.setAutoBackupEnabled(true)
-        com.embertimer.data.AutoBackupScheduler.schedule(context)
+        com.embertimer.data.AutoBackupScheduler.scheduleNow(context)
     }
 
     fun refreshExactAlarm(context: Context) {

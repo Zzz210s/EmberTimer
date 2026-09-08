@@ -3,23 +3,20 @@ package com.embertimer.ui.report
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -27,15 +24,25 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
 import com.embertimer.R
 import com.embertimer.ui.morph.IconPaths
 import com.embertimer.ui.morph.PathIcon
-import androidx.compose.ui.res.stringResource
 
-/** v1.9.11 周期选择器:M3 ExposedDropdownMenuBox + 卡片面板。候选 remember 缓存、输入轻量 filter
- * (不再每次重组重算 9 个周期对象),候选 LazyColumn 限高,消除卡顿与溢出;风格统一卡片/主题色。 */
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * v1.9.12 周期选择器:自控 Popup + 卡片面板。
+ *
+ * 历史教训(v1.9.11):ExposedDropdownMenuBox 内部是 SubcomposeLayout,
+ * ① 不支持 LazyColumn 的 intrinsic 测量(直接 IllegalStateException 崩溃);
+ * ② 部分 OEM SystemUI 上锚点点击行为异常。
+ * 故彻底弃用,改为 Popup(focusable 可捕获返回键关闭)+ Surface 卡片 +
+ * Column+verticalScroll(候选仅 9 个,无需懒加载),完全自控无 intrinsic 问题。
+ *
+ * 性能:候选列表 remember(anchor/range) 缓存,输入 filter 仅轻量 contains。
+ */
 @Composable
 internal fun PeriodPicker(
     range: ReportRange,
@@ -66,11 +73,10 @@ internal fun PeriodPicker(
 
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         TextButton(onClick = onPrev) { Text(stringResource(R.string.report_prev)) }
-        ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
-            // 锚点:标签(菜单挂靠点),menuAnchor 使面板锚定于此
+        // 锚点:标签行(点击弹出自控 Popup 面板)
+        Box {
             Row(
                 Modifier
-                    .menuAnchor()
                     .clickable { expanded = true }
                     .padding(horizontal = 10.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -84,39 +90,53 @@ internal fun PeriodPicker(
                     modifier = Modifier.padding(start = 4.dp),
                 )
             }
-            // 下拉面板(scope 成员函数,不需全限定名)
-            ExposedDropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { expanded = false },
-            ) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+            if (expanded) {
+                Popup(
+                    alignment = Alignment.TopCenter,
+                    onDismissRequest = { expanded = false },
+                    properties = PopupProperties(focusable = true, dismissOnClickOutside = true),
                 ) {
-                    androidx.compose.foundation.layout.Column(Modifier.padding(8.dp)) {
-                        TextField(
-                            value = query,
-                            onValueChange = { query = it },
-                            singleLine = true,
-                            placeholder = { Text(stringResource(R.string.report_search_hint), style = MaterialTheme.typography.bodySmall) },
-                            colors = TextFieldDefaults.colors(),
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        LazyColumn(Modifier.fillMaxWidth().heightIn(max = 220.dp)) {
-                            items(candidates, key = { it.toEpochDay() }) { d ->
-                                DropdownMenuItem(
-                                    text = { Text(periodLabel(range, d), style = MaterialTheme.typography.bodyMedium) },
-                                    onClick = { onJump(d); expanded = false },
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        shadowElevation = 6.dp,
+                        color = MaterialTheme.colorScheme.surfaceContainerLow,
+                        modifier = Modifier.widthIn(min = 300.dp, max = 460.dp),
+                    ) {
+                        Column(Modifier.padding(10.dp)) {
+                            OutlinedTextField(
+                                value = query,
+                                onValueChange = { query = it },
+                                singleLine = true,
+                                textStyle = MaterialTheme.typography.bodyMedium,
+                                placeholder = { Text(stringResource(R.string.report_search_hint), style = MaterialTheme.typography.bodySmall) },
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            Column(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = 260.dp)
+                                    .verticalScroll(rememberScrollState()),
+                            ) {
+                                candidates.forEach { d ->
+                                    Row(
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .clickable { onJump(d); expanded = false }
+                                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Text(periodLabel(range, d), style = MaterialTheme.typography.bodyMedium)
+                                    }
+                                }
+                            }
+                            if (candidates.isEmpty()) {
+                                Text(
+                                    stringResource(R.string.report_search_empty),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(12.dp),
                                 )
                             }
-                        }
-                        if (candidates.isEmpty()) {
-                            Text(
-                                stringResource(R.string.report_search_empty),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(12.dp),
-                            )
                         }
                     }
                 }
@@ -126,7 +146,7 @@ internal fun PeriodPicker(
     }
 }
 
-/** 报表窗口标签:v1.9.1 —— 周显示 MM-dd ~ MM-dd;月显示 yyyy-MM */
+/** 报表窗口标签:周显示 MM-dd ~ MM-dd;月显示 yyyy-MM */
 internal fun periodLabel(range: ReportRange, anchor: java.time.LocalDate): String {
     val (from, to) = reportWindow(range, anchor)
     return when (range) {
