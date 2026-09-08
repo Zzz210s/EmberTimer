@@ -91,6 +91,7 @@ fun ReportScreen(onBack: () -> Unit, initialRange: ReportRange = ReportRange.WEE
                     range = ui.range,
                     anchor = ui.anchor,
                     canGoNext = ui.canGoNext,
+                    minDate = ui.firstLaunch,
                     onPrev = { vm.prevPeriod() },
                     onNext = { vm.nextPeriod() },
                     onJump = { vm.jumpTo(it) },

@@ -8,6 +8,7 @@ import android.provider.Settings
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Card
@@ -25,19 +26,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.foundation.border
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.draw.clip
-import com.embertimer.ui.theme.ThemePack
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -48,9 +36,13 @@ import com.embertimer.EmberApp
 import com.embertimer.data.ReminderIntensity
 import com.embertimer.ui.morph.IconPaths
 import com.embertimer.ui.morph.PathIcon
+import com.embertimer.ui.theme.ThemePack
 import kotlinx.coroutines.launch
 
-/** 设置页:精确闹钟横幅 + 配色 + 数据(备份/恢复) + 提醒强度。 */
+/**
+ * 设置页(v1.9.13 分区化):精确闹钟横幅 / 外观(配色)/ 数据(备份·自动备份)/ 提醒。
+ * 每区一个 SectionHeader,配色的色块每行 4 个(7 包折两行),消除堆叠与拥挤。
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(onBack: () -> Unit) {
@@ -74,10 +66,12 @@ fun SettingsScreen(onBack: () -> Unit) {
     ) { pad ->
         LazyColumn(
             Modifier.padding(pad).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
+            // 精确闹钟
             if (ui.exactAlarmBlocked) {
                 item {
+                    SectionHeader(stringResource(R.string.alarm_banner_header))
                     Card {
                         Column(Modifier.padding(12.dp)) {
                             Text(stringResource(R.string.exact_alarm_hint), style = MaterialTheme.typography.bodyMedium)
@@ -90,29 +84,33 @@ fun SettingsScreen(onBack: () -> Unit) {
                     }
                 }
             }
+            // 外观
             item {
+                SectionHeader(stringResource(R.string.appearance_section))
                 Card {
                     Column(Modifier.fillMaxWidth().padding(12.dp)) {
-                        Text(stringResource(R.string.color_theme), style = MaterialTheme.typography.titleMedium)
-                        Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            ThemePack.entries.forEach { pack ->
-                                Swatch(
-                                    name = stringResource(pack.labelRes),
-                                    color = pack.primary,
-                                    selected = ui.themePack == pack,
-                                    onClick = { scope.launch { vm.setThemePack(pack) } },
-                                    modifier = Modifier.weight(1f),
-                                )
+                        ThemePack.entries.chunked(4).forEach { rowPacks ->
+                            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                rowPacks.forEach { pack ->
+                                    Swatch(
+                                        name = stringResource(pack.labelRes),
+                                        color = pack.primary,
+                                        selected = ui.themePack == pack,
+                                        onClick = { scope.launch { vm.setThemePack(pack) } },
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                }
                             }
                         }
                     }
                 }
             }
+            // 数据
             item {
+                SectionHeader(stringResource(R.string.data_section))
                 Card {
                     Column(Modifier.fillMaxWidth().padding(12.dp)) {
-                        Text(stringResource(R.string.data_section), style = MaterialTheme.typography.titleMedium)
-                        Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedButton(onClick = { launchExport("embertimer-backup.json") }) { Text(stringResource(R.string.export_data)) }
                             OutlinedButton(onClick = { launchImport() }) { Text(stringResource(R.string.import_data)) }
                         }
@@ -126,10 +124,11 @@ fun SettingsScreen(onBack: () -> Unit) {
                     }
                 }
             }
+            // 提醒强度
             item {
+                SectionHeader(stringResource(R.string.reminder_intensity))
                 Card {
                     Column(Modifier.fillMaxWidth().padding(12.dp)) {
-                        Text(stringResource(R.string.reminder_intensity), style = MaterialTheme.typography.titleMedium)
                         SingleChoiceSegmentedButtonRow {
                             ReminderIntensity.entries.forEachIndexed { index, intensity ->
                                 SegmentedButton(
@@ -154,23 +153,5 @@ fun SettingsScreen(onBack: () -> Unit) {
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun Swatch(name: String, color: androidx.compose.ui.graphics.Color, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val border = if (selected) 2.dp else 1.dp
-    Column(
-        modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainerLow)
-            .clickable(onClick = onClick)
-            .border(border, MaterialTheme.colorScheme.onSurfaceVariant, RoundedCornerShape(8.dp))
-            .padding(8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Box(Modifier.size(28.dp).clip(CircleShape).background(color))
-        Spacer(Modifier.height(4.dp))
-        Text(name, style = MaterialTheme.typography.labelSmall, maxLines = 1)
     }
 }

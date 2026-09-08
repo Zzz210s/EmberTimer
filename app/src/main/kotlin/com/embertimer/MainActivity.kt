@@ -71,7 +71,8 @@ class MainActivity : ComponentActivity() {
             notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
         com.embertimer.service.TimerNotifications.ensureChannels(this)
-        // v1.9.12 #36:空闲不再常驻通知(仅计时中前台通知),降低常驻噪声与耗电
+        // v1.9.13 #41:恢复常驻 —— app 启动即显示空闲常驻通知(计时开始后同 ID 替换)
+        com.embertimer.service.TimerNotifications.showIdle(this)
         parseReportExtra(intent)
         setContent {
             val app = application as EmberApp

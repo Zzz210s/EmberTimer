@@ -38,4 +38,7 @@ interface DailyTotalDao {
     suspend fun rangeBreakdown(from: String, to: String): List<DayProfileTotal>
 
     @Query("SELECT * FROM daily_total ORDER BY date, profileId") suspend fun getAll(): List<DailyTotalEntity>
+
+    /** v1.9.13 #43:报表往期回顾起点 —— 最早有数据的日期 */
+    @Query("SELECT MIN(date) FROM daily_total") suspend fun earliestDate(): String?
 }

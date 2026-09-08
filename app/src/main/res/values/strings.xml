@@ -122,4 +122,6 @@
     <string name="autobackup_target">Folder: %1$s</string>
     <string name="autobackup_last">Last backup: %1$s</string>
     <string name="autobackup_uninstall_note">Note: after uninstall+reinstall, data auto-restores if system cloud backup is on. Enable it for safety.</string>
+    <string name="alarm_banner_header">Precise alarm</string>
+    <string name="appearance_section">Appearance</string>
 </resources>

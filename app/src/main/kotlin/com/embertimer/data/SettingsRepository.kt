@@ -19,6 +19,7 @@ class SettingsRepository(private val ds: DataStore<Preferences>) {
     private val keyAutoBackup = booleanPreferencesKey("autobackup")
     private val keyBackupUri = stringPreferencesKey("backup_uri")
     private val keyBackupLast = longPreferencesKey("backup_last")
+    private val keyFirstLaunch = stringPreferencesKey("first_launch_date")
 
     val activeProfileId: Flow<Long> = ds.data.map { it[keyActive] ?: -1L }
 
@@ -44,4 +45,8 @@ class SettingsRepository(private val ds: DataStore<Preferences>) {
     suspend fun setAutoBackupEnabled(v: Boolean) { ds.edit { it[keyAutoBackup] = v } }
     suspend fun setBackupUri(uri: String) { ds.edit { it[keyBackupUri] = uri } }
     suspend fun setBackupLastAt(t: Long) { ds.edit { it[keyBackupLast] = t } }
+
+    /** 首次打开应用日期(yyyy-MM-dd);报表往期回顾的起点。未设置时返回 null。 */
+    val firstLaunchDate: Flow<String?> = ds.data.map { it[keyFirstLaunch] }
+    suspend fun setFirstLaunchDate(d: String) { ds.edit { it[keyFirstLaunch] = d } }
 }

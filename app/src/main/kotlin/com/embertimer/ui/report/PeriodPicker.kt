@@ -48,27 +48,43 @@ internal fun PeriodPicker(
     range: ReportRange,
     anchor: java.time.LocalDate,
     canGoNext: Boolean,
+    /** v1.9.13 #43:往期回顾下限(首次打开日);候选不早于此 */
+    minDate: java.time.LocalDate?,
     onPrev: () -> Unit,
     onNext: () -> Unit,
     onJump: (java.time.LocalDate) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    var query by remember { mutableStateOf("") }
     val label = periodLabel(range, anchor)
 
-    // 候选缓存:anchor/range 变化才重算;输入 filter 只做轻量 contains(不重建周期对象)
-    val allCandidates = remember(range, anchor) {
+    // v1.9.13 #43:候选从首次打开日起(回顾起点),按周/月分段直到今日;可滚动。
+    // anchor/range/minDate 变化才重算;无首次打开日时回退最近 9 期。
+    val candidates = remember(range, anchor, minDate) {
         val today = java.time.LocalDate.now()
-        buildList {
-            for (i in -6..2) {
-                val d = if (range == ReportRange.WEEK) anchor.plusWeeks(i.toLong()) else anchor.plusMonths(i.toLong())
-                if (!d.isAfter(today)) add(d)
+        if (minDate != null) {
+            buildList {
+                var d = when (range) {
+                    ReportRange.WEEK -> minDate.minusDays((minDate.dayOfWeek.value - 1).toLong())
+                    ReportRange.MONTH -> minDate.withDayOfMonth(1)
+                    ReportRange.LIFETIME -> today
+                }
+                while (!d.isAfter(today)) {
+                    add(d)
+                    d = when (range) {
+                        ReportRange.WEEK -> d.plusWeeks(1)
+                        ReportRange.MONTH -> d.plusMonths(1)
+                        ReportRange.LIFETIME -> today
+                    }
+                }
+            }
+        } else {
+            buildList {
+                for (i in -6..2) {
+                    val d = if (range == ReportRange.WEEK) anchor.plusWeeks(i.toLong()) else anchor.plusMonths(i.toLong())
+                    if (!d.isAfter(today)) add(d)
+                }
             }
         }
-    }
-    val candidates = remember(allCandidates, query) {
-        if (query.isBlank()) allCandidates
-        else allCandidates.filter { periodLabel(range, it).contains(query) || it.toString().contains(query) }
     }
 
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -102,19 +118,11 @@ internal fun PeriodPicker(
                         color = MaterialTheme.colorScheme.surfaceContainerLow,
                         modifier = Modifier.widthIn(min = 300.dp, max = 460.dp),
                     ) {
-                        Column(Modifier.padding(10.dp)) {
-                            OutlinedTextField(
-                                value = query,
-                                onValueChange = { query = it },
-                                singleLine = true,
-                                textStyle = MaterialTheme.typography.bodyMedium,
-                                placeholder = { Text(stringResource(R.string.report_search_hint), style = MaterialTheme.typography.bodySmall) },
-                                modifier = Modifier.fillMaxWidth(),
-                            )
+                        Column(Modifier.padding(6.dp)) {
                             Column(
                                 Modifier
                                     .fillMaxWidth()
-                                    .heightIn(max = 260.dp)
+                                    .heightIn(max = 280.dp)
                                     .verticalScroll(rememberScrollState()),
                             ) {
                                 candidates.forEach { d ->
@@ -122,20 +130,12 @@ internal fun PeriodPicker(
                                         Modifier
                                             .fillMaxWidth()
                                             .clickable { onJump(d); expanded = false }
-                                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                                            .padding(horizontal = 14.dp, vertical = 13.dp),
                                         verticalAlignment = Alignment.CenterVertically,
                                     ) {
                                         Text(periodLabel(range, d), style = MaterialTheme.typography.bodyMedium)
                                     }
                                 }
-                            }
-                            if (candidates.isEmpty()) {
-                                Text(
-                                    stringResource(R.string.report_search_empty),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(12.dp),
-                                )
                             }
                         }
                     }

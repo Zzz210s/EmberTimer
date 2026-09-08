@@ -36,6 +36,8 @@ data class ReportUiState(
     /** v1.9.1:历史回顾 —— 当前报表窗口末日期(锚点)与是否仍可往后切(未到今日) */
     val anchor: LocalDate = LocalDate.now(),
     val canGoNext: Boolean = false,
+    /** v1.9.13 #43:首次打开应用日期(往期回顾起点);无历史时为空 */
+    val firstLaunch: LocalDate? = null,
 )
 
 /** 报表窗口(闭区间 ISO 日期):周 = 本周一(ISO 周一为一周首日)至 today;月 = 本月 1 日至 today。 */
@@ -105,6 +107,19 @@ class ReportViewModel(
             ) { range, _, _, _ -> range }
                 .collect { refreshInternal() }
         }
+        // v1.9.13 #43(修正):往期回顾下限 = 应用安装日(firstInstallTime —— “打开软件那一天”)。
+        // 之前误用“最早数据日”(可能含导入/异常早的记录)导致能选到未使用时的日期;安装日
+        // 从 PackageManager 读,跨版本稳定、不随数据变。无法读取时回退 null(不限制)。
+        viewModelScope.launch {
+            val installed = runCatching {
+                val ai = graph.appContext.packageManager.getPackageInfo(graph.appContext.packageName, 0)
+                java.time.LocalDate.ofInstant(
+                    java.time.Instant.ofEpochMilli(ai.firstInstallTime),
+                    java.time.ZoneId.systemDefault(),
+                )
+            }.getOrNull()
+            _ui.value = _ui.value.copy(firstLaunch = installed)
+        }
     }
 
     fun setRange(r: ReportRange) {
@@ -126,7 +141,8 @@ class ReportViewModel(
     fun prevPeriod() {
         if (_range.value == ReportRange.LIFETIME) return
         val d = if (_range.value == ReportRange.WEEK) _anchor.value.minusWeeks(1) else _anchor.value.minusMonths(1)
-        _anchor.value = d
+        val min = _ui.value.firstLaunch
+        _anchor.value = if (min != null && d.isBefore(min)) min else d
     }
 
     /** 回顾下一期:往后切,但不越过今日 */
@@ -162,7 +178,7 @@ class ReportViewModel(
                 }
                 .sortedByDescending { it.millis }
             _ui.value = ReportUiState(range = range, rows = emptyList(), profileTotals = lt,
-                metrics = metrics, timeSlots = slots)
+                metrics = metrics, timeSlots = slots, firstLaunch = _ui.value.firstLaunch)
             return
         }
         val today = _anchor.value
@@ -183,6 +199,7 @@ class ReportViewModel(
             timeSlots = slots,
             anchor = today,
             canGoNext = today.isBefore(clock()),
+            firstLaunch = _ui.value.firstLaunch,
         )
     }
 

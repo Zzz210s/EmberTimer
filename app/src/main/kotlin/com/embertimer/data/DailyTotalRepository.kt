@@ -28,6 +28,9 @@ class DailyTotalRepository(
     }
 
     fun dayTotals(from: String): Flow<List<DayTotal>> = dao.observeDayTotals(from)
+
+    /** v1.9.13 #43:最早有数据日期(报表往期回顾起点) */
+    suspend fun earliestDate(): String? = dao.earliestDate()
     fun profileTotals(): Flow<List<ProfileTotal>> = dao.observeProfileTotals()
 
     suspend fun breakdownByDate(date: String): List<ProfileTotal> = dao.breakdownByDate(date)
