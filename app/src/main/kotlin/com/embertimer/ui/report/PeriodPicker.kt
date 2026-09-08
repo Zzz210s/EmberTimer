@@ -1,18 +1,25 @@
 package com.embertimer.ui.report
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.material3.DropdownMenu
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -20,14 +27,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.embertimer.R
 import com.embertimer.ui.morph.IconPaths
 import com.embertimer.ui.morph.PathIcon
+import androidx.compose.ui.res.stringResource
 
-/** v1.9.8 周期选择器:中间标签点击弹 DropdownMenu —— 搜索栏(yyyy-MM-dd / yyyy-MM)+ 候选周期列表 */
+/** v1.9.11 周期选择器:M3 ExposedDropdownMenuBox + 卡片面板。候选 remember 缓存、输入轻量 filter
+ * (不再每次重组重算 9 个周期对象),候选 LazyColumn 限高,消除卡顿与溢出;风格统一卡片/主题色。 */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun PeriodPicker(
     range: ReportRange,
@@ -40,12 +48,29 @@ internal fun PeriodPicker(
     var expanded by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
     val label = periodLabel(range, anchor)
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+
+    // 候选缓存:anchor/range 变化才重算;输入 filter 只做轻量 contains(不重建周期对象)
+    val allCandidates = remember(range, anchor) {
+        val today = java.time.LocalDate.now()
+        buildList {
+            for (i in -6..2) {
+                val d = if (range == ReportRange.WEEK) anchor.plusWeeks(i.toLong()) else anchor.plusMonths(i.toLong())
+                if (!d.isAfter(today)) add(d)
+            }
+        }
+    }
+    val candidates = remember(allCandidates, query) {
+        if (query.isBlank()) allCandidates
+        else allCandidates.filter { periodLabel(range, it).contains(query) || it.toString().contains(query) }
+    }
+
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         TextButton(onClick = onPrev) { Text(stringResource(R.string.report_prev)) }
-        Box {
+        ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+            // 锚点:标签(菜单挂靠点),menuAnchor 使面板锚定于此
             Row(
                 Modifier
-                    .clip(MaterialTheme.shapes.small)
+                    .menuAnchor()
                     .clickable { expanded = true }
                     .padding(horizontal = 10.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -59,44 +84,42 @@ internal fun PeriodPicker(
                     modifier = Modifier.padding(start = 4.dp),
                 )
             }
-            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                OutlinedTextField(
-                    value = query,
-                    onValueChange = { query = it },
-                    singleLine = true,
-                    placeholder = { Text(stringResource(R.string.report_search_hint), style = MaterialTheme.typography.bodySmall) },
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp).widthIn(min = 220.dp),
-                )
-                // 候选:以 anchor 为中心,前 6 ~ 后 2 个周期
-                val today = java.time.LocalDate.now()
-                val candidates = buildList {
-                    for (i in -6..2) {
-                        val d = if (range == ReportRange.WEEK) anchor.plusWeeks(i.toLong()) else anchor.plusMonths(i.toLong())
-                        if (!d.isAfter(today)) add(d)
+            // 下拉面板(scope 成员函数,不需全限定名)
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+            ) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                ) {
+                    androidx.compose.foundation.layout.Column(Modifier.padding(8.dp)) {
+                        TextField(
+                            value = query,
+                            onValueChange = { query = it },
+                            singleLine = true,
+                            placeholder = { Text(stringResource(R.string.report_search_hint), style = MaterialTheme.typography.bodySmall) },
+                            colors = TextFieldDefaults.colors(),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        LazyColumn(Modifier.fillMaxWidth().heightIn(max = 220.dp)) {
+                            items(candidates, key = { it.toEpochDay() }) { d ->
+                                DropdownMenuItem(
+                                    text = { Text(periodLabel(range, d), style = MaterialTheme.typography.bodyMedium) },
+                                    onClick = { onJump(d); expanded = false },
+                                )
+                            }
+                        }
+                        if (candidates.isEmpty()) {
+                            Text(
+                                stringResource(R.string.report_search_empty),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(12.dp),
+                            )
+                        }
                     }
-                }.filter { d ->
-                    query.isBlank() || periodLabel(range, d).contains(query) || d.toString().contains(query)
                 }
-                candidates.forEach { d ->
-                    DropdownMenuItem(
-                        text = { Text(periodLabel(range, d), style = MaterialTheme.typography.bodyMedium) },
-                        onClick = { onJump(d); expanded = false },
-                    )
-                }
-                if (candidates.isEmpty()) {
-                    Text(
-                        stringResource(R.string.report_search_empty),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(12.dp),
-                    )
-                }
-                HorizontalDivider(Modifier.padding(vertical = 4.dp))
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.report_next), style = MaterialTheme.typography.bodyMedium) },
-                    enabled = canGoNext,
-                    onClick = { onNext(); expanded = false },
-                )
             }
         }
         TextButton(onClick = onNext, enabled = canGoNext) { Text(stringResource(R.string.report_next)) }

@@ -122,6 +122,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 6.dp),
                         )
+                        AutoBackupSection(vm)
                     }
                 }
             }

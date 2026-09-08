@@ -2,6 +2,7 @@ package com.embertimer.data
 
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -14,6 +15,10 @@ class SettingsRepository(private val ds: DataStore<Preferences>) {
     private val keyActive = longPreferencesKey("active_profile_id")
     private val keyIntensity = stringPreferencesKey("reminder_intensity")
     private val keyThemePack = stringPreferencesKey("theme_pack")
+    // v1.9.11 自动备份
+    private val keyAutoBackup = booleanPreferencesKey("autobackup")
+    private val keyBackupUri = stringPreferencesKey("backup_uri")
+    private val keyBackupLast = longPreferencesKey("backup_last")
 
     val activeProfileId: Flow<Long> = ds.data.map { it[keyActive] ?: -1L }
 
@@ -30,4 +35,13 @@ class SettingsRepository(private val ds: DataStore<Preferences>) {
     }
 
     suspend fun setThemePack(p: com.embertimer.ui.theme.ThemePack) { ds.edit { it[keyThemePack] = p.name } }
+
+    // ---- 自动备份 ----
+    val autoBackupEnabled: Flow<Boolean> = ds.data.map { it[keyAutoBackup] ?: false }
+    val backupUri: Flow<String?> = ds.data.map { it[keyBackupUri] }
+    val backupLastAt: Flow<Long> = ds.data.map { it[keyBackupLast] ?: 0L }
+
+    suspend fun setAutoBackupEnabled(v: Boolean) { ds.edit { it[keyAutoBackup] = v } }
+    suspend fun setBackupUri(uri: String) { ds.edit { it[keyBackupUri] = uri } }
+    suspend fun setBackupLastAt(t: Long) { ds.edit { it[keyBackupLast] = t } }
 }

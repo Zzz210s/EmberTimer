@@ -19,6 +19,8 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 
+private data class BackupState(val pack: com.embertimer.ui.theme.ThemePack = com.embertimer.ui.theme.ThemePack.EMBER, val auto: Boolean = false, val uri: String? = null, val last: Long = 0L)
+
 data class SettingsUiState(
     val profiles: List<ProfileEntity> = emptyList(),
     val totals: Map<Long, Long> = emptyMap(),
@@ -26,6 +28,10 @@ data class SettingsUiState(
     val snap: RuntimeSnapshot? = null,
     val exactAlarmBlocked: Boolean = false,
     val themePack: com.embertimer.ui.theme.ThemePack = com.embertimer.ui.theme.ThemePack.EMBER,
+    // v1.9.11 自动备份
+    val autoBackup: Boolean = false,
+    val backupUri: String? = null,
+    val backupLastAt: Long = 0L,
 )
 
 class SettingsViewModel(val graph: AppGraph) : ViewModel() {
@@ -42,9 +48,31 @@ class SettingsViewModel(val graph: AppGraph) : ViewModel() {
         ) { profiles, totals, intensity, snap, blocked ->
             SettingsUiState(profiles, totals.associate { it.profileId to it.total }, intensity, snap, blocked, com.embertimer.ui.theme.ThemePack.EMBER)
         },
-        graph.settingsRepo.themePack,
-    ) { s, pack -> s.copy(themePack = pack) }
+        combine(
+            graph.settingsRepo.themePack,
+            graph.settingsRepo.autoBackupEnabled,
+            graph.settingsRepo.backupUri,
+            graph.settingsRepo.backupLastAt,
+        ) { pack, auto, uri, last ->
+            BackupState(pack, auto, uri, last)
+        },
+    ) { s, b ->
+        s.copy(themePack = b.pack, autoBackup = b.auto, backupUri = b.uri, backupLastAt = b.last)
+    }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsUiState())
+
+    // 自动备份开关:开则调度 Worker(用 app context),关则取消
+    fun setAutoBackup(context: Context, on: Boolean) {
+        viewModelScope.launch { graph.settingsRepo.setAutoBackupEnabled(on) }
+        if (on) com.embertimer.data.AutoBackupScheduler.schedule(context)
+        else com.embertimer.data.AutoBackupScheduler.cancel(context)
+    }
+
+    suspend fun setBackupUri(context: Context, uri: String) {
+        graph.settingsRepo.setBackupUri(uri)
+        graph.settingsRepo.setAutoBackupEnabled(true)
+        com.embertimer.data.AutoBackupScheduler.schedule(context)
+    }
 
     fun refreshExactAlarm(context: Context) {
         viewModelScope.launch {
