@@ -15,6 +15,7 @@ import com.embertimer.timer.RuntimeSnapshot
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -73,6 +74,20 @@ class SettingsViewModel(val graph: AppGraph) : ViewModel() {
         graph.settingsRepo.setBackupUri(uri)
         graph.settingsRepo.setAutoBackupEnabled(true)
         com.embertimer.data.AutoBackupScheduler.scheduleNow(context)
+    }
+
+    /** v1.9.13 手动备份:仅存目录(不启用自动备份),并立即写固定文件覆盖。无目录时静默返回 */
+    suspend fun setBackupDir(uri: String) {
+        graph.settingsRepo.setBackupUri(uri)
+        backupNow()
+    }
+
+    /** v1.9.13 手动备份:读已存目录,写固定文件(覆盖),不触发自动备份调度 */
+    suspend fun backupNow() {
+        val uriStr = graph.settingsRepo.backupUri.first() ?: return
+        val json = com.embertimer.data.DataTransfer.exportJson(graph.db)
+        val ok = com.embertimer.data.BackupWriter.write(graph.appContext, android.net.Uri.parse(uriStr), json)
+        if (ok) graph.settingsRepo.setBackupLastAt(System.currentTimeMillis())
     }
 
     fun refreshExactAlarm(context: Context) {

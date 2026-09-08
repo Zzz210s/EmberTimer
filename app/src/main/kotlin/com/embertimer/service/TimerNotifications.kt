@@ -15,6 +15,8 @@ import com.embertimer.timer.DurationFormat
 import com.embertimer.timer.EngineStatus
 import com.embertimer.timer.Phase
 import com.embertimer.timer.RuntimeSnapshot
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 /**
  * 通知栏(v1.9.1 重构):单渠道单 ID,任何时刻最多一条。
@@ -52,28 +54,40 @@ object TimerNotifications {
 
     /** 空闲常驻通知(app 启动即驻;计时开始后被同 ID 计时通知覆盖) */
     /*
-     * v1.9.12 #36 已停用空闲常驻通知(仅计时中前台常驻,降耗电)。
-     * idle()/showIdle() 保留为无调用方死代码的占位说明;后续如有需求可由 service 在
-     * 空闲时调用,但默认不再显示。
+     * v1.9.13 空闲常驻通知:#41 恢复常驻。空闲态显示 月亮图标 + 当前时钟名 + 启动按钮,
+     * 不再显示 “空闲” 文字/app 名(用户要求)。
      */
-    fun idle(context: Context): Notification =
-        NotificationCompat.Builder(context, CH_TIMER)
-            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-            .setContentTitle(context.getString(R.string.app_name))
-            .setContentText(context.getString(R.string.state_idle))
+    fun idle(context: Context, profile: com.embertimer.data.db.ProfileEntity?): Notification {
+        val b = NotificationCompat.Builder(context, CH_TIMER)
+            .setSmallIcon(R.drawable.ic_phase_idle) // 月亮图标替代“空闲”文字
+            .setContentTitle(profile?.name ?: context.getString(R.string.unselected_placeholder))
+            .setContentText("")
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setShowWhen(false)
             .setCategory(NotificationCompat.CATEGORY_STATUS)
             .setContentIntent(activityIntent(context))
-            .build()
+        if (profile != null) {
+            b.addAction(
+                R.drawable.ic_play,
+                context.getString(R.string.notif_start),
+                startPendingIntent(context, profile),
+            )
+        }
+        return b.build()
+    }
 
-    /** 软件运行即显示常驻空闲通知(权限未授予/异常时静默降级) */
+    /** 软件运行即显示常驻空闲通知(权限未授予/异常时静默降级);显示当前时钟名与启动按钮 */
     fun showIdle(context: Context) {
         ensureChannels(context)
-        try {
-            context.getSystemService(NotificationManager::class.java)?.notify(ID_NOTIFY, idle(context))
-        } catch (_: Throwable) {
+        val app = context.applicationContext as com.embertimer.EmberApp
+        app.graph.appScope.launch {
+            val pid = app.graph.settingsRepo.activeProfileId.first()
+            val profile = if (pid != -1L) app.graph.profileRepo.byId(pid) else null
+            try {
+                context.getSystemService(NotificationManager::class.java)?.notify(ID_NOTIFY, idle(context, profile))
+            } catch (_: Throwable) {
+            }
         }
     }
 
@@ -152,6 +166,17 @@ object TimerNotifications {
 
     private fun activityIntent(context: Context): PendingIntent = PendingIntent.getActivity(
         context, 0, Intent(context, MainActivity::class.java),
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+    )
+
+    /** 空闲通知“启动”按钮:直接对服务发 ACTION_START(startForegroundService 由用户点击触发合法) */
+    private fun startPendingIntent(context: Context, profile: com.embertimer.data.db.ProfileEntity): PendingIntent = PendingIntent.getService(
+        context, profile.id.hashCode(),
+        TimerCommands.startIntent(
+            context, profile.id,
+            profile.workMinutes * 60_000L, profile.restMinutes * 60_000L,
+            profile.mode == com.embertimer.data.db.ProfileMode.COUNTUP,
+        ),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
 

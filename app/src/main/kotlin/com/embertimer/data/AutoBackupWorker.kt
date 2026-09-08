@@ -22,10 +22,9 @@ class AutoBackupWorker(context: Context, params: WorkerParameters) : CoroutineWo
             try {
                 val json = DataTransfer.exportJson(app.graph.db)
                 val uri = android.net.Uri.parse(uriStr)
-                val ok = applicationContext.contentResolver.openOutputStream(uri)?.use {
-                    it.write(json.toByteArray(Charsets.UTF_8))
-                }
-                if (ok != null) {
+                // v1.9.13:用 BackupWriter 在目录下写固定文件名(覆盖),而非直接 openOutputStream(tree uri)
+                val ok = BackupWriter.write(applicationContext, uri, json)
+                if (ok) {
                     settings.setBackupLastAt(System.currentTimeMillis())
                     Result.success()
                 } else Result.failure()
