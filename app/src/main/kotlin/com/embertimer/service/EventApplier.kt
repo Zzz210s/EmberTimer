@@ -57,9 +57,7 @@ internal class EventApplier(
             val pid = ev.profileIdOf()
             if (ss != null && se != null && se > ss && pid != null) {
                 if (se - ss < MIN_MIS_TOUCH_MS) ignoreMisTouch = true
-                else graph.totalsRepo.recordWorkSessionSplit(
-                    pid, ss, se, ev.pauseWindows(), MIN_MIS_TOUCH_MS,
-                )
+                else graph.totalsRepo.recordWorkSessionSplit(pid, ss, se, ev.pauseWindows())
             }
             // v1.9.12 #37:一段工作结束(settle>0 且非误触)自动备份一次(已启用且已选目录时,
             // Worker 内自检;OneTime REPLACE 合并不堆积)。 fire-and-forget:备份失败不影响计时。

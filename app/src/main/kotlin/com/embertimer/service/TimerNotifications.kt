@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.SystemClock
+import android.view.View
 import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
 import com.embertimer.MainActivity
@@ -19,11 +20,9 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /**
- * 通知栏(v1.9.1 重构):单渠道单 ID,任何时刻最多一条。
- * 常驻:app 启动即弹空闲通知;计时开始后同 ID 替换为计时态。
- * 自定义 RemoteViews:图标按钮(终止|开始/暂停|跳过)、倒计时与标题同排等宽、循环图标。
- * 安全属性集:布局不含 android:tint / ?android:attr 背景(会 inflate 崩溃);
- * 颜色由布局 XML 主题属性(?android:attr/textColorPrimary/tint)解析,适配深浅通知底。
+ * 通知栏:单渠道单 ID,任何时刻最多一条。启动即弹空闲通知(自定义 RemoteViews),计时开始后同 ID 替换为计时态。
+ * 状态栏小图标统一为应用图标同款火焰(v1.10 #47);安全属性集:布局不含 Space/裸 View/?attr 背景(会 inflate 崩溃),
+ * 颜色由 XML 主题属性(?android:attr/textColorPrimary/tint)解析,适配深浅通知底。
  */
 object TimerNotifications {
     const val CH_TIMER = "ember_timer"
@@ -43,7 +42,7 @@ object TimerNotifications {
     /** 引擎快照未就绪的最小占位通知:onStartCommand 同步前台化先顶上 */
     fun minimal(context: Context): Notification =
         NotificationCompat.Builder(context, CH_TIMER)
-            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+            .setSmallIcon(R.drawable.ic_notif_flame)
             .setContentTitle(context.getString(R.string.app_name))
             .setOngoing(true)
             .setOnlyAlertOnce(true)
@@ -52,29 +51,34 @@ object TimerNotifications {
             .setContentIntent(activityIntent(context))
             .build()
 
-    /** 空闲常驻通知(app 启动即驻;计时开始后被同 ID 计时通知覆盖) */
-    /*
-     * v1.9.13 空闲常驻通知:#41 恢复常驻。空闲态显示 月亮图标 + 当前时钟名 + 启动按钮,
-     * 不再显示 “空闲” 文字/app 名(用户要求)。
+    /**
+     * 空闲常驻通知(app 启动即驻;计时开始后被同 ID 计时通知覆盖)。
+     * v1.10:自定义 RemoteViews —— 月亮相位图标 + 当前时钟名 + 右侧启动图标按钮(不再是文字 action)。
      */
     fun idle(context: Context, profile: com.embertimer.data.db.ProfileEntity?): Notification {
-        val b = NotificationCompat.Builder(context, CH_TIMER)
-            .setSmallIcon(R.drawable.ic_phase_idle) // 月亮图标替代“空闲”文字
-            .setContentTitle(profile?.name ?: context.getString(R.string.unselected_placeholder))
-            .setContentText("")
+        val rv = RemoteViews(context.packageName, R.layout.notification_idle)
+        rv.setImageViewResource(R.id.idle_phase, R.drawable.ic_phase_idle)
+        val name = profile?.name ?: context.getString(R.string.unselected_placeholder)
+        rv.setTextViewText(R.id.idle_name, name)
+        if (profile != null) {
+            rv.setViewVisibility(R.id.idle_start, View.VISIBLE)
+            rv.setImageViewResource(R.id.idle_start, R.drawable.ic_play)
+            rv.setOnClickPendingIntent(R.id.idle_start, startPendingIntent(context, profile))
+            rv.setContentDescription(R.id.idle_start, context.getString(R.string.notif_start))
+        } else {
+            rv.setViewVisibility(R.id.idle_start, View.GONE)
+        }
+        return NotificationCompat.Builder(context, CH_TIMER)
+            .setSmallIcon(R.drawable.ic_notif_flame)
+            .setContentTitle(name)
+            .setContentText(" ")
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setShowWhen(false)
             .setCategory(NotificationCompat.CATEGORY_STATUS)
             .setContentIntent(activityIntent(context))
-        if (profile != null) {
-            b.addAction(
-                R.drawable.ic_play,
-                context.getString(R.string.notif_start),
-                startPendingIntent(context, profile),
-            )
-        }
-        return b.build()
+            .setCustomContentView(rv)
+            .build()
     }
 
     /** 软件运行即显示常驻空闲通知(权限未授予/异常时静默降级);显示当前时钟名与启动按钮 */
@@ -136,7 +140,7 @@ object TimerNotifications {
         }
 
         return NotificationCompat.Builder(context, CH_TIMER)
-            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+            .setSmallIcon(R.drawable.ic_notif_flame)
             .setContentTitle(phaseText)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
@@ -155,7 +159,7 @@ object TimerNotifications {
         val title = context.getString(if (workFinished) R.string.done_work_title else R.string.done_rest_title)
         val text = context.getString(if (workFinished) R.string.done_rest_body else R.string.done_work_body)
         return NotificationCompat.Builder(context, CH_TIMER)
-            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+            .setSmallIcon(R.drawable.ic_notif_flame)
             .setContentTitle(title)
             .setContentText(text)
             .setAutoCancel(true)

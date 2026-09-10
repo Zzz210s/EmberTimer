@@ -58,13 +58,17 @@ class DailyTotalRepository(
     suspend fun sessionsBetweenMs(startMs: Long, endMs: Long): List<FocusSessionEntity> =
         sessionDao.betweenMs(startMs, endMs)
 
-    /** v1.8.3:按暂停窗口分段落库——>=[minMs] 的暂停把整段切分为多段(每段不含长暂停间隙) */
+    /**
+     * v1.8.3:按暂停窗口分段落库——>=[minMs] 的暂停把整段切分为多段(每段不含长暂停间隙)。
+     * 入库粒度只是"保留时间空档";**可见的分合由展示层决定**(v1.10:间隔 <= 3 分钟合并,
+     * 见 [mergeSessions]),因此 [minMs] 只需 <= 展示阈值即可覆盖所有需要留痕的暂停。
+     */
     suspend fun recordWorkSessionSplit(
         profileId: Long,
         startAt: Long,
         endAt: Long,
         pauses: List<LongArray>,
-        minMs: Long,
+        minMs: Long = PAUSE_SPLIT_MIN_MS,
         zone: java.time.ZoneId = java.time.ZoneId.systemDefault(),
     ) {
         val cur = startAt
@@ -93,3 +97,6 @@ class DailyTotalRepository(
         }
     }
 }
+
+/** 入库分段阈值:>= 1 分钟的暂停才在入库时切分(仅用于保留空档;展示合并阈值为 3 分钟) */
+const val PAUSE_SPLIT_MIN_MS: Long = 60_000L

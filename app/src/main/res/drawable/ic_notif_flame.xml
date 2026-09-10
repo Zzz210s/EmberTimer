@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- v1.10 #47:通知栏状态栏小图标 = 应用图标同款火焰(单色白,系统按通知底色自动着色)。
+     形状与 mipmap 自适应图标前景 ic_launcher_foreground 完全一致,仅去掉品牌橙、改为纯白,
+     以满足状态栏小图标"白色剪影 + 透明底"的要求;背景由系统绘制,不再出现系统闹钟图标。 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M54,26 C62,38 74,44 74,58 C74,71 65,80 54,80 C43,80 34,71 34,58 C34,50 39,46 42,40 C44,46 48,48 50,44 C52,40 51,32 54,26 Z" />
+</vector>

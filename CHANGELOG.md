@@ -7,6 +7,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/); versions fol
 ## [Unreleased]
 - Trunk-based branch model + GitHub Actions CI (test gate + tag-driven release publishing).
 
+## [1.10.0] - 2026-09-10
+### Added
+- Heatmap day detail: **two-column focus-span list**, each span tagged on the left with a coarse period label (late night / early / morning / afternoon / evening).
+- Idle notification: the start action is now a **right-side icon button** (custom RemoteViews instead of a text action).
+
+### Fixed
+- Notification status-bar icon now uses the **app icon (flame)** — previously a stock system alarm icon — consistent across idle / running / done / placeholder states.
+
+### Changed
+- Focus-span display rule replaced by a **display-time merge (gap ≤ 3 min)**; the old "split on pause threshold" no longer decides what you see (storage still records pauses, so gaps > 3 min remain separate entries).
+
 ## [1.9.3] - 2026-09-07
 ### Changed
 - Design-system polish: unified `Spacing`/`BarAnim` motion tokens.

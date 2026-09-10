@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,9 +29,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.embertimer.timer.DurationFormat
+import com.embertimer.data.DayPeriod
+import com.embertimer.data.dayPeriodOf
 import java.time.Instant
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
@@ -59,37 +63,74 @@ fun DayDetailCard(detail: DayDetailUi?, modifier: Modifier = Modifier) {
             if (d.rows.isEmpty()) {
                 Text(stringResource(R.string.day_none), style = MaterialTheme.typography.bodyMedium)
             } else {
-                d.rows.forEach { row ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            Modifier.size(10.dp).clip(CircleShape).background(
-                                MaterialTheme.colorScheme.primary.copy(alpha = (1f - row.index * 0.2f).coerceIn(0f, 1f)),
-                            ),
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(row.profileName, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                        Text(durLocalized(row.millis), style = MaterialTheme.typography.bodyMedium)
-                    }
-                    // v1.3 #6:该时钟当日各段 开始~结束(仅时:分)
-                    if (row.sessions.isNotEmpty()) {
-                        row.sessions.forEach { (s, e) ->
-                            Row(
-                                Modifier.padding(start = 18.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Text(
-                                    "   " + HHmm.format(java.time.Instant.ofEpochMilli(s).atZone(java.time.ZoneId.systemDefault())) +
-                                        " ~ " + HHmm.format(java.time.Instant.ofEpochMilli(e).atZone(java.time.ZoneId.systemDefault())),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
+                d.rows.forEach { row -> ProfileSection(row) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProfileSection(row: DayDetailRow) {
+    Column(Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier.size(10.dp).clip(CircleShape).background(
+                    MaterialTheme.colorScheme.primary.copy(alpha = (1f - row.index * 0.2f).coerceIn(0f, 1f)),
+                ),
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(row.profileName, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+            Text(durLocalized(row.millis), style = MaterialTheme.typography.bodyMedium)
+        }
+        // v1.10:各段 开始~结束(时:分),每行双列;最左为大时段标识
+        if (row.sessions.isNotEmpty()) {
+            Column(Modifier.fillMaxWidth().padding(start = 18.dp, top = 2.dp)) {
+                row.sessions.chunked(2).forEach { pair ->
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        SessionCell(pair[0], Modifier.weight(1f))
+                        if (pair.size > 1) SessionCell(pair[1], Modifier.weight(1f))
+                        else Spacer(Modifier.weight(1f))
                     }
                 }
             }
         }
     }
+}
+
+/** 单个时段:最左大时段标识(凌晨/早上/上午/下午/晚上)+ 开始~结束 */
+@Composable
+private fun SessionCell(seg: Pair<Long, Long>, modifier: Modifier = Modifier) {
+    val zone = remember { ZoneId.systemDefault() }
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            Modifier
+                .clip(RoundedCornerShape(4.dp))
+                .background(MaterialTheme.colorScheme.primaryContainer)
+                .padding(horizontal = 4.dp, vertical = 1.dp),
+        ) {
+            Text(
+                stringResource(periodRes(dayPeriodOf(seg.first, zone))),
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+            )
+        }
+        Spacer(Modifier.width(5.dp))
+        Text(
+            HHmm.format(Instant.ofEpochMilli(seg.first).atZone(zone)) + " ~ " +
+                HHmm.format(Instant.ofEpochMilli(seg.second).atZone(zone)),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+private fun periodRes(p: DayPeriod): Int = when (p) {
+    DayPeriod.DAWN -> R.string.period_dawn
+    DayPeriod.EARLY_MORNING -> R.string.period_early
+    DayPeriod.MORNING -> R.string.period_morning
+    DayPeriod.AFTERNOON -> R.string.period_afternoon
+    DayPeriod.EVENING -> R.string.period_evening
 }
 
 private val HHmm = DateTimeFormatter.ofPattern("HH:mm")

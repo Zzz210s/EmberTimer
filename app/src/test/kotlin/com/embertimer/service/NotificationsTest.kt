@@ -55,6 +55,31 @@ class NotificationsTest {
         assertEquals(true, (n.flags and android.app.Notification.FLAG_AUTO_CANCEL) != 0)
     }
 
+    // ---- v1.10 #47:通知栏小图标与应用图标同步(火焰),不再用系统闹钟图标 ----
+
+    @Test fun smallIconMatchesAppIconInAllStates() {
+        TimerNotifications.ensureChannels(ctx)
+        val expected = com.embertimer.R.drawable.ic_notif_flame
+        assertEquals(expected, TimerNotifications.idle(ctx, null).smallIcon?.resId)
+        assertEquals(expected, TimerNotifications.inProgress(ctx, snap).smallIcon?.resId)
+        assertEquals(expected, TimerNotifications.phaseDone(ctx, true).smallIcon?.resId)
+        assertEquals(expected, TimerNotifications.minimal(ctx).smallIcon?.resId)
+    }
+
+    // ---- v1.10 #48:空闲通知 = 自定义布局(月亮 + 时钟名 + 右侧启动图标按钮),无 action 行 ----
+
+    @Test fun idleUsesCustomLayoutWithIconButtonAndNoActionRow() {
+        TimerNotifications.ensureChannels(ctx)
+        val profile = com.embertimer.data.db.ProfileEntity(
+            id = 7, name = "番茄", workMinutes = 25, restMinutes = 5, createdAt = 0,
+        )
+        val n = TimerNotifications.idle(ctx, profile)
+        assertNotNull(n.contentView)
+        n.contentView.apply(ctx, android.widget.FrameLayout(ctx)) // 真机崩溃点回归:不支持属性会抛
+        assertEquals(0, (n.actions ?: emptyArray()).size)
+        assertEquals("番茄", n.extras.getCharSequence(NotificationCompat.EXTRA_TITLE).toString())
+    }
+
     /** 占位通知契约:走 CH_PROGRESS 且 ongoing(前台服务通知不可滑动清除) */
     @Test fun minimalPlaceholderIsOngoing() {
         TimerNotifications.ensureChannels(ctx)

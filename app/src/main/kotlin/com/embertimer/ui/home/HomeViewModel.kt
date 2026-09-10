@@ -3,6 +3,7 @@ package com.embertimer.ui.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.embertimer.data.db.ProfileEntity
+import com.embertimer.data.mergeSessions
 import com.embertimer.di.AppGraph
 import com.embertimer.timer.EnginePolicy
 import com.embertimer.timer.PolicyAction
@@ -84,7 +85,8 @@ class HomeViewModel(val graph: AppGraph) : ViewModel() {
                         val start = day.atStartOfDay(zone).toInstant().toEpochMilli()
                         val end = day.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
                         val byProfile = repo.sessionsBetween(start, end).groupBy { it.profileId }
-                            .mapValues { (_, ses) -> ses.map { it.startAt to it.endAt } }
+                            // v1.10:展示层按"相邻间隔 <= 3 分钟则合并"重组(取代旧的暂停阈值分段规则)
+                            .mapValues { (_, ses) -> mergeSessions(ses.map { it.startAt to it.endAt }) }
                         DayDetailUi(
                             date = day,
                             totalMillis = rows.sumOf { it.total },

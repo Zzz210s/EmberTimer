@@ -91,6 +91,11 @@
     <string name="bucket_afternoon">下午</string>
     <string name="bucket_evening">晚上</string>
     <string name="bucket_night">深夜</string>
+    <string name="period_dawn">凌晨</string>
+    <string name="period_early">早上</string>
+    <string name="period_morning">上午</string>
+    <string name="period_afternoon">下午</string>
+    <string name="period_evening">晚上</string>
     <string name="ts_title">时段分布</string>
     <string name="metric_trend">趋势</string>
     <string name="color_theme">配色</string>
