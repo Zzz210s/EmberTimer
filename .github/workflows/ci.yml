@@ -6,6 +6,11 @@ on:
     branches: [main]
     tags: ['v*']
 
+# 发布需要写权限创建 GitHub Release;仓库默认 token 为只读会导致 403
+# ("Resource not accessible by integration")
+permissions:
+  contents: write
+
 jobs:
   # 回归门禁:每次 PR / push / tag 都跑全量测试
   test:
@@ -25,6 +30,9 @@ jobs:
   release:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
+    # 作业级 env:step 的 if 只能看到作业/工作流级 env(看不到 secrets 直接引用)
+    env:
+      KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -37,7 +45,6 @@ jobs:
       - name: Configure release signing (if secrets provided)
         if: ${{ env.KEYSTORE_BASE64 != '' }}
         env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
@@ -47,11 +54,14 @@ jobs:
             "embertimer-release.keystore" "$KEYSTORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" > local.properties
       - name: Build release APK
         run: ./gradlew assembleRelease
+      # 资产命名统一为 EmberTimer-<版本>.apk(与 scripts/release.sh 一致)
+      - name: Rename APK asset
+        run: cp app/build/outputs/apk/release/app-release.apk "EmberTimer-${GITHUB_REF_NAME#v}.apk"
       - name: Publish to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           name: ${{ github.ref_name }}
-          files: app/build/outputs/apk/release/app-release.apk
+          files: EmberTimer-*.apk
           generate_release_notes: true
           draft: false
         env:
