@@ -7,6 +7,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/); versions fol
 ## [Unreleased]
 - Trunk-based branch model + GitHub Actions CI (test gate + tag-driven release publishing).
 
+## [1.10.5] - 2026-09-10
+### Fixed
+- Two app icons side by side in the notification: removed the extra app-icon bitmap that v1.10.3 injected into the
+  notification content (the system already draws the app icon). Added a guard test forbidding a notification-owned
+  large icon so future changes cannot re-introduce the duplicate.
+
 ## [1.10.4] - 2026-09-10
 ### Fixed
 - Notification/status-bar icon looked nothing like the app icon: the flame artwork now fills ~70% of the

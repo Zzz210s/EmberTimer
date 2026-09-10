@@ -9,6 +9,7 @@ import com.embertimer.timer.Phase
 import com.embertimer.timer.RuntimeSnapshot
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -127,5 +128,21 @@ class NotificationsTest {
         val spec = buildClockSpec(snap.copy(countUp = true, startElapsed = 5_000, timeSpentPaused = 2_000))
         assertEquals(7_000L, spec.base) // startElapsed + timeSpentPaused
         assertEquals(false, spec.countDown)
+    }
+
+    /**
+     * v1.10.5 守卫:通知**不得**自行注入 app 图标(largeIcon / 布局内图标)。
+     * 通知头部图标由系统绘制;再注入一份会变成"两个图标并列"(真机实测的观感缺陷)。
+     * 这条断言防止后续改动又把重复图标加回来。
+     */
+    @Test fun notificationsDoNotInjectTheirOwnAppIcon() {
+        TimerNotifications.ensureChannels(ctx)
+        val profile = com.embertimer.data.db.ProfileEntity(
+            id = 7, name = "番茄", workMinutes = 25, restMinutes = 5, createdAt = 0,
+        )
+        val running = TimerNotifications.inProgress(ctx, snap)
+        val idle = TimerNotifications.idle(ctx, profile)
+        assertNull(running.extras.getParcelable(NotificationCompat.EXTRA_LARGE_ICON))
+        assertNull(idle.extras.getParcelable(NotificationCompat.EXTRA_LARGE_ICON))
     }
 }

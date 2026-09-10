@@ -54,8 +54,6 @@ object TimerNotifications {
     /** 空闲常驻通知:RemoteViews(相位图标 + 时钟名 + 右侧启动图标按钮),计时后被同 ID 覆盖 */
     fun idle(context: Context, profile: com.embertimer.data.db.ProfileEntity?): Notification {
         val rv = RemoteViews(context.packageName, R.layout.notification_idle)
-        val icon = appIconBitmap(context)
-        if (icon != null) rv.setImageViewBitmap(R.id.notif_app_icon, icon)
         rv.setImageViewResource(R.id.idle_phase, R.drawable.ic_phase_idle)
         val name = profile?.name ?: context.getString(R.string.unselected_placeholder)
         rv.setTextViewText(R.id.idle_name, name)
@@ -69,7 +67,6 @@ object TimerNotifications {
         }
         return NotificationCompat.Builder(context, CH_TIMER)
             .setSmallIcon(R.drawable.ic_notif_flame)
-            .also { if (icon != null) it.setLargeIcon(icon) }
             .setContentTitle(name)
             .setContentText(" ")
             .setOngoing(true)
@@ -102,7 +99,6 @@ object TimerNotifications {
         val paused = snap.status == EngineStatus.PAUSED
         val countUp = snap.countUp
         val rv = RemoteViews(context.packageName, R.layout.notification_actions)
-        appIconBitmap(context)?.let { rv.setImageViewBitmap(R.id.notif_app_icon, it) }
 
         // 行1:app 图标 + 相位图标 + 循环计数 + 倒计时(同排等宽)
         rv.setImageViewResource(
@@ -140,7 +136,6 @@ object TimerNotifications {
 
         return NotificationCompat.Builder(context, CH_TIMER)
             .setSmallIcon(R.drawable.ic_notif_flame)
-            .also { b -> appIconBitmap(context)?.let { b.setLargeIcon(it) } }
             .setContentTitle(phaseText)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
