@@ -7,6 +7,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/); versions fol
 ## [Unreleased]
 - Trunk-based branch model + GitHub Actions CI (test gate + tag-driven release publishing).
 
+## [1.10.4] - 2026-09-10
+### Fixed
+- Notification/status-bar icon looked nothing like the app icon: the flame artwork now fills ~70% of the
+  adaptive-icon safe zone (was 50% of the height). The platform renders the app icon monochromatically in the
+  notification area (measured on-device: brand-orange disc + a lighter tint of the flame), so a small flame
+  collapsed into a plain orange dot. Enlarged, the notification glyph and the launcher icon now read identically.
+
 ## [1.10.3] - 2026-09-10
 ### Fixed
 - Notification icon no longer differs from the app/launcher icon:
