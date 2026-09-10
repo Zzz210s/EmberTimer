@@ -20,9 +20,9 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /**
- * 通知栏:单渠道单 ID,任何时刻最多一条。启动即弹空闲通知(自定义 RemoteViews),计时开始后同 ID 替换为计时态。
- * 状态栏小图标统一为应用图标同款火焰(v1.10 #47);安全属性集:布局不含 Space/裸 View/?attr 背景(会 inflate 崩溃),
- * 颜色由 XML 主题属性(?android:attr/textColorPrimary/tint)解析,适配深浅通知底。
+ * 通知栏:单渠道单 ID,任何时刻最多一条。启动即弹空闲通知,计时后同 ID 替换为计时态。
+ * 小图标统一为应用图标同款火焰(v1.10.3);内容行直接放真实 app 图标位图。
+ * 安全属性集:布局不含 Space/裸 View/?attr 背景(会 inflate 崩溃),颜色走 XML 主题属性。
  */
 object TimerNotifications {
     const val CH_TIMER = "ember_timer"
@@ -51,12 +51,11 @@ object TimerNotifications {
             .setContentIntent(activityIntent(context))
             .build()
 
-    /**
-     * 空闲常驻通知(app 启动即驻;计时开始后被同 ID 计时通知覆盖)。
-     * v1.10:自定义 RemoteViews —— 月亮相位图标 + 当前时钟名 + 右侧启动图标按钮(不再是文字 action)。
-     */
+    /** 空闲常驻通知:RemoteViews(相位图标 + 时钟名 + 右侧启动图标按钮),计时后被同 ID 覆盖 */
     fun idle(context: Context, profile: com.embertimer.data.db.ProfileEntity?): Notification {
         val rv = RemoteViews(context.packageName, R.layout.notification_idle)
+        val icon = appIconBitmap(context)
+        if (icon != null) rv.setImageViewBitmap(R.id.notif_app_icon, icon)
         rv.setImageViewResource(R.id.idle_phase, R.drawable.ic_phase_idle)
         val name = profile?.name ?: context.getString(R.string.unselected_placeholder)
         rv.setTextViewText(R.id.idle_name, name)
@@ -70,6 +69,7 @@ object TimerNotifications {
         }
         return NotificationCompat.Builder(context, CH_TIMER)
             .setSmallIcon(R.drawable.ic_notif_flame)
+            .also { if (icon != null) it.setLargeIcon(icon) }
             .setContentTitle(name)
             .setContentText(" ")
             .setOngoing(true)
@@ -102,9 +102,9 @@ object TimerNotifications {
         val paused = snap.status == EngineStatus.PAUSED
         val countUp = snap.countUp
         val rv = RemoteViews(context.packageName, R.layout.notification_actions)
+        appIconBitmap(context)?.let { rv.setImageViewBitmap(R.id.notif_app_icon, it) }
 
-        // 行1 相位图标 + 标题 + 循环图标/计数 + 倒计时(同排等宽)
-        // v1.9.9:相位由 notif_phase 图标表达(仅图标,不并列文字);notif_title 清空
+        // 行1:app 图标 + 相位图标 + 循环计数 + 倒计时(同排等宽)
         rv.setImageViewResource(
             R.id.notif_phase,
             when {
@@ -116,8 +116,7 @@ object TimerNotifications {
         rv.setTextViewText(R.id.notif_title, "")
         rv.setViewVisibility(R.id.cycle_cell, if (countUp) android.view.View.GONE else android.view.View.VISIBLE)
         rv.setTextViewText(R.id.notif_cycle_text, if (countUp) "" else snap.cycleCount.toString())
-        // 时间:v1.9.4 —— Chronometer 的 base 必须基于 SystemClock.elapsedRealtime()(官方),
-        // 不能用墙钟 endWall(正是倒计时错/空的根因);运行态用 buildClockSpec 的 elapsed 基线,暂停态定格文本
+        // Chronometer 的 base 必须基于 elapsedRealtime(墙钟 endWall 会导致倒计时错/空);暂停态定格文本
         if (paused) {
             rv.setTextViewText(R.id.notif_time, DurationFormat.ms(snap.timeAtPause))
         } else {
@@ -141,15 +140,15 @@ object TimerNotifications {
 
         return NotificationCompat.Builder(context, CH_TIMER)
             .setSmallIcon(R.drawable.ic_notif_flame)
+            .also { b -> appIconBitmap(context)?.let { b.setLargeIcon(it) } }
             .setContentTitle(phaseText)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setShowWhen(false)
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)
             .setContentIntent(activityIntent(context))
-            // v1.9.6:去掉 DecoratedCustomViewStyle —— 部分机型(华为/鸿蒙)该样式与自定内容组合渲染异常;
-            // 纯 custom content view 是本设备已验证可用的公式(v1.8.6/1.9.2)。
-            // 颜色/图标色全部由布局 XML 主题属性解析(适配深浅通知底),不再代码注入。
+            // 纯 custom content view(DecoratedCustomViewStyle 在部分机型渲染异常);
+            // 颜色由布局 XML 主题属性解析,适配深浅通知底。
             .setCustomContentView(rv)
             .setCustomBigContentView(rv)
             .build()

@@ -7,6 +7,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/); versions fol
 ## [Unreleased]
 - Trunk-based branch model + GitHub Actions CI (test gate + tag-driven release publishing).
 
+## [1.10.3] - 2026-09-10
+### Fixed
+- Notification icon no longer differs from the app/launcher icon:
+  - the notification now embeds the **real app icon bitmap** (from PackageManager, same source as the launcher) and sets it as the large icon;
+  - the status-bar small icon ships as **PNG at 5 densities** (white flame silhouette filling 88% of the canvas) instead of relying on vector scaling on some ROMs;
+  - the adaptive icon now declares a **monochrome layer** (Android 13+ themed icons / system monochrome rendering), preventing the platform from flattening it into a filled circle with a punched-out shape.
+
 ## [1.10.2] - 2026-09-10
 ### Changed
 - Releases are now produced by GitHub Actions: pushing a `v*` tag builds and publishes `EmberTimer-<version>.apk`.
