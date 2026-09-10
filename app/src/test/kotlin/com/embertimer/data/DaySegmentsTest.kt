@@ -65,4 +65,21 @@ class DaySegmentsTest {
         assertEquals(DayPeriod.EVENING, dayPeriodOf(ms(18, 0), zone))
         assertEquals(DayPeriod.EVENING, dayPeriodOf(ms(23, 59), zone))
     }
+
+    /** 展示分组:同一大时段的连续段归一绋,不同时段分开(保序) */
+    @Test fun groupByPeriodKeepsOrderAndSplitsByPeriod() {
+        val a = ms(9, 0) to ms(9, 25)
+        val b = ms(9, 40) to ms(9, 55)
+        val c = ms(14, 0) to ms(14, 20)
+        val out = groupByPeriod(listOf(a, b, c), zone)
+        assertEquals(2, out.size)
+        assertEquals(DayPeriod.MORNING, out[0].first)
+        assertEquals(listOf(a, b), out[0].second)
+        assertEquals(DayPeriod.AFTERNOON, out[1].first)
+        assertEquals(listOf(c), out[1].second)
+    }
+
+    @Test fun groupByPeriodEmpty() {
+        assertEquals(0, groupByPeriod(emptyList(), zone).size)
+    }
 }

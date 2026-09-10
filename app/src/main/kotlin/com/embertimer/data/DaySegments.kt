@@ -52,3 +52,20 @@ fun dayPeriodOf(startWallMs: Long, zone: ZoneId = ZoneId.systemDefault()): DayPe
         in 12..17 -> DayPeriod.AFTERNOON
         else -> DayPeriod.EVENING
     }
+
+/**
+ * 按时段分组(展示层):输入段按起点升序,同一大时段的连续段合为一组。
+ * 用于"左侧单列时段标识 + 右侧双列时间段"的排版。
+ */
+fun groupByPeriod(
+    sessions: List<Pair<Long, Long>>,
+    zone: ZoneId = ZoneId.systemDefault(),
+): List<Pair<DayPeriod, List<Pair<Long, Long>>>> {
+    val groups = ArrayList<Pair<DayPeriod, MutableList<Pair<Long, Long>>>>()
+    for (s in sessions) {
+        val p = dayPeriodOf(s.first, zone)
+        val last = groups.lastOrNull()
+        if (last != null && last.first == p) last.second.add(s) else groups.add(p to mutableListOf(s))
+    }
+    return groups.map { (p, list) -> p to list.toList() }
+}

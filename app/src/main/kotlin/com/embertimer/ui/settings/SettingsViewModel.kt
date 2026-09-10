@@ -76,19 +76,38 @@ class SettingsViewModel(val graph: AppGraph) : ViewModel() {
         com.embertimer.data.AutoBackupScheduler.scheduleNow(context)
     }
 
-    /** v1.9.13 手动备份:仅存目录(不启用自动备份),并立即写固定文件覆盖。无目录时静默返回 */
-    suspend fun setBackupDir(uri: String) {
+    /** v1.9.13 手动备份:仅存目录(不启用自动备份),并立即写固定文件覆盖。@return 是否写入成功 */
+    suspend fun setBackupDir(uri: String): Boolean {
         graph.settingsRepo.setBackupUri(uri)
-        backupNow()
+        return backupNow()
     }
 
-    /** v1.9.13 手动备份:读已存目录,写固定文件(覆盖),不触发自动备份调度 */
-    suspend fun backupNow() {
-        val uriStr = graph.settingsRepo.backupUri.first() ?: return
+    /**
+     * v1.9.13 手动备份:读已存目录,写固定文件(覆盖),不触发自动备份调度。
+     * @return 是否写入成功(目录未选/授权失效/写盘失败均为 false,由 UI 提示并引导重选目录)
+     */
+    suspend fun backupNow(): Boolean {
+        val uriStr = graph.settingsRepo.backupUri.first() ?: return false
         val json = com.embertimer.data.DataTransfer.exportJson(graph.db)
-        val ok = com.embertimer.data.BackupWriter.write(graph.appContext, android.net.Uri.parse(uriStr), json)
+        val ok = runCatching {
+            com.embertimer.data.BackupWriter.write(graph.appContext, android.net.Uri.parse(uriStr), json)
+        }.getOrDefault(false)
         if (ok) graph.settingsRepo.setBackupLastAt(System.currentTimeMillis())
+        return ok
     }
+
+    /**
+     * 手动恢复:自 SAF 文档 Uri 读 JSON 并合并入库。
+     * @return 写入的日累计行数;读/解析失败返回 null(由 UI 提示)
+     */
+    suspend fun restoreFrom(uri: android.net.Uri): Int? = runCatching {
+        val text = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            graph.appContext.contentResolver.openInputStream(uri)?.use {
+                it.readBytes().toString(Charsets.UTF_8)
+            } ?: ""
+        }
+        com.embertimer.data.DataTransfer.importJson(graph.db, text).dailyTotals
+    }.getOrNull()
 
     fun refreshExactAlarm(context: Context) {
         viewModelScope.launch {

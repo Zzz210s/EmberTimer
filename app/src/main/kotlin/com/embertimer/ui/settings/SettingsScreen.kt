@@ -30,8 +30,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.embertimer.EmberApp
@@ -53,11 +51,7 @@ fun SettingsScreen(onBack: () -> Unit) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
-    val (_, launchImport) = rememberBackupLaunchers()
-    // v1.9.13 手动备份:有目录则直接覆盖写;无目录先弹选目录(OpenDocumentTree)存后写
-    val openDirLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
-        if (uri != null) scope.launch { vm.setBackupDir(uri.toString()) }
-    }
+    val (onBackup, onRestore) = rememberBackupActions(vm)
     LaunchedEffect(Unit) { vm.refreshExactAlarm(ctx) }
 
     Scaffold(
@@ -117,11 +111,8 @@ fun SettingsScreen(onBack: () -> Unit) {
                 Card {
                     Column(Modifier.fillMaxWidth().padding(12.dp)) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(onClick = {
-                                if (ui.backupUri != null) scope.launch { vm.backupNow() }
-                                else openDirLauncher.launch(null)
-                            }) { Text(stringResource(R.string.export_data)) }
-                            OutlinedButton(onClick = { launchImport() }) { Text(stringResource(R.string.import_data)) }
+                            OutlinedButton(onClick = onBackup) { Text(stringResource(R.string.export_data)) }
+                            OutlinedButton(onClick = onRestore) { Text(stringResource(R.string.import_data)) }
                         }
                         Text(
                             stringResource(R.string.backup_hint),

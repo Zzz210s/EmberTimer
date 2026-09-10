@@ -7,6 +7,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/); versions fol
 ## [Unreleased]
 - Trunk-based branch model + GitHub Actions CI (test gate + tag-driven release publishing).
 
+## [1.10.1] - 2026-09-10
+### Fixed
+- Settings "Backup" did nothing when the stored SAF grant was lost (e.g. after reinstall) — it failed silently; now success/failure is reported and a folder picker opens to re-grant.
+### Changed
+- Renamed buttons: "Backup to file/cloud" → "Backup", "Restore from file" → "Restore"; restore now goes through the ViewModel and reports imported rows.
+- Day-detail span list: period label in a fixed left column (text only, no chip), spans in two columns, single line (no wrapping).
+
 ## [1.10.0] - 2026-09-10
 ### Added
 - Heatmap day detail: **two-column focus-span list**, each span tagged on the left with a coarse period label (late night / early / morning / afternoon / evening).
