@@ -3,7 +3,7 @@
      v1.9.6 修复文字不显示:颜色改由 XML 主题属性声明(?android:attr/textColorPrimary / tint),
      SystemUI 充气时解析,自动适配通知底色深浅(华为/鸿蒙实测可用,同 v1.8.6 公式);
      代码不再注入颜色(此前注入 App 强制浅色主题的近黑色,深色通知底上不可见 = 根因)。
-     行1 标题同排:[工作中][循环图标 计数] .... [倒计时(等宽)]
+     行1 标题同排:[实时应用图标][工作中][循环图标 计数] .... [倒计时(等宽)]
      行2 图标按钮:终止 | 开始/暂停 | 跳过 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
@@ -19,6 +19,12 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical">
+
+        <ImageView
+            android:id="@+id/notif_app_icon"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:layout_marginEnd="6dp" />
 
         <ImageView
             android:id="@+id/notif_phase"

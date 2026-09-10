@@ -10,6 +10,7 @@ import android.os.SystemClock
 import android.view.View
 import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
+import androidx.core.graphics.drawable.toBitmap
 import com.embertimer.MainActivity
 import com.embertimer.R
 import com.embertimer.timer.DurationFormat
@@ -54,6 +55,7 @@ object TimerNotifications {
     /** 空闲常驻通知:RemoteViews(相位图标 + 时钟名 + 右侧启动图标按钮),计时后被同 ID 覆盖 */
     fun idle(context: Context, profile: com.embertimer.data.db.ProfileEntity?): Notification {
         val rv = RemoteViews(context.packageName, R.layout.notification_idle)
+        appIconBitmap(context)?.let { rv.setImageViewBitmap(R.id.notif_app_icon, it) }
         rv.setImageViewResource(R.id.idle_phase, R.drawable.ic_phase_idle)
         val name = profile?.name ?: context.getString(R.string.unselected_placeholder)
         rv.setTextViewText(R.id.idle_name, name)
@@ -99,6 +101,7 @@ object TimerNotifications {
         val paused = snap.status == EngineStatus.PAUSED
         val countUp = snap.countUp
         val rv = RemoteViews(context.packageName, R.layout.notification_actions)
+        appIconBitmap(context)?.let { rv.setImageViewBitmap(R.id.notif_app_icon, it) }
 
         // 行1:app 图标 + 相位图标 + 循环计数 + 倒计时(同排等宽)
         rv.setImageViewResource(

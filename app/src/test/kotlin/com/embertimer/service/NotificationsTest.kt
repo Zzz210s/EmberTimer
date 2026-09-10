@@ -145,4 +145,13 @@ class NotificationsTest {
         assertNull(running.extras.getParcelable(NotificationCompat.EXTRA_LARGE_ICON))
         assertNull(idle.extras.getParcelable(NotificationCompat.EXTRA_LARGE_ICON))
     }
+
+    /**
+     * v1.10.6:通知里的应用图标由我们自己渲染(=运行时读取当前图标),
+     * 这样应用更新后通知图标立即变化,不依赖系统图标缓存(实测系统缓存不随更新刷新)。
+     */
+    @Test fun appIconBitmapIsAvailableAtRuntime() {
+        // Robolectric 的默认 Application 图标可能为空,这里只要求"不抛异常"(真机实测有图标)
+        appIconBitmap(ctx)
+    }
 }

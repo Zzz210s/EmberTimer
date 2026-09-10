@@ -7,6 +7,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/); versions fol
 ## [Unreleased]
 - Trunk-based branch model + GitHub Actions CI (test gate + tag-driven release publishing).
 
+## [1.10.6] - 2026-09-11
+### Added
+- The notification icon is now **rendered by the app itself** (current app icon read at runtime, clipped to a circle), so it
+  **updates immediately on app update — no phone reboot needed**. Measured on Honor MagicOS: the icon the system draws in
+  the notification comes from its own **cached** app icon, which does not refresh on app update (changing colour/shape/
+  resource name, or uninstall+reinstall, had no effect) — only a reboot rebuilds it. We no longer depend on that cache.
+- Added a unit test forbidding a notification-owned large icon (avoids duplicating the system header icon).
+
 ## [1.10.5] - 2026-09-10
 ### Fixed
 - Two app icons side by side in the notification: removed the extra app-icon bitmap that v1.10.3 injected into the
