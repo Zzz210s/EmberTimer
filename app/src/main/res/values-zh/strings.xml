@@ -133,4 +133,6 @@
     <string name="alarm_banner_header">精确闹钟</string>
     <string name="appearance_section">外观</string>
     <string name="notif_start">启动</string>
+    
+    <string name="notif_icon_cache_hint">通知栏图标由手机系统绘制并被系统缓存,应用更新后可能仍显示旧图标。刷新办法:重启手机,或在系统设置里切换一次主题。这是荣耀/华为的系统行为,应用无法清除该缓存。</string>
 </resources>

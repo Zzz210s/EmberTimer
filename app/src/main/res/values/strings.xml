@@ -133,4 +133,6 @@
     <string name="alarm_banner_header">Precise alarm</string>
     <string name="appearance_section">Appearance</string>
     <string name="notif_start">Start</string>
+    
+    <string name="notif_icon_cache_hint">The notification icon is drawn by your phone system and cached by it. After an app update it may still show the old artwork. To refresh: reboot the phone, or switch the system theme once. This is Honor/Huawei behaviour; the app cannot clear that system cache.</string>
 </resources>

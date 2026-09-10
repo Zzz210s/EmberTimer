@@ -7,6 +7,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/); versions fol
 ## [Unreleased]
 - Trunk-based branch model + GitHub Actions CI (test gate + tag-driven release publishing).
 
+## [1.10.7] - 2026-09-11
+### Fixed
+- **No more two icons side by side**: the app no longer draws its own app icon inside the notification content (added in
+  the previous version to keep the icon fresh, it duplicated the system header icon). The header app icon is drawn by
+  the system (standard Android 13+ notification, present for every app, not removable) - so "keep only one" means
+  not drawing our own.
+### Added (Honor/Huawei specific)
+- Detects Honor/Huawei (MagicOS/EMUI) and shows an actionable hint in Settings: the system caches the notification icon,
+  so after an app update it may still show the old artwork - rebooting or switching the system theme once refreshes it.
+- Basis: 10 on-device experiments (transparent/bmp/green-triangle/new-resource small icons, app-icon recolor and icon
+  resource rename, setColor, removing the custom layout) had **zero effect** on the system badge, whose colours match the
+  old icon exactly - i.e. a system cache the app cannot clear.
+
 ## [1.10.6] - 2026-09-11
 ### Added
 - The notification icon is now **rendered by the app itself** (current app icon read at runtime, clipped to a circle), so it

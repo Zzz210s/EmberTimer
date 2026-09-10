@@ -2,7 +2,7 @@
 <!-- v1.10 #48 空闲通知 RemoteViews(安全属性集,同 notification_actions.xml):
      不使用 android.widget.Space / 裸 View / ?android:attr 背景(这些会导致 RemoteViews inflate 崩溃);
      颜色由 XML 主题属性 ?android:attr/textColorPrimary 解析,自动适配通知底色深浅。
-     行:[实时应用图标][相位月亮图标][当前时钟名] .... [启动图标按钮(右侧)] -->
+     行:[相位月亮图标][当前时钟名] .... [启动图标按钮(右侧)] -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
@@ -12,12 +12,6 @@
     android:paddingEnd="6dp"
     android:paddingTop="8dp"
     android:paddingBottom="8dp">
-
-    <ImageView
-        android:id="@+id/notif_app_icon"
-        android:layout_width="28dp"
-        android:layout_height="28dp"
-        android:layout_marginEnd="6dp" />
 
     <ImageView
         android:id="@+id/idle_phase"

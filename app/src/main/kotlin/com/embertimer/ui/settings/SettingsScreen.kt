@@ -45,7 +45,10 @@ import kotlinx.coroutines.launch
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(onBack: () -> Unit) {
+fun SettingsScreen(
+    onBack: () -> Unit,
+    showNotifIconHint: Boolean = DeviceVendor.cachesNotificationIcon(),
+) {
     val app = LocalContext.current.applicationContext as EmberApp
     val vm: SettingsViewModel = viewModel(factory = app.graph.vmFactory)
     val ui by vm.ui.collectAsStateWithLifecycle()
@@ -121,6 +124,20 @@ fun SettingsScreen(onBack: () -> Unit) {
                             modifier = Modifier.padding(top = 6.dp),
                         )
                         AutoBackupSection(vm)
+                    }
+                }
+            }
+
+            // 荣耀/华为专属提示:系统缓存通知图标(应用无法清除),给出可执行的刷新办法
+            if (showNotifIconHint) {
+                item {
+                    Card {
+                        Text(
+                            stringResource(R.string.notif_icon_cache_hint),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.fillMaxWidth().padding(12.dp),
+                        )
                     }
                 }
             }
