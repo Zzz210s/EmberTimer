@@ -160,32 +160,16 @@ class ReportViewModel(
     private suspend fun refreshInternal() {
         val range = _range.value
         val profiles = graph.profileRepo.profiles.first()
-        if (range == ReportRange.LIFETIME) {
-            _ui.value = _ui.value.copy(anchor = clock(), canGoNext = false)
-            // v1.6 总时长页:与周/月同款健康摘要(全历史)
-            val today = clock()
-            val (from, to) = reportWindow(range, today)
-            val raw = graph.totalsRepo.rangeBreakdown(from, to)
-            val zone = java.time.ZoneId.systemDefault()
-            val startMs = LocalDate.parse(from).atStartOfDay(zone).toInstant().toEpochMilli()
-            val endMs = today.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
-            val sessions = graph.totalsRepo.sessionsBetweenMs(startMs, endMs)
-            val (metrics, slots) = summarizeWindow(from, to, raw, sessions, null, zone)
-            val lt = raw.groupBy { it.profileId }
-                .map { (id, rs) ->
-                    val name = profiles.firstOrNull { it.id == id }?.name ?: "已删除时钟"
-                    ProfileTotalUi(name, rs.sumOf { it.total })
-                }
-                .sortedByDescending { it.millis }
-            _ui.value = ReportUiState(range = range, rows = emptyList(), profileTotals = lt,
-                metrics = metrics, timeSlots = slots, firstLaunch = _ui.value.firstLaunch)
-            return
-        }
-        val today = _anchor.value
-        val (from, to) = reportWindow(range, today)
+        val lifetime = range == ReportRange.LIFETIME
+        // 长期累计页:锚点恒为今日(不可回看);周/月:锚点为选中期
+        val today = clock()
+        val anchor = if (lifetime) today else _anchor.value
+        val (from, to) = reportWindow(range, anchor)
         val raw = graph.totalsRepo.rangeBreakdown(from, to)
-        val (prevFrom, prevTo) = prevWindowOf(from, to)
-        val prevTotal = graph.totalsRepo.rangeBreakdown(prevFrom, prevTo).sumOf { it.total }
+        val prevTotal = if (lifetime) null else {
+            val (prevFrom, prevTo) = prevWindowOf(from, to)
+            graph.totalsRepo.rangeBreakdown(prevFrom, prevTo).sumOf { it.total }
+        }
         val zone = java.time.ZoneId.systemDefault()
         val startMs = LocalDate.parse(from).atStartOfDay(zone).toInstant().toEpochMilli()
         val endMs = LocalDate.parse(to).plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
@@ -193,12 +177,12 @@ class ReportViewModel(
         val (metrics, slots) = summarizeWindow(from, to, raw, sessions, prevTotal, zone)
         _ui.value = ReportUiState(
             range = range,
-            rows = reportRows(range, today, raw),
+            rows = if (lifetime) emptyList() else reportRows(range, anchor, raw),
             profileTotals = reportProfileTotals(profiles, raw),
             metrics = metrics,
             timeSlots = slots,
-            anchor = today,
-            canGoNext = today.isBefore(clock()),
+            anchor = anchor,
+            canGoNext = !lifetime && anchor.isBefore(today),
             firstLaunch = _ui.value.firstLaunch,
         )
     }

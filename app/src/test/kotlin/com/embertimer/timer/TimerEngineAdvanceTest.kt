@@ -1,9 +1,5 @@
 package com.embertimer.timer
 
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.test.TestScope
-import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -11,30 +7,10 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-@OptIn(ExperimentalCoroutinesApi::class)
 class TimerEngineAdvanceTest {
-    private class FT(var nowMs: Long = 1_000_000L, var el: Long = 10_000L) : TimeProvider {
-        override fun now() = nowMs
-        override fun elapsedRealtime() = el
-    }
-
-    private fun engine(t: FT, saved: MutableList<RuntimeSnapshot?>) =
-        // UnconfinedTestDispatcher: persist 在 save() 内同步执行,避免独立 scheduler 永不推进
-        TimerEngine(t, TestScope(UnconfinedTestDispatcher()), persist = { saved += it })
-
-    /**
-     * 事件收集器(replay=0 后 replayCache 恒空,断言改对订阅列表):
-     * Unconfined 订阅同步生效,tryEmit 同步投递,先订阅后驱动不漏事件。
-     */
-    private fun recordEvents(e: TimerEngine): MutableList<EngineEvent> {
-        val seen = mutableListOf<EngineEvent>()
-        TestScope(UnconfinedTestDispatcher()).launch { e.events.collect { seen += it } }
-        return seen
-    }
-
     @Test fun workExpirySwitchesToRest() = runTest {
-        val t = FT()
-        val e = engine(t, mutableListOf())
+        val t = FakeTime()
+        val e = testEngine(t)
         e.restore(null)
         val seen = recordEvents(e)
         e.start(1, 100_000L, 40_000L)
@@ -52,8 +28,8 @@ class TimerEngineAdvanceTest {
     }
 
     @Test fun restExpirySwitchesToWorkAndIncrementsCycle() = runTest {
-        val t = FT()
-        val e = engine(t, mutableListOf())
+        val t = FakeTime()
+        val e = testEngine(t)
         e.restore(null)
         val seen = recordEvents(e)
         e.start(1, 100_000L, 40_000L)
@@ -67,8 +43,8 @@ class TimerEngineAdvanceTest {
     }
 
     @Test fun onExpiredBeforeDeadlineIsNoop() = runTest {
-        val t = FT()
-        val e = engine(t, mutableListOf())
+        val t = FakeTime()
+        val e = testEngine(t)
         e.restore(null)
         e.start(1, 100_000L, 40_000L)
         t.el += 99_999
@@ -77,8 +53,8 @@ class TimerEngineAdvanceTest {
     }
 
     @Test fun settleMillisDeductsCheckpointCursor() = runTest {
-        val t = FT()
-        val e = engine(t, mutableListOf())
+        val t = FakeTime()
+        val e = testEngine(t)
         e.restore(null)
         val seen = recordEvents(e)
         e.start(1, 100_000L, 40_000L)
@@ -91,8 +67,8 @@ class TimerEngineAdvanceTest {
     }
 
     @Test fun skipFromRunningRestAdvancesCycleImmediately() = runTest {
-        val t = FT()
-        val e = engine(t, mutableListOf())
+        val t = FakeTime()
+        val e = testEngine(t)
         e.restore(null)
         val seen = recordEvents(e)
         e.start(1, 100_000L, 40_000L)
@@ -109,8 +85,8 @@ class TimerEngineAdvanceTest {
     }
 
     @Test fun skipFromRunningWorkSettlesAccrued() = runTest {
-        val t = FT()
-        val e = engine(t, mutableListOf())
+        val t = FakeTime()
+        val e = testEngine(t)
         e.restore(null)
         val seen = recordEvents(e)
         e.start(1, 100_000L, 40_000L)
@@ -122,9 +98,9 @@ class TimerEngineAdvanceTest {
     }
 
     @Test fun resetClearsSnapshotAndSettles() = runTest {
-        val t = FT()
+        val t = FakeTime()
         val saved = mutableListOf<RuntimeSnapshot?>()
-        val e = engine(t, saved)
+        val e = testEngine(t, saved)
         e.restore(null)
         val seen = recordEvents(e)
         e.start(1, 100_000L, 40_000L)
@@ -139,8 +115,8 @@ class TimerEngineAdvanceTest {
     }
 
     @Test fun restartPhaseOnlyWhenPausedReopensFullDuration() = runTest {
-        val t = FT()
-        val e = engine(t, mutableListOf())
+        val t = FakeTime()
+        val e = testEngine(t)
         e.restore(null)
         val seen = recordEvents(e)
         e.start(1, 100_000L, 40_000L)
@@ -161,8 +137,8 @@ class TimerEngineAdvanceTest {
 
     /** Fix Round 1(Concern 3): restartPhase 换 profile 时,已累计工作量的结算必须归属旧 profile */
     @Test fun restartPhaseWithDifferentProfileEmitsOldProfileId() = runTest {
-        val t = FT()
-        val e = engine(t, mutableListOf())
+        val t = FakeTime()
+        val e = testEngine(t)
         e.restore(null)
         val seen = recordEvents(e)
         e.start(1, 100_000L, 40_000L) // 在 profile 1 下累计工作
@@ -176,8 +152,8 @@ class TimerEngineAdvanceTest {
     /** Fix Round 2(F2): PhaseFinished 自带 profileId —— 结算归属完成推进前的快照,
      *  与后继快照解耦(后继正常流复制同一 profileId,RESET 交错时快照已空) */
     @Test fun phaseFinishedCarriesPreAdvanceProfileId() = runTest {
-        val t = FT()
-        val e = engine(t, mutableListOf())
+        val t = FakeTime()
+        val e = testEngine(t)
         e.restore(null)
         val seen = recordEvents(e)
         e.start(7, 100_000L, 40_000L) // 在 profile 7 下跑完工作阶段
@@ -189,8 +165,8 @@ class TimerEngineAdvanceTest {
     }
 
     @Test fun restartPhaseIgnoredWhileRunning() = runTest {
-        val t = FT()
-        val e = engine(t, mutableListOf())
+        val t = FakeTime()
+        val e = testEngine(t)
         e.restore(null)
         e.start(1, 100_000L, 40_000L)
         e.restartPhase(2, 200_000L, 80_000L) // RUNNING,忽略
@@ -200,9 +176,9 @@ class TimerEngineAdvanceTest {
 
     @Test fun expiredWhileDeadSettlesFullWork() = runTest {
         // 进程死亡期间工作阶段已到期:恢复后 onExpired 用 endElapsed 结算
-        val t = FT()
+        val t = FakeTime()
         val saved = mutableListOf<RuntimeSnapshot?>()
-        val e1 = TimerEngine(t, TestScope(UnconfinedTestDispatcher()), persist = { saved += it })
+        val e1 = testEngine(t, saved)
         e1.restore(null)
         e1.start(1, 100_000L, 40_000L)
         t.el += 60_000
@@ -210,7 +186,7 @@ class TimerEngineAdvanceTest {
         val persisted = saved.last { it != null }!!
         // 进程死后很久,elapsed 继续走
         t.el += 500_000
-        val e2 = TimerEngine(t, TestScope(UnconfinedTestDispatcher()), persist = { saved += it })
+        val e2 = testEngine(t, saved)
         e2.restore(persisted)
         val seen = recordEvents(e2)
         e2.onExpired()
