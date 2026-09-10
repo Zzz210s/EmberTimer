@@ -7,6 +7,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/); versions fol
 ## [Unreleased]
 - Trunk-based branch model + GitHub Actions CI (test gate + tag-driven release publishing).
 
+## [1.10.2] - 2026-09-10
+### Changed
+- Releases are now produced by GitHub Actions: pushing a `v*` tag builds and publishes `EmberTimer-<version>.apk`.
+  Signing secrets are configured, so CI artifacts are **properly signed** (same key as local releases, installable as an update).
+
 ## [1.10.1] - 2026-09-10
 ### Fixed
 - Settings "Backup" did nothing when the stored SAF grant was lost (e.g. after reinstall) — it failed silently; now success/failure is reported and a folder picker opens to re-grant.
