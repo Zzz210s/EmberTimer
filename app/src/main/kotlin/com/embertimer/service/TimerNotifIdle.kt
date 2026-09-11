@@ -50,9 +50,10 @@ object TimerNotifIdle {
 
     /** 软件运行即显示常驻空闲通知(权限未授予/异常时静默降级);显示当前时钟名与启动按钮 */
     fun showIdle(context: Context) {
-        TimerNotifications.ensureChannels(context)
         val app = context.applicationContext as com.embertimer.EmberApp
         app.graph.appScope.launch {
+            // v1.11.0 启动优化:渠道创建是 binder 调用,放到协程里,不占 Application.onCreate 主线程
+            TimerNotifications.ensureChannels(context)
             val pid = app.graph.settingsRepo.activeProfileId.first()
             val profile = if (pid != -1L) app.graph.profileRepo.byId(pid) else null
             try {

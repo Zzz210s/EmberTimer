@@ -130,4 +130,5 @@
     <string name="alarm_banner_header">精确闹钟</string>
     <string name="appearance_section">外观</string>
     <string name="notif_start">启动</string>
+    <string name="backup_error_hint">备份目录授权已失效(重装或被撤销),请重新选择备份目录</string>
 </resources>

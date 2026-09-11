@@ -18,6 +18,7 @@ class SettingsRepository(private val ds: DataStore<Preferences>) {
     // v1.9.11 自动备份
     private val keyAutoBackup = booleanPreferencesKey("autobackup")
     private val keyBackupUri = stringPreferencesKey("backup_uri")
+    private val keyBackupError = stringPreferencesKey("backup_error")
     private val keyBackupLast = longPreferencesKey("backup_last")
     private val keyFirstLaunch = stringPreferencesKey("first_launch_date")
 
@@ -43,8 +44,18 @@ class SettingsRepository(private val ds: DataStore<Preferences>) {
     val backupLastAt: Flow<Long> = ds.data.map { it[keyBackupLast] ?: 0L }
 
     suspend fun setAutoBackupEnabled(v: Boolean) { ds.edit { it[keyAutoBackup] = v } }
-    suspend fun setBackupUri(uri: String) { ds.edit { it[keyBackupUri] = uri } }
+    suspend fun setBackupUri(uri: String?) {
+        ds.edit { if (uri == null) it.remove(keyBackupUri) else it[keyBackupUri] = uri }
+    }
+
     suspend fun setBackupLastAt(t: Long) { ds.edit { it[keyBackupLast] = t } }
+
+    /** v1.11.0:上次备份失败原因("grant" 授权失效 / "write" 写入失败);null = 无错误 */
+    val backupError: Flow<String?> = ds.data.map { it[keyBackupError] }
+
+    suspend fun setBackupError(err: String?) {
+        ds.edit { if (err == null) it.remove(keyBackupError) else it[keyBackupError] = err }
+    }
 
     /** 首次打开应用日期(yyyy-MM-dd);报表往期回顾的起点。未设置时返回 null。 */
     val firstLaunchDate: Flow<String?> = ds.data.map { it[keyFirstLaunch] }

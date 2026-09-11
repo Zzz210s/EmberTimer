@@ -41,7 +41,12 @@ class TotalsConsistencyTest {
     private fun dayMs(): Long = day.atStartOfDay(zone).toInstant().toEpochMilli()
 
     /** 间隔 <=3 分钟的相邻段落:展示合并为一条,合计 = 合并后时长(而不是各段原样相加) */
+    /** 同一 Robolectric 沙箱的 DB 文件会跨用例/跨运行残留 —— 每个用例开头清空三张表,彻底隔离 */
+    private suspend fun wipe() =
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { db.clearAllTables() }
+
     @Test fun totalsEqualMergedSpans() = runTest {
+        wipe()
         val t0 = dayMs() + 9 * 3_600_000L
         repo.recordWorkSessionSplit(1L, t0, t0 + 10 * 60_000L, emptyList(), zone = zone)
         repo.recordWorkSessionSplit(1L, t0 + 12 * 60_000L, t0 + 32 * 60_000L, emptyList(), zone = zone)
@@ -58,6 +63,7 @@ class TotalsConsistencyTest {
 
     /** 超过 3 分钟的空档不并入:合计只算实际两段 */
     @Test fun longGapStaysSplit() = runTest {
+        wipe()
         day = LocalDate.of(2026, 9, 2)
         val t0 = dayMs() + 9 * 3_600_000L
         repo.recordWorkSessionSplit(1L, t0, t0 + 10 * 60_000L, emptyList(), zone = zone)
@@ -68,7 +74,8 @@ class TotalsConsistencyTest {
 
     /** 删除配置:段落与合计级联清理 */
     @Test fun deletingProfileCascadesData() = runTest {
-        day = LocalDate.of(2026, 9, 3)
+        wipe()
+        day = LocalDate.of(2026, 9, 5)
         val t0 = dayMs() + 9 * 3_600_000L
         repo.recordWorkSessionSplit(7L, t0, t0 + 30 * 60_000L, emptyList(), zone = zone)
         assertEquals(1, repo.breakdownByDate(day.toString()).size)
@@ -79,6 +86,7 @@ class TotalsConsistencyTest {
 
     /** 数据变动心跳:任何写入都会改变它(自动备份的触发源) */
     @Test fun dataTickChangesOnWrite() = runTest {
+        wipe()
         day = LocalDate.of(2026, 9, 4)
         val before = repo.dataTick().first()
         repo.recordWorkSessionSplit(3L, dayMs() + 3_600_000L, dayMs() + 3_600_000L + 600_000L, emptyList(), zone = zone)

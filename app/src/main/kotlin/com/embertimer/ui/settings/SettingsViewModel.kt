@@ -20,7 +20,13 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 
-private data class BackupState(val pack: com.embertimer.ui.theme.ThemePack = com.embertimer.ui.theme.ThemePack.EMBER, val auto: Boolean = false, val uri: String? = null, val last: Long = 0L)
+private data class BackupState(
+    val pack: com.embertimer.ui.theme.ThemePack = com.embertimer.ui.theme.ThemePack.EMBER,
+    val auto: Boolean = false,
+    val uri: String? = null,
+    val last: Long = 0L,
+    val err: String? = null,
+)
 
 data class SettingsUiState(
     val profiles: List<ProfileEntity> = emptyList(),
@@ -33,6 +39,8 @@ data class SettingsUiState(
     val autoBackup: Boolean = false,
     val backupUri: String? = null,
     val backupLastAt: Long = 0L,
+    /** v1.11.0:上次自动/手动备份失败原因(null = 正常) */
+    val backupError: String? = null,
 )
 
 class SettingsViewModel(val graph: AppGraph) : ViewModel() {
@@ -54,11 +62,15 @@ class SettingsViewModel(val graph: AppGraph) : ViewModel() {
             graph.settingsRepo.autoBackupEnabled,
             graph.settingsRepo.backupUri,
             graph.settingsRepo.backupLastAt,
-        ) { pack, auto, uri, last ->
-            BackupState(pack, auto, uri, last)
+            graph.settingsRepo.backupError,
+        ) { pack, auto, uri, last, err ->
+            BackupState(pack, auto, uri, last, err)
         },
     ) { s, b ->
-        s.copy(themePack = b.pack, autoBackup = b.auto, backupUri = b.uri, backupLastAt = b.last)
+        s.copy(
+            themePack = b.pack, autoBackup = b.auto, backupUri = b.uri,
+            backupLastAt = b.last, backupError = b.err,
+        )
     }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsUiState())
 

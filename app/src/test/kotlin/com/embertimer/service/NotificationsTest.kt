@@ -50,20 +50,6 @@ class NotificationsTest {
         assertEquals("工作中", paused.extras.getCharSequence(NotificationCompat.EXTRA_TITLE).toString())
     }
 
-    /** 沿类层次查找字段(RemoteViews 的 Action 子类把 methodName 声明在父类) */
-    private fun fieldValue(target: Any, name: String): Any? {
-        var c: Class<*>? = target.javaClass
-        while (c != null) {
-            runCatching {
-                val f = c!!.getDeclaredField(name)
-                f.isAccessible = true
-                return f.get(target)
-            }
-            c = c.superclass
-        }
-        return null
-    }
-
     @Test fun phaseDoneHasCheckAction() {
         // v1.10.11:提醒通知右侧"对号"确认按钮(点=清除通知,不打开应用)
         val n = TimerNotifications.phaseDone(ctx, workFinished = true)
@@ -98,6 +84,21 @@ class NotificationsTest {
             "应写入静态 00:00 文本, 实际动作: " + methods,
             methods.any { it == "setText" || it == "setCharSequence" },
         )
+    }
+
+    @Test fun adaptiveTickerDelayIsCoarseUntilNearDeadline() {
+        // v1.11.0 省电:剩余 >5s 时 15s 一次;临近到点 500ms;正计时/空闲恒 15s
+        val now = 1_000_000L
+        fun snap(end: Long, countUp: Boolean = false, status: EngineStatus = EngineStatus.RUNNING) = RuntimeSnapshot(
+            profileId = 1, workMillis = 60_000, restMillis = 60_000, phase = Phase.WORK, status = status,
+            cycleCount = 0, startElapsed = now - 1_000, endElapsed = end, endWall = 0L,
+            timeSpentPaused = 0L, lastPauseTime = 0L, timeAtPause = 0L,
+            savedAtWall = 0L, savedAtElapsed = 0L, ckptDate = null, ckptAccum = 0L, countUp = countUp,
+        )
+        org.junit.Assert.assertEquals(15_000L, com.embertimer.service.nextDelayMs(snap(now + 60_000), now))
+        org.junit.Assert.assertEquals(500L, com.embertimer.service.nextDelayMs(snap(now + 3_000), now))
+        org.junit.Assert.assertEquals(15_000L, com.embertimer.service.nextDelayMs(snap(now + 60_000, countUp = true), now))
+        org.junit.Assert.assertEquals(15_000L, com.embertimer.service.nextDelayMs(null, now))
     }
 
     @Test fun phaseDoneIsAutoCancel() {

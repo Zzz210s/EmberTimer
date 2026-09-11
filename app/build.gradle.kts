@@ -16,8 +16,8 @@ android {
         applicationId = "com.embertimer"
         minSdk = 26
         targetSdk = 35
-        versionCode = 54
-        versionName = "1.10.12"
+        versionCode = 55
+        versionName = "1.11.0"
     }
     val keystoreProps = rootProject.file("local.properties").let { f ->
         if (f.exists()) Properties().apply { f.inputStream().use { load(it) } } else null
@@ -35,8 +35,11 @@ android {
     }
     buildTypes {
         release {
-            isMinifyEnabled = false
-            isShrinkResources = false
+            // v1.11.0:重新启用 R8(minify + 资源收缩)。此前关闭是因为误判
+            // (真机闪退实际源于 notification_actions.xml 的 RemoteViews 非法属性,已修);
+            // 必要的 keep 规则见 proguard-rules.pro(WorkManager 反射、Room、通知/RemoteViews、服务)。
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = if (storeFilePath != null) signingConfigs.getByName("release")
             else signingConfigs.getByName("debug")
@@ -49,7 +52,20 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true }
-    packaging { resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" } }
+    // 体积:v1.11.0 额外剔除无用元数据(许可证/版本文件),并只保留真机需要的 ABI
+    packaging {
+        resources.excludes += setOf(
+            "/META-INF/{AL2.0,LGPL2.1}",
+            "META-INF/*.txt",
+            "META-INF/*.md",
+            "META-INF/*.version",
+            "DebugProbesKt.bin",
+            "kotlin-tooling-metadata.json",
+        )
+    }
+    defaultConfig {
+        ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
+    }
     testOptions { unitTests { isIncludeAndroidResources = true } }
 }
 

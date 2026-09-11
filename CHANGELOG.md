@@ -7,6 +7,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/); versions fol
 ## [Unreleased]
 - Trunk-based branch model + GitHub Actions CI (test gate + tag-driven release publishing).
 
+## [1.11.0] - 2026-09-11
+### Optimized (size / startup / battery / memory)
+- **Backup visibility**: a failed write (e.g. the SAF grant was lost) is no longer silent — Settings shows a red
+  hint asking to pick the backup folder again. Previously such failures were invisible, looking like "auto backup does nothing".
+- **Size**: re-enabled R8 (minify + resource shrinking), dropped useless metadata, kept only arm64/armv7 ABIs.
+  APK **8.0 MB → 1.68 MB (-79%)** on a real device (notification layouts and every icon verified present via aapt2).
+- **Startup**: WorkManager now initialises on demand (off the Application.onCreate critical path); notification
+  channels and the report alarm are armed on a background thread. Cold start **486 ms → 345 ms**.
+- **Battery**: adaptive expiry polling — every 15 s when more than 5 s remain, 500 ms near the deadline (was a fixed
+  1 s poll), cutting service wake-ups ~15x for long sessions. Exact firing still comes from the EXACT alarm and the
+  notification countdown is drawn by the system Chronometer.
+- Memory: smaller dex lowers the Java heap footprint (real-device PSS 97 MB → 93 MB; Graphics 53 MB is inherent to Compose).
+
 ## [1.10.12] - 2026-09-11
 ### Changed
 - The report period picker now matches the home dropdown: an in-flow full-width panel (expanding pushes the report

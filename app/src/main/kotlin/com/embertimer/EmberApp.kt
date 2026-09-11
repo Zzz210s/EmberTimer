@@ -14,9 +14,13 @@ open class EmberApp : Application() {
         super.onCreate()
         graph = AppGraph(this)
         graph.bootstrapAsync()
-        TimerNotifications.ensureChannels(this)
-        // v1.1 #5:报表通知闹钟(周日/月末 23:00)——每次进程冷启/开机补武装(闹钟不跨重启)
-        com.embertimer.service.ReportAlarmScheduler(this).ensure()
+        // v1.11.0 启动优化:渠道创建与报表闹钟武装都是 binder 调用,移到后台线程,
+        // 不阻塞首帧(通知渠道在真正发通知前的路径上也会补建)。
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default).launch {
+            runCatching { TimerNotifications.ensureChannels(this@EmberApp) }
+            // v1.1 #5:报表通知闹钟(周日/月末 23:00)——每次进程冷启/开机补武装(闹钟不跨重启)
+            runCatching { com.embertimer.service.ReportAlarmScheduler(this@EmberApp).ensure() }
+        }
         // v1.6 误触规则一次性清理:删除历史 <1 分钟段并扣回当日合计(SharedPreferences 标记只跑一次)
         val prefs = getSharedPreferences("ember_meta", MODE_PRIVATE)
         if (!prefs.getBoolean("pruned_mistouch_v16", false)) {
