@@ -95,8 +95,11 @@ class NotificationsTest {
             timeSpentPaused = 0L, lastPauseTime = 0L, timeAtPause = 0L,
             savedAtWall = 0L, savedAtElapsed = 0L, ckptDate = null, ckptAccum = 0L, countUp = countUp,
         )
+        // 粗节拍 15s;不足 15s 时按剩余时间等待(锚定到到期时刻,避免越过 00:00);极短则 500ms 兜底
         org.junit.Assert.assertEquals(15_000L, com.embertimer.service.nextDelayMs(snap(now + 60_000), now))
-        org.junit.Assert.assertEquals(500L, com.embertimer.service.nextDelayMs(snap(now + 3_000), now))
+        org.junit.Assert.assertEquals(8_000L, com.embertimer.service.nextDelayMs(snap(now + 8_000), now))
+        org.junit.Assert.assertEquals(2_000L, com.embertimer.service.nextDelayMs(snap(now + 2_000), now))
+        org.junit.Assert.assertEquals(500L, com.embertimer.service.nextDelayMs(snap(now - 1_000), now))
         org.junit.Assert.assertEquals(15_000L, com.embertimer.service.nextDelayMs(snap(now + 60_000, countUp = true), now))
         org.junit.Assert.assertEquals(15_000L, com.embertimer.service.nextDelayMs(null, now))
     }

@@ -36,6 +36,13 @@ open class EmberApp : Application() {
                 prefs.edit().putBoolean("recomputed_v1108", true).apply()
             }
         }
+        // v1.11.1:段落规则变更(合并后 <3 分钟丢弃)-> 一次性重算全部日期,使存量"合计"与新展示规则一致
+        if (!prefs.getBoolean("recomputed_v1111", false)) {
+            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default).launch {
+                runCatching { graph.totalsRepo.recomputeAllDays() }
+                prefs.edit().putBoolean("recomputed_v1111", true).apply()
+            }
+        }
         watchDataChanges()
     }
 

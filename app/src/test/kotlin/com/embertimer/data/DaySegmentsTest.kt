@@ -83,3 +83,27 @@ class DaySegmentsTest {
         assertEquals(0, groupByPeriod(emptyList(), zone).size)
     }
 }
+
+/** v1.11.1:合并后仍不足 3 分钟的段落应整段丢弃(展示与合计共用同一函数) */
+class MinSpanDropTest {
+    private fun m(mins: Long, secs: Long = 0) = mins * 60_000L + secs * 1_000L
+
+    @Test fun shortSpanIsDropped() {
+        // 一段 2 分钟(无相邻段可合并)-> 丢弃
+        org.junit.Assert.assertTrue(mergeSessions(listOf(m(0) to m(2))).isEmpty())
+    }
+
+    @Test fun shortSpansMergeIntoKeptSpan() {
+        // 2 分钟 + 1 分钟空档 + 2 分钟 = 合并后 5 分钟 -> 保留
+        val out = mergeSessions(listOf(m(0) to m(2), m(3) to m(5)))
+        org.junit.Assert.assertEquals(1, out.size)
+        org.junit.Assert.assertEquals(m(5), out[0].second - out[0].first)
+    }
+
+    @Test fun keptSpansSumEqualsDisplayedTotal() {
+        val out = mergeSessions(listOf(m(0) to m(2), m(10) to m(40), m(41) to m(43)))
+        // 2 分钟段丢弃;10~40 与 41~43(1 分钟空档)合并为 33 分钟
+        org.junit.Assert.assertEquals(1, out.size)
+        org.junit.Assert.assertEquals(m(33), out[0].second - out[0].first)
+    }
+}

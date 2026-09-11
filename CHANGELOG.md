@@ -7,6 +7,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/); versions fol
 ## [Unreleased]
 - Trunk-based branch model + GitHub Actions CI (test gate + tag-driven release publishing).
 
+## [1.11.1] - 2026-09-11
+### Fixed
+- **Day-detail span rules restored**: merged spans shorter than **3 minutes** are dropped entirely (not shown,
+  not counted); gaps of <=3 minutes merge. Display and daily totals share one function, so the total always
+  equals the sum of the visible spans.
+- **Negative countdown**: the polling cadence is now anchored to the deadline (it waits the remaining time when
+  under 15 s), so a tick always lands at the deadline and the system Chronometer no longer runs past 00:00 into negatives.
+
 ## [1.11.0] - 2026-09-11
 ### Optimized (size / startup / battery / memory)
 - **Backup visibility**: a failed write (e.g. the SAF grant was lost) is no longer silent — Settings shows a red

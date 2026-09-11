@@ -12,14 +12,20 @@ import java.time.ZoneId
  */
 const val MERGE_GAP_MS: Long = 3 * 60_000
 
+/** 合并后的段落若短于该阈值则视为无意义,整段丢弃(不显示、也不计入合计) */
+const val MIN_SPAN_MS: Long = 3 * 60_000
+
 /**
- * 合并相邻段:输入为各段 [startAt, endAt](墙钟 ms),输出按起点升序的合并结果。
- * 间隔(后段起点 - 前段终点) <= [maxGapMs] 时并入前段(终点取较大者);否则断开。
- * 空段(终点 <= 起点)先被剔除。
+ * 合并相邻段并按阈值丢弃过短段落 —— 每日详情展示与当日合计**共用**这一函数,
+ * 因此"总累计"必然等于界面上可见时间段之和(单一数据源)。
+ *
+ * 规则:①空段(终点 <= 起点)剔除;②间隔(后段起点 - 前段终点) <= [maxGapMs] 时并入前段;
+ * ③合并后时长 < [minSpanMs] 的段落整段丢弃(3 分钟以下视为无意义)。
  */
 fun mergeSessions(
     sessions: List<Pair<Long, Long>>,
     maxGapMs: Long = MERGE_GAP_MS,
+    minSpanMs: Long = MIN_SPAN_MS,
 ): List<Pair<Long, Long>> {
     val sorted = sessions.filter { it.second > it.first }.sortedBy { it.first }
     if (sorted.isEmpty()) return emptyList()
@@ -37,7 +43,7 @@ fun mergeSessions(
         }
     }
     out += curStart to curEnd
-    return out
+    return out.filter { it.second - it.first >= minSpanMs }
 }
 
 /** 一天中的大时段;展示文案由 UI 层映射到字符串资源(中英双语) */

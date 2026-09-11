@@ -47,9 +47,12 @@ internal class TickDriver(
     }
 }
 
-/** 下一次轮询间隔:临近到点(<=5s)高频 500ms,其余 15s(60s 检查点落账精度足够) */
+/**
+ * 下一次轮询间隔:粗节拍省电,但**锚定到到期时刻**——剩余时间不足节拍时按剩余时间等待,
+ * 保证到点那一瞬就有一次 tick(否则系统 Chronometer 会越过 00:00 继续往负数走)。
+ */
 internal fun nextDelayMs(snap: com.embertimer.timer.RuntimeSnapshot?, nowElapsed: Long): Long {
     if (snap == null || snap.status != EngineStatus.RUNNING || snap.countUp) return 15_000L
     val remaining = snap.endElapsed - nowElapsed
-    return if (remaining <= 5_000L) 500L else 15_000L
+    return remaining.coerceIn(500L, 15_000L)
 }
