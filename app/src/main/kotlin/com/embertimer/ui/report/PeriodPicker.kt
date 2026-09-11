@@ -1,20 +1,23 @@
 package com.embertimer.ui.report
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -26,22 +29,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupProperties
 import com.embertimer.R
 import com.embertimer.ui.morph.IconPaths
 import com.embertimer.ui.morph.PathIcon
+import com.embertimer.ui.theme.MotionTokens
+import com.embertimer.ui.theme.rememberAnimationsEnabled
 
 /**
- * v1.9.12 周期选择器:自控 Popup + 卡片面板。
+ * 报表期次选择器(v1.10.12:与首页下拉菜单统一格式)。
  *
- * 历史教训(v1.9.11):ExposedDropdownMenuBox 内部是 SubcomposeLayout,
- * ① 不支持 LazyColumn 的 intrinsic 测量(直接 IllegalStateException 崩溃);
- * ② 部分 OEM SystemUI 上锚点点击行为异常。
- * 故彻底弃用,改为 Popup(focusable 可捕获返回键关闭)+ Surface 卡片 +
- * Column+verticalScroll(候选仅 9 个,无需懒加载),完全自控无 intrinsic 问题。
+ * 顶行为「上一期 | 期次标签(可点) | 下一期」;点击标签在同一 Column 内展开**全宽面板**
+ * (布局流内占位 -> 高度动画把报表内容整体顺沿下移,收起回弹),面板体与首页 PanelBody 同款:
+ * surface 背景 + 分隔线 + 全宽行(20dp/14dp)+ 当前期次右侧对号。
+ * 候选从"首次打开日"起按周/月分段到今日,可滚动且限高 320dp。
  *
- * 性能:候选列表 remember(anchor/range) 缓存,输入 filter 仅轻量 contains。
+ * 历史:v1.9.11 的 ExposedDropdownMenuBox(SubcomposeLayout 与 LazyColumn intrinsic 冲突会崩)、
+ * v1.9.x 的 Popup 浮层 —— 现统一为首页同款布局流面板。
  */
 @Composable
 internal fun PeriodPicker(
@@ -57,8 +60,7 @@ internal fun PeriodPicker(
     var expanded by remember { mutableStateOf(false) }
     val label = periodLabel(range, anchor)
 
-    // v1.9.13 #43:候选从首次打开日起(回顾起点),按周/月分段直到今日;可滚动。
-    // anchor/range/minDate 变化才重算;无首次打开日时回退最近 9 期。
+    // 候选:从首次打开日起按周/月分段到今日;无下限时回退最近 9 期。remember 缓存避免每帧重算。
     val candidates = remember(range, anchor, minDate) {
         val today = java.time.LocalDate.now()
         if (minDate != null) {
@@ -87,14 +89,15 @@ internal fun PeriodPicker(
         }
     }
 
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-        TextButton(onClick = onPrev) { Text(stringResource(R.string.report_prev)) }
-        // 锚点:标签行(点击弹出自控 Popup 面板)
-        Box {
+    Column(Modifier.fillMaxWidth()) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            TextButton(onClick = onPrev) { Text(stringResource(R.string.report_prev)) }
             Row(
-                Modifier
-                    .clickable { expanded = true }
-                    .padding(horizontal = 10.dp, vertical = 4.dp),
+                Modifier.clickable { expanded = !expanded }.padding(horizontal = 10.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -106,43 +109,52 @@ internal fun PeriodPicker(
                     modifier = Modifier.padding(start = 4.dp),
                 )
             }
-            if (expanded) {
-                Popup(
-                    alignment = Alignment.TopCenter,
-                    onDismissRequest = { expanded = false },
-                    properties = PopupProperties(focusable = true, dismissOnClickOutside = true),
+            TextButton(onClick = onNext, enabled = canGoNext) { Text(stringResource(R.string.report_next)) }
+        }
+        val animationsOn = rememberAnimationsEnabled()
+        if (animationsOn) {
+            AnimatedVisibility(
+                visible = expanded,
+                enter = expandVertically(tween(MotionTokens.TextSwapEnter.durationMillis)) +
+                    fadeIn(tween(MotionTokens.TextSwapEnter.durationMillis)),
+                exit = shrinkVertically(tween(MotionTokens.TextSwapExit.durationMillis)) +
+                    fadeOut(tween(MotionTokens.TextSwapExit.durationMillis)),
+            ) {
+                PeriodPanel(range, anchor, candidates) { d -> onJump(d); expanded = false }
+            }
+        } else if (expanded) {
+            PeriodPanel(range, anchor, candidates) { d -> onJump(d); expanded = false }
+        }
+    }
+}
+
+/** 面板体:与首页 PanelBody 同款(surface + 分隔线 + 全宽行 + 选中对号) */
+@Composable
+private fun PeriodPanel(
+    range: ReportRange,
+    anchor: java.time.LocalDate,
+    candidates: List<java.time.LocalDate>,
+    onPick: (java.time.LocalDate) -> Unit,
+) {
+    Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
+        HorizontalDivider()
+        Column(Modifier.fillMaxWidth().heightIn(max = 320.dp).verticalScroll(rememberScrollState())) {
+            candidates.forEach { d ->
+                Row(
+                    Modifier.fillMaxWidth().clickable { onPick(d) }.padding(horizontal = 20.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Surface(
-                        shape = RoundedCornerShape(16.dp),
-                        shadowElevation = 6.dp,
-                        color = MaterialTheme.colorScheme.surfaceContainerLow,
-                        modifier = Modifier.widthIn(min = 300.dp, max = 460.dp),
-                    ) {
-                        Column(Modifier.padding(6.dp)) {
-                            Column(
-                                Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(max = 280.dp)
-                                    .verticalScroll(rememberScrollState()),
-                            ) {
-                                candidates.forEach { d ->
-                                    Row(
-                                        Modifier
-                                            .fillMaxWidth()
-                                            .clickable { onJump(d); expanded = false }
-                                            .padding(horizontal = 14.dp, vertical = 13.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                    ) {
-                                        Text(periodLabel(range, d), style = MaterialTheme.typography.bodyMedium)
-                                    }
-                                }
-                            }
-                        }
+                    Text(periodLabel(range, d), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                    if (d == anchor) {
+                        PathIcon(
+                            IconPaths.CHECK, size = 20.dp, contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
                     }
                 }
+                HorizontalDivider()
             }
         }
-        TextButton(onClick = onNext, enabled = canGoNext) { Text(stringResource(R.string.report_next)) }
     }
 }
 

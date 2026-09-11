@@ -7,6 +7,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/); versions fol
 ## [Unreleased]
 - Trunk-based branch model + GitHub Actions CI (test gate + tag-driven release publishing).
 
+## [1.10.12] - 2026-09-11
+### Changed
+- The report period picker now matches the home dropdown: an in-flow full-width panel (expanding pushes the report
+  content down) with surface background, dividers, full-width rows and a check mark on the current period, using the
+  same animation as home. The Popup overlay is gone.
+
 ## [1.10.11] - 2026-09-11
 ### Fixed
 - The notification countdown no longer goes negative: once the deadline has passed while the process was frozen, the
