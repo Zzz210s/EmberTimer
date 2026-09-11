@@ -80,27 +80,39 @@ class HomeViewModel(val graph: AppGraph) : ViewModel() {
                     .map { totals -> totals.firstOrNull { it.date == day.toString() }?.total ?: 0L }
                     .distinctUntilChanged()
                     .map { repo.breakdownByDate(day.toString()) }
-                    .combine(graph.profileRepo.profiles) { rows, profiles ->
+                    .combine(graph.profileRepo.profiles) { dailyRows, profiles ->
                         val zone = java.time.ZoneId.systemDefault()
                         val start = day.atStartOfDay(zone).toInstant().toEpochMilli()
                         val end = day.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
-                        val byProfile = repo.sessionsBetween(start, end).groupBy { it.profileId }
-                            // v1.10:展示层按"相邻间隔 <= 3 分钟则合并"重组(取代旧的暂停阈值分段规则)
-                            .mapValues { (_, ses) -> mergeSessions(ses.map { it.startAt to it.endAt }) }
-                        DayDetailUi(
-                            date = day,
-                            totalMillis = rows.sumOf { it.total },
-                            rows = rows.sortedByDescending { it.total }.mapIndexed { i, r ->
+                        val known = profiles.associateBy { it.id }
+                        // v1.10.8:有段落的配置——行合计 = 该行时间段之和(同一份数据);
+                        // 已删除配置的段落直接不参与(不再出现"已删除配置"行)。
+                        val grouped = repo.sessionsBetween(start, end)
+                            .filter { it.profileId in known.keys }
+                            .groupBy { it.profileId }
+                        val fromSessions = grouped.map { (pid, ses) ->
+                            val spans = mergeSessions(ses.map { it.startAt to it.endAt })
+                            DayDetailRow(
+                                profileName = known.getValue(pid).name,
+                                millis = spans.sumOf { it.second - it.first },
+                                index = 0,
+                                sessions = spans,
+                            )
+                        }
+                        // 无段落但有历史合计的(旧版本数据/计时进行中的检查点):保留合计,无时间段
+                        val legacy = dailyRows
+                            .filter { it.profileId in known.keys && it.profileId !in grouped.keys && it.total > 0 }
+                            .map { r ->
                                 DayDetailRow(
-                                    // daily_total 与 profile 无 FK(设计上保留热力图历史):
-                                    // 配置删除后行成孤儿,名称以固定文案占位而非 "?"
-                                    profileName = profiles.firstOrNull { it.id == r.profileId }?.name ?: "已删除时钟",
+                                    profileName = known.getValue(r.profileId).name,
                                     millis = r.total,
-                                    index = i,
-                                    sessions = byProfile[r.profileId] ?: emptyList(),
+                                    index = 0,
+                                    sessions = emptyList(),
                                 )
-                            },
-                        )
+                            }
+                        val rows = (fromSessions + legacy).sortedByDescending { it.millis }
+                            .mapIndexed { i, r -> r.copy(index = i) }
+                        DayDetailUi(date = day, totalMillis = rows.sumOf { it.millis }, rows = rows)
                     }
             }
         }

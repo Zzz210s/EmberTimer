@@ -93,8 +93,7 @@ private fun ProfileSection(row: DayDetailRow) {
                             Text(
                                 if (lineIdx == 0) stringResource(periodRes(period)) else "",
                                 style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.primary,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
                                 softWrap = false,
                                 modifier = Modifier.width(PERIOD_COL_W),

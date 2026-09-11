@@ -59,21 +59,13 @@ internal class EventApplier(
                 if (se - ss < MIN_MIS_TOUCH_MS) ignoreMisTouch = true
                 else graph.totalsRepo.recordWorkSessionSplit(pid, ss, se, ev.pauseWindows())
             }
-            // v1.9.12 #37:一段工作结束(settle>0 且非误触)自动备份一次(已启用且已选目录时,
-            // Worker 内自检;OneTime REPLACE 合并不堆积)。 fire-and-forget:备份失败不影响计时。
-            if (!ignoreMisTouch) {
-                runCatching {
-                    com.embertimer.data.AutoBackupScheduler.scheduleNow(graph.appContext)
-                }
-            }
+            // v1.10.8:自动备份改由"数据变动心跳"统一触发(见 EmberApp.watchDataChanges),
+            // 这里不再单独触发;合计也不再单独累加 —— 由 recomputeDay 从段落派生。
         }
         for (fx in EventPolicy.decide(ev, graph.engine.snapshot.value)) {
             when (fx) {
-                is EventEffect.Settle -> {
-                    if (fx.millis > 0 && !ignoreMisTouch) graph.totalsRepo.addWork(
-                        java.time.LocalDate.now().toString(), fx.profileId, fx.millis,
-                    )
-                }
+                // Settle 不再单独累加合计:recordWorkSessionSplit 已按段落重算当日合计(单一数据源)
+                is EventEffect.Settle -> Unit
                 is EventEffect.Arm -> graph.alarmScheduler.arm(fx.endElapsed)
                 EventEffect.CancelAlarm -> graph.alarmScheduler.cancel()
                 EventEffect.ForceCheckpoint -> ledger.flush(graph.engine.snapshot.value, graph.time.elapsedRealtime(), force = true)

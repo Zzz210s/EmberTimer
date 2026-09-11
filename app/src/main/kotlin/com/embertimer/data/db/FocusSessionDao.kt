@@ -28,6 +28,9 @@ interface FocusSessionDao {
     @Query("SELECT * FROM focus_session WHERE endAt - startAt < :minMs")
     suspend fun shorterThan(minMs: Long): List<FocusSessionEntity>
 
+    @Query("DELETE FROM focus_session WHERE profileId = :profileId")
+    suspend fun deleteByProfile(profileId: Long)
+
     @Query("DELETE FROM focus_session WHERE id = :id")
     suspend fun deleteById(id: Long)
 

@@ -47,7 +47,6 @@ import kotlinx.coroutines.launch
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
-    showNotifIconHint: Boolean = DeviceVendor.cachesNotificationIcon(),
 ) {
     val app = LocalContext.current.applicationContext as EmberApp
     val vm: SettingsViewModel = viewModel(factory = app.graph.vmFactory)
@@ -128,19 +127,6 @@ fun SettingsScreen(
                 }
             }
 
-            // 荣耀/华为专属提示:系统缓存通知图标(应用无法清除),给出可执行的刷新办法
-            if (showNotifIconHint) {
-                item {
-                    Card {
-                        Text(
-                            stringResource(R.string.notif_icon_cache_hint),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.fillMaxWidth().padding(12.dp),
-                        )
-                    }
-                }
-            }
             // 提醒强度
             item {
                 SectionHeader(stringResource(R.string.reminder_intensity))

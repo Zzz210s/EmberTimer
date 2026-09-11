@@ -95,26 +95,49 @@ class HomeViewModelTest {
         assertEquals(50 * 60_000L, vm.dayDetail.value?.totalMillis)
     }
 
-    @Test fun dayDetailLabelsDeletedProfile() = runTest {
-        // 配置删除后 daily_total 行成孤儿(无 FK,热力图历史保留):
-        // 孤儿行应显示固定文案而非 "?",时长与存活配置行均照实保留
+    @Test fun dayDetailHidesDeletedProfile() = runTest {
+        // v1.10.8:删除配置时级联清掉它的段落与合计 —— 每日详情不再出现"已删除配置"行
         val g = AppGraph(ctx, useInMemoryDb = true, storeFileName = "hv_deleted")
         g.bootstrap()
-        // #3 无种子行:存活/孤儿两行均由测试自建后删其一来构造
         val pomoId = g.profileRepo.create("番茄", 25, 5)
         val tempId = g.profileRepo.create("临时", 25, 5)
         val today = java.time.LocalDate.now()
         g.totalsRepo.addWork(today.toString(), pomoId, 30 * 60_000L)
         g.totalsRepo.addWork(today.toString(), tempId, 90 * 60_000L)
+        val zone = java.time.ZoneId.systemDefault()
+        val t0 = today.atStartOfDay(zone).toInstant().toEpochMilli()
+        g.totalsRepo.recordWorkSession(pomoId, t0 + 9 * 3_600_000L, t0 + 9 * 3_600_000L + 30 * 60_000L, zone)
+        g.totalsRepo.recomputeDay(today.toString(), zone)
         g.profileRepo.delete(g.profileRepo.byId(tempId)!!)
+        g.totalsRepo.deleteProfileData(tempId)
         val vm = HomeViewModel(g)
         vm.selectDay(today)
         val d = vm.dayDetail.first { it != null }!!
-        assertEquals(2, d.rows.size)
-        assertEquals(120 * 60_000L, d.totalMillis) // 总额含孤儿行
-        assertEquals("已删除时钟", d.rows[0].profileName) // 孤儿行 90 分钟,降序居首
-        assertEquals(90 * 60_000L, d.rows[0].millis)
-        assertEquals("番茄", d.rows[1].profileName) // 存活配置显示真实名称
-        assertEquals(30 * 60_000L, d.rows[1].millis)
+        assertEquals(1, d.rows.size)
+        assertEquals("番茄", d.rows[0].profileName)
+        // 行合计 == 该行时间段之和(单一数据源)
+        assertEquals(30 * 60_000L, d.rows[0].millis)
+        assertEquals(30 * 60_000L, d.rows[0].sessions.sumOf { it.second - it.first })
+        assertEquals(d.rows.sumOf { it.millis }, d.totalMillis)
+    }
+
+    @Test fun dayDetailRowTotalsEqualSpanSums() = runTest {
+        // v1.10.8:合并规则(间隔<=3 分钟)与合计同源:显示合并了几段,合计就含那几段
+        val g = AppGraph(ctx, useInMemoryDb = true, storeFileName = "hv_consistent")
+        g.bootstrap()
+        val id = g.profileRepo.create("专注", 25, 5)
+        val today = java.time.LocalDate.now()
+        val zone = java.time.ZoneId.systemDefault()
+        val t0 = today.atStartOfDay(zone).toInstant().toEpochMilli() + 9 * 3_600_000L
+        // 两段,间隔 2 分钟(<=3 分钟)-> 展示合并为一条,合计也算成 32 分钟
+        g.totalsRepo.recordWorkSession(id, t0, t0 + 10 * 60_000L, zone)
+        g.totalsRepo.recordWorkSession(id, t0 + 12 * 60_000L, t0 + 32 * 60_000L, zone)
+        g.totalsRepo.recomputeDay(today.toString(), zone)
+        val vm = HomeViewModel(g)
+        vm.selectDay(today)
+        val d = vm.dayDetail.first { it != null }!!
+        assertEquals(1, d.rows[0].sessions.size)
+        assertEquals(32 * 60_000L, d.rows[0].millis)
+        assertEquals(32 * 60_000L, d.totalMillis)
     }
 }

@@ -59,11 +59,12 @@ class ReportAggregateTest {
         assertEquals(listOf(minutes(60), minutes(30), minutes(45)), rows.map { it.millis })
     }
 
-    @Test fun profileTotalsSortedDescWithOrphanLabel() {
+    @Test fun profileTotalsSkipDeletedProfiles() {
+        // v1.10.8:已删除配置的孤儿行不再参与统计(删除时已级联清理,这里兜底过滤)
         val profiles = listOf(ProfileEntity(5, "深度", 25, 5, 0))
         val raw = listOf(dp("2026-09-01", 5, 30), dp("2026-09-02", 9, 90), dp("2026-09-03", 5, 10))
         val totals = reportProfileTotals(profiles, raw)
-        assertEquals(listOf("已删除时钟", "深度"), totals.map { it.profileName })
-        assertEquals(listOf(minutes(90), minutes(40)), totals.map { it.millis })
+        assertEquals(listOf("深度"), totals.map { it.profileName })
+        assertEquals(listOf(minutes(40)), totals.map { it.millis })
     }
 }

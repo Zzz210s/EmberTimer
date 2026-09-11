@@ -39,6 +39,22 @@ interface DailyTotalDao {
 
     @Query("SELECT * FROM daily_total ORDER BY date, profileId") suspend fun getAll(): List<DailyTotalEntity>
 
+    @Query("DELETE FROM daily_total WHERE date = :date") suspend fun deleteByDate(date: String)
+
+    @Query("DELETE FROM daily_total WHERE profileId = :profileId") suspend fun deleteByProfile(profileId: Long)
+
+    /**
+     * v1.10.8:数据版本"心跳"——任何表的插入/更新/删除都会改变该标量,
+     * 供自动备份监听"App 数据变动"(尤其是计时累计变动)。
+     */
+    @Query(
+        "SELECT (SELECT COUNT(*) FROM daily_total) * 1000003 " +
+            "+ (SELECT COUNT(*) FROM focus_session) * 1009 " +
+            "+ (SELECT COALESCE(SUM(workMillis), 0) FROM daily_total) " +
+            "+ (SELECT COUNT(*) FROM profile) * 7"
+    )
+    fun observeDataTick(): Flow<Long>
+
     /** v1.9.13 #43:报表往期回顾起点 —— 最早有数据的日期 */
     @Query("SELECT MIN(date) FROM daily_total") suspend fun earliestDate(): String?
 }

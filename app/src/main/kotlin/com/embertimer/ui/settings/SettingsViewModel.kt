@@ -106,7 +106,10 @@ class SettingsViewModel(val graph: AppGraph) : ViewModel() {
                 it.readBytes().toString(Charsets.UTF_8)
             } ?: ""
         }
-        com.embertimer.data.DataTransfer.importJson(graph.db, text).dailyTotals
+        val n = com.embertimer.data.DataTransfer.importJson(graph.db, text).dailyTotals
+        // v1.10.8:导入后按"段落派生"重算全部合计,保证与每日详情时间段之和一致
+        graph.totalsRepo.recomputeAllDays()
+        n
     }.getOrNull()
 
     fun refreshExactAlarm(context: Context) {
@@ -138,9 +141,14 @@ class SettingsViewModel(val graph: AppGraph) : ViewModel() {
             PolicyAction.IGNORED -> return false
             PolicyAction.RESET_THEN_DELETE -> {
                 graph.profileRepo.delete(p)
+                graph.totalsRepo.deleteProfileData(p.id)
                 return true // 调用方发 stop(顺序:reset 引擎结算后清快照;DB 行已删)
             }
-            PolicyAction.DELETE -> { graph.profileRepo.delete(p); return false }
+            PolicyAction.DELETE -> {
+                graph.profileRepo.delete(p)
+                graph.totalsRepo.deleteProfileData(p.id)  // v1.10.8:级联清段落/合计,避免"已删除配置"残留
+                return false
+            }
             else -> return false
         }
     }

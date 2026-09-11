@@ -75,10 +75,13 @@ fun reportRows(range: ReportRange, today: LocalDate, raw: List<DayProfileTotal>)
 fun reportProfileTotals(
     profiles: List<ProfileEntity>,
     raw: List<DayProfileTotal>,
-): List<ProfileTotalUi> = raw.groupBy { it.profileId }
+): List<ProfileTotalUi> = raw
+    // v1.10.8:已删除配置不参与统计(其段落/合计在删除时已级联清理,这里再兜一层)
+    .filter { r -> profiles.any { it.id == r.profileId } }
+    .groupBy { it.profileId }
     .map { (id, rs) ->
         ProfileTotalUi(
-            profileName = profiles.firstOrNull { it.id == id }?.name ?: "已删除时钟",
+            profileName = profiles.first { it.id == id }.name,
             millis = rs.sumOf { it.total },
         )
     }

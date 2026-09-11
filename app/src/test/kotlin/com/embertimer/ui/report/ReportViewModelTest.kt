@@ -122,17 +122,18 @@ class ReportViewModelTest {
         assertEquals(rowMillis(30, 20), v.ui.value.rows.map { it.millis })
     }
 
-    @Test fun deletedProfileShowsOrphanLabel() = runTest {
+    @Test fun deletedProfileDisappearsFromTotals() = runTest {
+        // v1.10.8:删除配置 -> 级联清段落/合计 -> 报表各时钟合计里不再出现该(或"已删除")行
         val g = graph("orphan")
         val a = g.profileRepo.create("番茄", 25, 5)
         g.totalsRepo.addWork("2026-09-01", a, 60 * 60_000L)
         val v = vm(g, "2026-09-06")
         v.refresh()
         assertEquals(listOf("番茄"), v.ui.value.profileTotals.map { it.profileName })
-        g.profileRepo.delete(g.profileRepo.byId(a)!!) // daily_total 无 FK 成孤儿行
+        g.profileRepo.delete(g.profileRepo.byId(a)!!)
+        g.totalsRepo.deleteProfileData(a)
         v.refresh()
-        assertEquals(listOf("已删除时钟"), v.ui.value.profileTotals.map { it.profileName })
-        assertEquals(60 * 60_000L, v.ui.value.profileTotals[0].millis)
+        assertEquals(emptyList<String>(), v.ui.value.profileTotals.map { it.profileName })
     }
 
     // ---- 生产自动刷新路径(init 的 combine/auto collect,不经显式 refresh)----
@@ -169,17 +170,17 @@ class ReportViewModelTest {
         assertEquals(30 * 60_000L, v.ui.value.profileTotals[0].millis)
     }
 
-    @Test fun autoRefreshShowsOrphanLabelAfterProfileDelete() = runTest {
+    @Test fun autoRefreshDropsDeletedProfileTotals() = runTest {
         val g = graph("auto_orphan")
         val a = g.profileRepo.create("番茄", 25, 5)
         g.totalsRepo.addWork("2026-09-01", a, 30 * 60_000L)
         val v = vm(g, "2026-09-06")
         shadowOf(Looper.getMainLooper()).idle()
         assertEquals(listOf("番茄"), v.ui.value.profileTotals.map { it.profileName })
-        // 设置页删除配置(无新记录、无 refresh):占位文案应自动出现
+        // 设置页删除配置(无新记录、无 refresh):该行应自动消失(Room 失效通知驱动)
         g.profileRepo.delete(g.profileRepo.byId(a)!!)
+        g.totalsRepo.deleteProfileData(a)
         shadowOf(Looper.getMainLooper()).idle()
-        assertEquals(listOf("已删除时钟"), v.ui.value.profileTotals.map { it.profileName })
-        assertEquals(30 * 60_000L, v.ui.value.profileTotals[0].millis)
+        assertEquals(emptyList<String>(), v.ui.value.profileTotals.map { it.profileName })
     }
 }

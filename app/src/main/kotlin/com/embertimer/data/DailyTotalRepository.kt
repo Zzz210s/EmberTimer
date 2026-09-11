@@ -79,8 +79,48 @@ class DailyTotalRepository(
             from = p[1]
         }
         if (endAt > from) segs += (from to endAt)
-        segs.forEach { (st, en) -> recordWorkSession(profileId, st, en, zone) }
+        val rows = ArrayList<com.embertimer.data.db.FocusSessionEntity>()
+        segs.forEach { (st, en) ->
+            val r = buildSessionRows(profileId, st, en, zone)
+            if (r.isNotEmpty()) { sessionDao.insertAll(r); rows += r }
+        }
+        // v1.10.8:当日合计改为"由段落派生"—— 与每日详情显示的时间段完全一致(而不是另算一份)
+        rows.map { segmentLocalDate(it.startAt, zone).toString() }.distinct()
+            .forEach { recomputeDay(it, zone) }
     }
+
+    /**
+     * v1.10.8:重算某日合计 = Σ(该日各配置段落经展示规则合并后的时长)。
+     * 这样"总累计"与"每日详情各时间段之和"必然相等(单一数据源,不再单独计算)。
+     */
+    suspend fun recomputeDay(date: String, zone: java.time.ZoneId = java.time.ZoneId.systemDefault()) {
+        val start = java.time.LocalDate.parse(date).atStartOfDay(zone).toInstant().toEpochMilli()
+        val end = java.time.LocalDate.parse(date).plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+        val rows = sessionDao.between(start, end)
+        db.withTransaction {
+            dao.deleteByDate(date)
+            rows.groupBy { it.profileId }.forEach { (pid, list) ->
+                val total = mergeSessions(list.map { it.startAt to it.endAt }).sumOf { it.second - it.first }
+                if (total > 0) dao.upsert(DailyTotalEntity(date, pid, total, time.now()))
+            }
+        }
+    }
+
+    /** v1.10.8:删除配置时级联清掉它的段落与每日合计(否则"已删除配置"仍会出现在每日详情里) */
+    suspend fun deleteProfileData(profileId: Long) {
+        db.withTransaction {
+            sessionDao.deleteByProfile(profileId)
+            dao.deleteByProfile(profileId)
+        }
+    }
+
+    /** v1.10.8:全量重算(升级用):把所有已有日期的合计按新规则重算 */
+    suspend fun recomputeAllDays(zone: java.time.ZoneId = java.time.ZoneId.systemDefault()) {
+        dao.getAll().map { it.date }.distinct().forEach { recomputeDay(it, zone) }
+    }
+
+    /** v1.10.8:数据变动心跳(自动备份监听用) */
+    fun dataTick(): Flow<Long> = dao.observeDataTick()
 
     /** v1.6 误触清理:删除短于 [minMs] 的段并把其时长从当日合计扣回(一次全量) */
     suspend fun pruneMisTouchSessions(minMs: Long, zone: java.time.ZoneId = java.time.ZoneId.systemDefault()) {
@@ -98,5 +138,8 @@ class DailyTotalRepository(
     }
 }
 
-/** 入库分段阈值:>= 1 分钟的暂停才在入库时切分(仅用于保留空档;展示合并阈值为 3 分钟) */
-const val PAUSE_SPLIT_MIN_MS: Long = 60_000L
+/**
+ * 入库分段阈值 = 展示合并阈值([MERGE_GAP_MS],3 分钟):暂停只要不超过 3 分钟就视为"连续专注",
+ * 入库不切分、合计照算、展示也不断开 —— 三处同源,保证"总累计 == 每日详情时间段之和"。
+ */
+const val PAUSE_SPLIT_MIN_MS: Long = MERGE_GAP_MS

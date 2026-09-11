@@ -7,6 +7,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/); versions fol
 ## [Unreleased]
 - Trunk-based branch model + GitHub Actions CI (test gate + tag-driven release publishing).
 
+## [1.10.8] - 2026-09-11
+### Changed
+- **Totals and day-detail spans now share one source**: totals are no longer accumulated separately - after each work
+  segment the day total equals the sum of that day's per-clock spans merged by the display rule (gaps <= 3 min count as
+  continuous), and the stored split threshold now matches the display threshold (3 min). So "grand total == sum of the
+  day-detail spans" holds by construction (existing data is recomputed once on upgrade).
+- **Deleting a clock cascades**: its focus segments and per-day totals are removed too, so day detail/reports no longer
+  show a "deleted" placeholder row.
+- **Auto-backup trigger** changed from "work segment finished" to "any data change" (especially totals): a data-table
+  heartbeat plus a 20 s quiet period enqueues one backup (same-named WorkManager job coalesces).
+- Day-detail period labels (morning/afternoon/...) now use the same text colour as the rest of the card.
+### Removed
+- The notification-icon cache hint in Settings (and its device-detection code).
+
 ## [1.10.7] - 2026-09-11
 ### Fixed
 - **No more two icons side by side**: the app no longer draws its own app icon inside the notification content (added in
