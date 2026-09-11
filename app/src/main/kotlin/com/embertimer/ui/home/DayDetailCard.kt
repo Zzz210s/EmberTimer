@@ -28,7 +28,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import com.embertimer.data.DayPeriod
 import com.embertimer.data.dayPeriodOf
@@ -86,6 +87,13 @@ private fun ProfileSection(row: DayDetailRow) {
         // 标识右侧为双列时间段,单行不换行。
         if (row.sessions.isNotEmpty()) {
             val zone = ZoneId.systemDefault()
+            // v1.10.10:列宽按**当前字体大小实测**得出(而不是写死 dp)——大字号/系统字体放大时
+            // 也不会把"Hh:mm ~ Hh:mm"截断或让标识被遮住。
+            val measurer = rememberTextMeasurer()
+            val labelStyle = MaterialTheme.typography.labelMedium
+            val density = LocalDensity.current
+            val periodColW = with(density) { measurer.measure("凌晨", labelStyle).size.width.toDp() } + 4.dp
+            val spanColW = with(density) { measurer.measure("00:00 ~ 00:00", labelStyle).size.width.toDp() } + 2.dp
             Column(Modifier.fillMaxWidth().padding(start = 18.dp, top = 2.dp)) {
                 groupByPeriod(row.sessions, zone).forEach { (period, spans) ->
                     spans.chunked(2).forEachIndexed { lineIdx, pair ->
@@ -96,13 +104,13 @@ private fun ProfileSection(row: DayDetailRow) {
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
                                 softWrap = false,
-                                modifier = Modifier.width(PERIOD_COL_W),
+                                modifier = Modifier.width(periodColW),
                             )
                             Spacer(Modifier.width(PERIOD_GAP_W))
-                            SpanText(pair[0], zone, Modifier.width(SPAN_COL_W))
+                            SpanText(pair[0], zone, Modifier.width(spanColW))
                             if (pair.size > 1) {
                                 Spacer(Modifier.width(SPAN_GAP_W))
-                                SpanText(pair[1], zone, Modifier.width(SPAN_COL_W))
+                                SpanText(pair[1], zone, Modifier.width(spanColW))
                             }
                         }
                     }
@@ -126,17 +134,11 @@ private fun SpanText(seg: Pair<Long, Long>, zone: ZoneId, modifier: Modifier = M
     )
 }
 
-/** 左侧大时段标识列宽(固定,保证下方时间段对齐) */
-private val PERIOD_COL_W = 34.dp
-
 /** 大时段标识与时间段之间的间距(比两列时间段之间大,层次更清楚) */
 private val PERIOD_GAP_W = 12.dp
 
-/** 单列时间段宽度("HH:mm ~ HH:mm" 单行不换行) */
-private val SPAN_COL_W = 100.dp
-
 /** 两列时间段之间的间距(收紧) */
-private val SPAN_GAP_W = 2.dp
+private val SPAN_GAP_W = 4.dp
 
 private fun periodRes(p: DayPeriod): Int = when (p) {
     DayPeriod.DAWN -> R.string.period_dawn

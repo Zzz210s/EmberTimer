@@ -7,6 +7,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/); versions fol
 ## [Unreleased]
 - Trunk-based branch model + GitHub Actions CI (test gate + tag-driven release publishing).
 
+## [1.10.10] - 2026-09-11
+### Fixed
+- Day-detail spans were clipped: the column width is now **measured at runtime for the current font scale**
+  (TextMeasurer) instead of a hard-coded 100dp, so "HH:mm ~ HH:mm" is never cut off and the period label is never
+  covered. Gap between the two span columns is 4dp.
+
 ## [1.10.9] - 2026-09-11
 ### Changed
 - Day-detail layout: the gap between the period label and the spans grew from 0 to 12dp, and the two span columns now
