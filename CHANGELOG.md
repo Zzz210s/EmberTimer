@@ -7,6 +7,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/); versions fol
 ## [Unreleased]
 - Trunk-based branch model + GitHub Actions CI (test gate + tag-driven release publishing).
 
+## [1.11.3] - 2026-09-11
+### Changed
+- **Span rules now live in the data layer** (not just display filtering): when a focus run ends, segments separated by
+  pauses of <=3 minutes are merged first, and anything still shorter than 3 minutes is **not written to the database**
+  (not stored, not shown, not counted). The write-path split threshold is unified with the display threshold at 3 minutes.
+- On upgrade, legacy rows are normalised once (short rows deleted, mergeable rows merged) and daily totals recomputed.
+### Fixed
+- **Corrupted backup file**: overwriting now deletes the existing file and creates a fresh one. Writing over the
+  old file with openOutputStream does not truncate on external-storage providers, so a shorter new JSON left the
+  tail of the previous one behind, making the backup unparsable (hit in practice).
+
 ## [1.11.1] - 2026-09-11
 ### Fixed
 - **Day-detail span rules restored**: merged spans shorter than **3 minutes** are dropped entirely (not shown,

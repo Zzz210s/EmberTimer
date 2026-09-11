@@ -25,22 +25,30 @@ open class EmberApp : Application() {
         val prefs = getSharedPreferences("ember_meta", MODE_PRIVATE)
         if (!prefs.getBoolean("pruned_mistouch_v16", false)) {
             kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default).launch {
-                runCatching { graph.totalsRepo.pruneMisTouchSessions(60_000L) }
-                prefs.edit().putBoolean("pruned_mistouch_v16", true).apply()
+                kotlinx.coroutines.delay(1_000)
+                val ok = runCatching { graph.totalsRepo.pruneMisTouchSessions(60_000L) }.isSuccess
+                if (ok) prefs.edit().putBoolean("pruned_mistouch_v16", true).apply()
             }
         }
         // v1.10.8:历史段落按新的"3 分钟连续"规则重算一次当日合计(保证合计 == 每日详情时间段之和)
         if (!prefs.getBoolean("recomputed_v1108", false)) {
             kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default).launch {
-                runCatching { graph.totalsRepo.recomputeAllDays() }
-                prefs.edit().putBoolean("recomputed_v1108", true).apply()
+                kotlinx.coroutines.delay(1_200)
+                val ok = runCatching { graph.totalsRepo.recomputeAllDays() }.isSuccess
+                if (ok) prefs.edit().putBoolean("recomputed_v1108", true).apply()
             }
         }
-        // v1.11.1:段落规则变更(合并后 <3 分钟丢弃)-> 一次性重算全部日期,使存量"合计"与新展示规则一致
-        if (!prefs.getBoolean("recomputed_v1111", false)) {
+        // v1.11.1:时段规则改为数据层规则(<=3 分钟合并、合并后 <3 分钟删除)—— 一次性清洗历史行并重算合计。
+        // 注意:只有**成功**才写标记 —— 启动瞬间 DB 可能被其它协程占用(SQLITE_BUSY),失败必须留待下次重试。
+        if (!prefs.getBoolean("normalized_v1111", false)) {
             kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default).launch {
-                runCatching { graph.totalsRepo.recomputeAllDays() }
-                prefs.edit().putBoolean("recomputed_v1111", true).apply()
+                kotlinx.coroutines.delay(1_500)
+                val ok = runCatching {
+                    com.embertimer.data.SessionNormalizer.normalizeAllSessionsOnce(
+                        graph.db, graph.db.focusSessionDao(), graph.totalsRepo,
+                    )
+                }.onFailure { android.util.Log.w("EmberApp", "session normalize failed", it) }.isSuccess
+                if (ok) prefs.edit().putBoolean("normalized_v1111", true).apply()
             }
         }
         watchDataChanges()

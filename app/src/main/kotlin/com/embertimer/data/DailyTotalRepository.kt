@@ -68,7 +68,7 @@ class DailyTotalRepository(
         startAt: Long,
         endAt: Long,
         pauses: List<LongArray>,
-        minMs: Long = PAUSE_SPLIT_MIN_MS,
+        minMs: Long = MERGE_GAP_MS,
         zone: java.time.ZoneId = java.time.ZoneId.systemDefault(),
     ) {
         val cur = startAt
@@ -79,8 +79,9 @@ class DailyTotalRepository(
             from = p[1]
         }
         if (endAt > from) segs += (from to endAt)
+        // v1.11.1:数据层规则 —— 间隔 <=3 分钟合并、合并后 <3 分钟的段落不落库(与展示同源)
         val rows = ArrayList<com.embertimer.data.db.FocusSessionEntity>()
-        segs.forEach { (st, en) ->
+        mergeSessions(segs).forEach { (st, en) ->
             val r = buildSessionRows(profileId, st, en, zone)
             if (r.isNotEmpty()) { sessionDao.insertAll(r); rows += r }
         }

@@ -24,7 +24,7 @@ import org.robolectric.annotation.Config
 @Config(sdk = [33])
 class TotalsConsistencyTest {
     private val ctx: Context = ApplicationProvider.getApplicationContext()
-    private val db = EmberDatabase.build(ctx)
+    private val db = EmberDatabase.build(ctx, "totals_consistency.db")
     private val now = 1_700_000_000_000L
     private val time = object : TimeProvider {
         override fun now(): Long = now
@@ -86,7 +86,8 @@ class TotalsConsistencyTest {
 
     /** 数据变动心跳:任何写入都会改变它(自动备份的触发源) */
     @Test fun dataTickChangesOnWrite() = runTest {
-        wipe()
+        // 不在此用例清表:dataTick() 是观察 Flow(持有查询),清表会与它抢锁(SQLITE_BUSY)。
+        // 断言只要求"写入后心跳变化",与存量数据无关。
         day = LocalDate.of(2026, 9, 4)
         val before = repo.dataTick().first()
         repo.recordWorkSessionSplit(3L, dayMs() + 3_600_000L, dayMs() + 3_600_000L + 600_000L, emptyList(), zone = zone)

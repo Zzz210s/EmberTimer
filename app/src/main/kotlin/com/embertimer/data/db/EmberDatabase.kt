@@ -36,8 +36,12 @@ abstract class EmberDatabase : RoomDatabase() {
             }
         }
 
-        fun build(context: Context): EmberDatabase =
-            Room.databaseBuilder(context, EmberDatabase::class.java, "ember.db")
+        /**
+         * v1.11.2:[name] 可覆盖库文件名 —— 单元测试用它给每个测试类独立的库文件,
+         * 避免同一 Robolectric 沙箱里多个测试类共享 "ember.db" 造成的 SQLITE_BUSY / 数据串扰。
+         */
+        fun build(context: Context, name: String = "ember.db"): EmberDatabase =
+            Room.databaseBuilder(context, EmberDatabase::class.java, name)
                 .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 .build()
     }

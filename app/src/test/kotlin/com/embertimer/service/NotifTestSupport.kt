@@ -1,5 +1,8 @@
 package com.embertimer.service
 
+import org.junit.Assert.assertEquals
+import org.junit.Test
+
 import com.embertimer.timer.EngineStatus
 import com.embertimer.timer.Phase
 import com.embertimer.timer.RuntimeSnapshot
@@ -34,3 +37,24 @@ internal fun snapOf(
         return null
     }
 
+
+/** v1.11.1 由 NotificationsTest 拆出:轮询节拍锚定到期时刻 */
+class TickerDelayTest {
+    @Test fun adaptiveTickerDelayIsCoarseUntilNearDeadline() {
+        // v1.11.0 省电:剩余 >5s 时 15s 一次;临近到点 500ms;正计时/空闲恒 15s
+        val now = 1_000_000L
+        fun snapOf(end: Long, countUp: Boolean = false, status: EngineStatus = EngineStatus.RUNNING) = RuntimeSnapshot(
+            profileId = 1, workMillis = 60_000, restMillis = 60_000, phase = Phase.WORK, status = status,
+            cycleCount = 0, startElapsed = now - 1_000, endElapsed = end, endWall = 0L,
+            timeSpentPaused = 0L, lastPauseTime = 0L, timeAtPause = 0L,
+            savedAtWall = 0L, savedAtElapsed = 0L, ckptDate = null, ckptAccum = 0L, countUp = countUp,
+        )
+        // 粗节拍 15s;不足 15s 时按剩余时间等待(锚定到到期时刻,避免越过 00:00);极短则 500ms 兜底
+        org.junit.Assert.assertEquals(15_000L, com.embertimer.service.nextDelayMs(snapOf(endElapsed = now + 60_000), now))
+        org.junit.Assert.assertEquals(8_000L, com.embertimer.service.nextDelayMs(snapOf(endElapsed = now + 8_000), now))
+        org.junit.Assert.assertEquals(2_000L, com.embertimer.service.nextDelayMs(snapOf(endElapsed = now + 2_000), now))
+        org.junit.Assert.assertEquals(500L, com.embertimer.service.nextDelayMs(snapOf(endElapsed = now - 1_000), now))
+        org.junit.Assert.assertEquals(15_000L, com.embertimer.service.nextDelayMs(snapOf(endElapsed = now + 60_000, countUp = true), now))
+        org.junit.Assert.assertEquals(15_000L, com.embertimer.service.nextDelayMs(null, now))
+    }
+}

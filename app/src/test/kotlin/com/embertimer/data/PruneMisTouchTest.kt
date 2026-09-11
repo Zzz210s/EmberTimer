@@ -33,7 +33,7 @@ class PruneMisTouchTest {
 
     @Test fun longPauseSplitsWorkSession() = runTest {
         val ctx = ApplicationProvider.getApplicationContext<Context>()
-        db = EmberDatabase.build(ctx)
+        db = EmberDatabase.build(ctx, "prune_mistouch.db")
         val repo = DailyTotalRepository(db!!, db!!.dailyTotalDao(), db!!.focusSessionDao(), time)
         val zone = ZoneId.of("UTC")
         val dayStart = java.time.LocalDate.of(2026, 9, 5).atStartOfDay(zone).toInstant().toEpochMilli()
@@ -55,7 +55,7 @@ class PruneMisTouchTest {
 
     @Test fun pruneRemovesShortSessionsAndDeductsTotals() = runTest {
         val ctx = ApplicationProvider.getApplicationContext<Context>()
-        db = EmberDatabase.build(ctx)
+        db = EmberDatabase.build(ctx, "prune_mistouch.db")
         val repo = DailyTotalRepository(db!!, db!!.dailyTotalDao(), db!!.focusSessionDao(), time)
         val zone = ZoneId.of("UTC")
         // 同一天:一段 20s(误触)+ 一段 10 分钟(正常)
