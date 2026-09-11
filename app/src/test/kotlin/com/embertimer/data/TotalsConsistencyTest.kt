@@ -35,47 +35,49 @@ class TotalsConsistencyTest {
 
     @After fun tearDown() = db.close()
 
-    private fun todayMs(): Long = LocalDate.now().atStartOfDay(zone).toInstant().toEpochMilli()
+    /** 用固定的历史日期,避免同一 Robolectric 沙箱里其它用例(或今天的数据)造成相互干扰 */
+    private val day: LocalDate = LocalDate.of(2026, 9, 1)
+    private fun dayMs(): Long = day.atStartOfDay(zone).toInstant().toEpochMilli()
 
     /** 间隔 <=3 分钟的相邻段落:展示合并为一条,合计 = 合并后时长(而不是各段原样相加) */
     @Test fun totalsEqualMergedSpans() = runTest {
-        val t0 = todayMs() + 9 * 3_600_000L
+        val t0 = dayMs() + 9 * 3_600_000L
         repo.recordWorkSessionSplit(1L, t0, t0 + 10 * 60_000L, emptyList(), zone = zone)
         repo.recordWorkSessionSplit(1L, t0 + 12 * 60_000L, t0 + 32 * 60_000L, emptyList(), zone = zone)
-        val date = LocalDate.now().toString()
+        val date = day.toString()
         val rows = repo.breakdownByDate(date)
         assertEquals(1, rows.size)
         // 10 + 2(空档) + 20 = 32 分钟 —— 与展示合并后的时间段之和一致
         assertEquals(32 * 60_000L, rows[0].total)
         val spans = mergeSessions(
-            repo.sessionsBetween(todayMs(), todayMs() + 86_400_000L).map { it.startAt to it.endAt },
+            repo.sessionsBetween(dayMs(), dayMs() + 86_400_000L).map { it.startAt to it.endAt },
         )
         assertEquals(rows[0].total, spans.sumOf { it.second - it.first })
     }
 
     /** 超过 3 分钟的空档不并入:合计只算实际两段 */
     @Test fun longGapStaysSplit() = runTest {
-        val t0 = todayMs() + 9 * 3_600_000L
+        val t0 = dayMs() + 9 * 3_600_000L
         repo.recordWorkSessionSplit(1L, t0, t0 + 10 * 60_000L, emptyList(), zone = zone)
         repo.recordWorkSessionSplit(1L, t0 + 20 * 60_000L, t0 + 30 * 60_000L, emptyList(), zone = zone)
-        val rows = repo.breakdownByDate(LocalDate.now().toString())
+        val rows = repo.breakdownByDate(day.toString())
         assertEquals(20 * 60_000L, rows[0].total)
     }
 
     /** 删除配置:段落与合计级联清理 */
     @Test fun deletingProfileCascadesData() = runTest {
-        val t0 = todayMs() + 9 * 3_600_000L
+        val t0 = dayMs() + 9 * 3_600_000L
         repo.recordWorkSessionSplit(7L, t0, t0 + 30 * 60_000L, emptyList(), zone = zone)
-        assertEquals(1, repo.breakdownByDate(LocalDate.now().toString()).size)
+        assertEquals(1, repo.breakdownByDate(day.toString()).size)
         repo.deleteProfileData(7L)
-        assertTrue(repo.breakdownByDate(LocalDate.now().toString()).isEmpty())
-        assertTrue(repo.sessionsBetween(todayMs(), todayMs() + 86_400_000L).isEmpty())
+        assertTrue(repo.breakdownByDate(day.toString()).isEmpty())
+        assertTrue(repo.sessionsBetween(dayMs(), dayMs() + 86_400_000L).isEmpty())
     }
 
     /** 数据变动心跳:任何写入都会改变它(自动备份的触发源) */
     @Test fun dataTickChangesOnWrite() = runTest {
         val before = repo.dataTick().first()
-        repo.recordWorkSessionSplit(3L, todayMs() + 3_600_000L, todayMs() + 3_600_000L + 600_000L, emptyList(), zone = zone)
+        repo.recordWorkSessionSplit(3L, dayMs() + 3_600_000L, dayMs() + 3_600_000L + 600_000L, emptyList(), zone = zone)
         val after = repo.dataTick().first()
         assertNotEquals(before, after)
     }

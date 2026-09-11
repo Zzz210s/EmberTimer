@@ -29,6 +29,9 @@ object TimerNotifications {
     const val CH_TIMER = "ember_timer"
     const val ID_NOTIFY = 1
 
+    /** 通知"对号"确认按钮的 PendingIntent requestCode(v1.10.11) */
+    private const val ACK_REQ = 0x9A
+
     fun ensureChannels(context: Context) {
         val nm = context.getSystemService(NotificationManager::class.java) ?: return
         nm.createNotificationChannel(
@@ -53,46 +56,6 @@ object TimerNotifications {
             .build()
 
     /** 空闲常驻通知:RemoteViews(相位图标 + 时钟名 + 右侧启动图标按钮),计时后被同 ID 覆盖 */
-    fun idle(context: Context, profile: com.embertimer.data.db.ProfileEntity?): Notification {
-        val rv = RemoteViews(context.packageName, R.layout.notification_idle)
-        rv.setImageViewResource(R.id.idle_phase, R.drawable.ic_phase_idle)
-        val name = profile?.name ?: context.getString(R.string.unselected_placeholder)
-        rv.setTextViewText(R.id.idle_name, name)
-        if (profile != null) {
-            rv.setViewVisibility(R.id.idle_start, View.VISIBLE)
-            rv.setImageViewResource(R.id.idle_start, R.drawable.ic_play)
-            rv.setOnClickPendingIntent(R.id.idle_start, startPendingIntent(context, profile))
-            rv.setContentDescription(R.id.idle_start, context.getString(R.string.notif_start))
-        } else {
-            rv.setViewVisibility(R.id.idle_start, View.GONE)
-        }
-        return NotificationCompat.Builder(context, CH_TIMER)
-            .setSmallIcon(R.drawable.ic_notif_flame)
-            .setContentTitle(name)
-            .setContentText(" ")
-            .setOngoing(true)
-            .setOnlyAlertOnce(true)
-            .setShowWhen(false)
-            .setCategory(NotificationCompat.CATEGORY_STATUS)
-            .setContentIntent(activityIntent(context))
-            .setCustomContentView(rv)
-            .build()
-    }
-
-    /** 软件运行即显示常驻空闲通知(权限未授予/异常时静默降级);显示当前时钟名与启动按钮 */
-    fun showIdle(context: Context) {
-        ensureChannels(context)
-        val app = context.applicationContext as com.embertimer.EmberApp
-        app.graph.appScope.launch {
-            val pid = app.graph.settingsRepo.activeProfileId.first()
-            val profile = if (pid != -1L) app.graph.profileRepo.byId(pid) else null
-            try {
-                context.getSystemService(NotificationManager::class.java)?.notify(ID_NOTIFY, idle(context, profile))
-            } catch (_: Throwable) {
-            }
-        }
-    }
-
     fun inProgress(context: Context, snap: RuntimeSnapshot): Notification {
         val phaseText = context.getString(
             if (snap.phase == Phase.WORK) R.string.state_work else R.string.state_rest,
@@ -116,6 +79,10 @@ object TimerNotifications {
         // Chronometer 的 base 必须基于 elapsedRealtime(墙钟 endWall 会导致倒计时错/空);暂停态定格文本
         if (paused) {
             rv.setTextViewText(R.id.notif_time, DurationFormat.ms(snap.timeAtPause))
+        } else if (!countUp && snap.endElapsed <= android.os.SystemClock.elapsedRealtime()) {
+            // v1.10.11:倒计时已过 00:00 —— 系统 Chronometer 会继续往负数走(Doze/进程被冻结时
+            // 到点推进来不及),这里改为静态 00:00,任何情况下都不出现负数计时。
+            rv.setTextViewText(R.id.notif_time, "00:00")
         } else {
             val spec = buildClockSpec(snap)
             rv.setChronometerCountDown(R.id.notif_time, spec.countDown)
@@ -124,15 +91,15 @@ object TimerNotifications {
 
         // 行2 图标按钮:终止 | 开始/暂停 | 跳过(正计时无跳过)
         rv.setImageViewResource(R.id.btn_stop, R.drawable.ic_stop)
-        rv.setOnClickPendingIntent(R.id.btn_stop, serviceIntent(context, TimerService.ACTION_STOP))
+        rv.setOnClickPendingIntent(R.id.btn_stop, serviceIntent(context, ACTION_STOP))
         rv.setImageViewResource(R.id.btn_pause, if (paused) R.drawable.ic_play else R.drawable.ic_pause)
-        rv.setOnClickPendingIntent(R.id.btn_pause, serviceIntent(context, if (paused) TimerService.ACTION_RESUME else TimerService.ACTION_PAUSE))
+        rv.setOnClickPendingIntent(R.id.btn_pause, serviceIntent(context, if (paused) ACTION_RESUME else ACTION_PAUSE))
         if (countUp) {
             rv.setViewVisibility(R.id.btn_skip, android.view.View.GONE)
         } else {
             rv.setViewVisibility(R.id.btn_skip, android.view.View.VISIBLE)
             rv.setImageViewResource(R.id.btn_skip, R.drawable.ic_skip_next)
-            rv.setOnClickPendingIntent(R.id.btn_skip, serviceIntent(context, TimerService.ACTION_SKIP))
+            rv.setOnClickPendingIntent(R.id.btn_skip, serviceIntent(context, ACTION_SKIP))
         }
 
         return NotificationCompat.Builder(context, CH_TIMER)
@@ -160,22 +127,13 @@ object TimerNotifications {
             .setAutoCancel(true)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setContentIntent(activityIntent(context))
+            // v1.10.11:右侧对号按钮 = 确认收到,清除本条通知(不打开应用,不干扰后续通知)
+            .addAction(R.drawable.ic_check, " ", TimerNotifIdle.ackPendingIntent(context))
             .build()
     }
 
     private fun activityIntent(context: Context): PendingIntent = PendingIntent.getActivity(
         context, 0, Intent(context, MainActivity::class.java),
-        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-    )
-
-    /** 空闲通知“启动”按钮:直接对服务发 ACTION_START(startForegroundService 由用户点击触发合法) */
-    private fun startPendingIntent(context: Context, profile: com.embertimer.data.db.ProfileEntity): PendingIntent = PendingIntent.getService(
-        context, profile.id.hashCode(),
-        TimerCommands.startIntent(
-            context, profile.id,
-            profile.workMinutes * 60_000L, profile.restMinutes * 60_000L,
-            profile.mode == com.embertimer.data.db.ProfileMode.COUNTUP,
-        ),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
 

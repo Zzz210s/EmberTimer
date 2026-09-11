@@ -7,6 +7,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/); versions fol
 ## [Unreleased]
 - Trunk-based branch model + GitHub Actions CI (test gate + tag-driven release publishing).
 
+## [1.10.11] - 2026-09-11
+### Fixed
+- The notification countdown no longer goes negative: once the deadline has passed while the process was frozen, the
+  notification shows a static 00:00 instead of letting the system Chronometer run below zero.
+- Day-detail span columns now sit 10dp apart (was 4dp), and the column width uses `widthIn(min = measured)` so text is
+  never clipped or covered.
+### Added
+- The reminder notification ("take a break" / "back to work") now has a **check icon button**: tapping confirms and
+  clears that notification without opening the app.
+
 ## [1.10.10] - 2026-09-11
 ### Fixed
 - Day-detail spans were clipped: the column width is now **measured at runtime for the current font scale**

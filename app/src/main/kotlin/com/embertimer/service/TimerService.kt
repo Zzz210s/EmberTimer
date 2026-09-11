@@ -71,7 +71,7 @@ class TimerService : Service() {
             onSelfStop = {
                 // v1.9.13 #41:恢复常驻 —— 脱离前台保留通知,换为空闲常驻(不撤,无闪断)
                 stopForeground(STOP_FOREGROUND_DETACH)
-                TimerNotifications.showIdle(this)
+                TimerNotifIdle.showIdle(this)
                 stopSelf()
             },
         )
@@ -94,6 +94,11 @@ class TimerService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val action0 = intent?.action
+        if (action0 == ACTION_ACK) {
+            // v1.10.11:通知"对号"确认 —— 只清除提醒通知,不改变计时状态
+            TimerNotifIdle.cancel(this)
+            return START_STICKY
+        }
         if (action0 == ACTION_START) awaitingSnapshot = true
         firstCommandReceived.complete(Unit)
         // 同步前台化后再异步处理;null/intent-less(START_STICKY/ServiceLauncher)同走对账。
@@ -164,7 +169,7 @@ class TimerService : Service() {
                 else -> {
                     // v1.9.13 #41:恢复常驻 —— 脱离前台保留通知,换为空闲常驻
                     stopForeground(STOP_FOREGROUND_DETACH)
-                    TimerNotifications.showIdle(this)
+                    TimerNotifIdle.showIdle(this)
                     stopSelf()
                 }
             }
@@ -185,15 +190,5 @@ class TimerService : Service() {
 
     companion object {
         private const val TAG = "TimerService"
-        const val ACTION_START = "com.embertimer.action.START"
-        const val ACTION_PAUSE = "com.embertimer.action.PAUSE"
-        const val ACTION_RESUME = "com.embertimer.action.RESUME"
-        const val ACTION_STOP = "com.embertimer.action.STOP"
-        const val ACTION_SKIP = "com.embertimer.action.SKIP"
-        const val ACTION_RESTART_PHASE = "com.embertimer.action.RESTART_PHASE"
-        const val EXTRA_PROFILE_ID = "profile_id"
-        const val EXTRA_WORK_MILLIS = "work_millis"
-        const val EXTRA_REST_MILLIS = "rest_millis"
-        const val EXTRA_COUNT_UP = "count_up"
     }
 }

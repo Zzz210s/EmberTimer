@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -107,10 +108,10 @@ private fun ProfileSection(row: DayDetailRow) {
                                 modifier = Modifier.width(periodColW),
                             )
                             Spacer(Modifier.width(PERIOD_GAP_W))
-                            SpanText(pair[0], zone, Modifier.width(spanColW))
+                            SpanText(pair[0], zone, Modifier.widthIn(min = spanColW))
                             if (pair.size > 1) {
                                 Spacer(Modifier.width(SPAN_GAP_W))
-                                SpanText(pair[1], zone, Modifier.width(spanColW))
+                                SpanText(pair[1], zone, Modifier.widthIn(min = spanColW))
                             }
                         }
                     }
@@ -138,7 +139,7 @@ private fun SpanText(seg: Pair<Long, Long>, zone: ZoneId, modifier: Modifier = M
 private val PERIOD_GAP_W = 12.dp
 
 /** 两列时间段之间的间距(收紧) */
-private val SPAN_GAP_W = 4.dp
+private val SPAN_GAP_W = 10.dp
 
 private fun periodRes(p: DayPeriod): Int = when (p) {
     DayPeriod.DAWN -> R.string.period_dawn

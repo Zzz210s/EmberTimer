@@ -13,7 +13,7 @@ internal suspend fun TimerService.awaitStopDrainedAndTearDown() {
     if (g.engine.snapshot.value == null) {
         // v1.9.13 #41:恢复常驻 —— 脱离前台保留通知,换为空闲常驻
         stopForeground(Service.STOP_FOREGROUND_DETACH)
-        TimerNotifications.showIdle(this)
+        TimerNotifIdle.showIdle(this)
         stopSelf()
     }
 }
