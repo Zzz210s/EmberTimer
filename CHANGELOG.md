@@ -7,6 +7,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/); versions fol
 ## [Unreleased]
 - Trunk-based branch model + GitHub Actions CI (test gate + tag-driven release publishing).
 
+## [1.10.9] - 2026-09-11
+### Changed
+- Day-detail layout: the gap between the period label and the spans grew from 0 to 12dp, and the two span columns now
+  use a fixed 100dp width with a 2dp gap instead of each taking half the row (the old layout left a big blank gap for
+  short spans). Measured: label to span 11.6dp, span to span 1.8dp.
+- Settings: removed all descriptive hint paragraphs (backup / auto-backup / uninstall notes), keeping only section
+  headers, controls and status.
+
 ## [1.10.8] - 2026-09-11
 ### Changed
 - **Totals and day-detail spans now share one source**: totals are no longer accumulated separately - after each work

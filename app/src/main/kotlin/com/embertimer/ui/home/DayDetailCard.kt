@@ -98,9 +98,12 @@ private fun ProfileSection(row: DayDetailRow) {
                                 softWrap = false,
                                 modifier = Modifier.width(PERIOD_COL_W),
                             )
-                            SpanText(pair[0], zone, Modifier.weight(1f))
-                            if (pair.size > 1) SpanText(pair[1], zone, Modifier.weight(1f))
-                            else Spacer(Modifier.weight(1f))
+                            Spacer(Modifier.width(PERIOD_GAP_W))
+                            SpanText(pair[0], zone, Modifier.width(SPAN_COL_W))
+                            if (pair.size > 1) {
+                                Spacer(Modifier.width(SPAN_GAP_W))
+                                SpanText(pair[1], zone, Modifier.width(SPAN_COL_W))
+                            }
                         }
                     }
                 }
@@ -124,7 +127,16 @@ private fun SpanText(seg: Pair<Long, Long>, zone: ZoneId, modifier: Modifier = M
 }
 
 /** 左侧大时段标识列宽(固定,保证下方时间段对齐) */
-private val PERIOD_COL_W = 32.dp
+private val PERIOD_COL_W = 34.dp
+
+/** 大时段标识与时间段之间的间距(比两列时间段之间大,层次更清楚) */
+private val PERIOD_GAP_W = 12.dp
+
+/** 单列时间段宽度("HH:mm ~ HH:mm" 单行不换行) */
+private val SPAN_COL_W = 100.dp
+
+/** 两列时间段之间的间距(收紧) */
+private val SPAN_GAP_W = 2.dp
 
 private fun periodRes(p: DayPeriod): Int = when (p) {
     DayPeriod.DAWN -> R.string.period_dawn

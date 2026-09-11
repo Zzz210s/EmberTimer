@@ -116,12 +116,6 @@ fun SettingsScreen(
                             OutlinedButton(onClick = onBackup) { Text(stringResource(R.string.export_data)) }
                             OutlinedButton(onClick = onRestore) { Text(stringResource(R.string.import_data)) }
                         }
-                        Text(
-                            stringResource(R.string.backup_hint),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 6.dp),
-                        )
                         AutoBackupSection(vm)
                     }
                 }

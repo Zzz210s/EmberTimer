@@ -122,14 +122,11 @@
     <string name="report_pick_period">选择周期</string>
     <string name="report_search_hint">yyyy-MM-dd / yyyy-MM</string>
     <string name="report_search_empty">没有匹配的周期</string>
-    <string name="backup_hint">可存到任意网盘/文件夹(含 Google 网盘、本地文件),恢复时选同一文件</string>
     <string name="autobackup_title">自动备份</string>
-    <string name="autobackup_desc">每日自动备份到所选网盘/文件夹(需开启系统云备份作为兜底)</string>
     <string name="autobackup_pick_target">选择备份目录</string>
     <string name="autobackup_no_target">尚未选择备份目录</string>
     <string name="autobackup_target">备份目录: %1$s</string>
     <string name="autobackup_last">上次备份: %1$s</string>
-    <string name="autobackup_uninstall_note">提示:卸载后重装,若系统云备份开启,数据会自动恢复。建议开启系统"备份到 Google 云"。</string>
     <string name="alarm_banner_header">精确闹钟</string>
     <string name="appearance_section">外观</string>
     <string name="notif_start">启动</string>

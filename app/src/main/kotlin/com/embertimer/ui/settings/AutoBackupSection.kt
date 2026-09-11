@@ -44,14 +44,11 @@ internal fun AutoBackupSection(vm: SettingsViewModel) {
 
     HorizontalDivider(Modifier.padding(vertical = 10.dp))
     Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) {
-            Text(stringResource(R.string.autobackup_title), style = MaterialTheme.typography.titleMedium)
-            Text(
-                stringResource(R.string.autobackup_desc),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+        Text(
+            stringResource(R.string.autobackup_title),
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.weight(1f),
+        )
         Switch(
             checked = ui.value.autoBackup,
             onCheckedChange = { on -> vm.setAutoBackup(ctx, on) },
@@ -66,12 +63,6 @@ internal fun AutoBackupSection(vm: SettingsViewModel) {
         Text(
             if (ui.value.backupUri.isNullOrEmpty()) stringResource(R.string.autobackup_no_target)
             else stringResource(R.string.autobackup_target, ui.value.backupUri!!),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 6.dp),
-        )
-        Text(
-            stringResource(R.string.autobackup_uninstall_note),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 6.dp),

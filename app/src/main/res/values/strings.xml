@@ -122,14 +122,11 @@
     <string name="report_pick_period">Pick period</string>
     <string name="report_search_hint">yyyy-MM-dd / yyyy-MM</string>
     <string name="report_search_empty">No matching period</string>
-    <string name="backup_hint">Save to any cloud drive or folder (incl. Google Drive, local files); pick the same file to restore</string>
     <string name="autobackup_title">Auto backup</string>
-    <string name="autobackup_desc">Daily auto-backup to the chosen cloud drive/folder</string>
     <string name="autobackup_pick_target">Pick backup folder</string>
     <string name="autobackup_no_target">No backup folder selected</string>
     <string name="autobackup_target">Folder: %1$s</string>
     <string name="autobackup_last">Last backup: %1$s</string>
-    <string name="autobackup_uninstall_note">Note: after uninstall+reinstall, data auto-restores if system cloud backup is on. Enable it for safety.</string>
     <string name="alarm_banner_header">Precise alarm</string>
     <string name="appearance_section">Appearance</string>
     <string name="notif_start">Start</string>
