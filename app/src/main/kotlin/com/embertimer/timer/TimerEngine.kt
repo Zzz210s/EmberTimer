@@ -34,10 +34,6 @@ class TimerEngine(
     private val el get() = time.elapsedRealtime()
     private val wall get() = time.now()
 
-    private var workWinStart: Long? = null
-    private val workPauseGaps = mutableListOf<LongArray>()
-    private var pauseStartWall: Long? = null
-
     suspend fun awaitReady() { ready.first { it } }
 
     /** 应用启动时从持久化恢复;之后置 ready */
@@ -62,9 +58,8 @@ class TimerEngine(
             startElapsed = e, endElapsed = e + workMillis, endWall = w + workMillis,
             timeSpentPaused = 0, lastPauseTime = 0, timeAtPause = 0,
             savedAtWall = w, savedAtElapsed = e, ckptDate = null, ckptAccum = 0, countUp = countUp,
+            sessionStartWall = w, pauseStartWall = null, pauseGaps = "",
         )
-        workWinStart = w
-        workPauseGaps.clear(); pauseStartWall = null
         save()
         emit(EngineEvent.PhaseStarted(Phase.WORK, e + workMillis, w + workMillis))
     }
@@ -73,12 +68,12 @@ class TimerEngine(
         val cur = _snapshot.value ?: return
         if (cur.status != EngineStatus.RUNNING) return
         val e = el; val w = wall
-        if (cur.phase == Phase.WORK) pauseStartWall = w
         // 暂停存“剩余”(倒计时)或“暂停时已走时长”(正计时 accrued)
         val atPause = (if (cur.countUp) (e - cur.startElapsed - cur.timeSpentPaused) else (cur.endElapsed - e)).coerceAtLeast(0)
         _snapshot.value = cur.copy(
             status = EngineStatus.PAUSED, timeAtPause = atPause, lastPauseTime = e,
             savedAtWall = w, savedAtElapsed = e,
+            pauseStartWall = if (cur.phase == Phase.WORK) w else null,
         )
         save()
         emit(EngineEvent.Paused(atPause))
@@ -93,6 +88,10 @@ class TimerEngine(
         }
         val newEnd = if (cur.countUp) e - frozenAccrued + cur.durationMillis else e + cur.timeAtPause
         val newEndWall = if (cur.countUp) w - frozenAccrued + cur.durationMillis else w + cur.timeAtPause
+        // 进行中的暂停并入空档串(窗口随快照持久化)
+        val gaps = if (cur.pauseStartWall != null) {
+            cur.pauseGaps + (if (cur.pauseGaps.isEmpty()) "" else ";") + "${cur.pauseStartWall},$w"
+        } else cur.pauseGaps
         _snapshot.value = cur.copy(
             status = EngineStatus.RUNNING,
             startElapsed = e - frozenAccrued,
@@ -100,11 +99,10 @@ class TimerEngine(
             timeSpentPaused = 0,
             lastPauseTime = 0, timeAtPause = 0,
             savedAtWall = w, savedAtElapsed = e,
+            sessionStartWall = if (cur.phase == Phase.WORK && cur.sessionStartWall == null) w else cur.sessionStartWall,
+            pauseStartWall = null,
+            pauseGaps = gaps,
         )
-        if (cur.phase == Phase.WORK && workWinStart == null) workWinStart = w
-        if (cur.phase == Phase.WORK && pauseStartWall != null) {
-            workPauseGaps += longArrayOf(pauseStartWall!!, w); pauseStartWall = null
-        }
         save()
         emit(EngineEvent.Resumed(newEnd, newEndWall))
     }
@@ -135,17 +133,10 @@ class TimerEngine(
         }
     }
 
-    private fun takeWindowIfWork(phase: Phase): Pair<Long?, Long?> {
-        if (phase != Phase.WORK) return null to null
-        val st = workWinStart ?: wall; workWinStart = null
-        val end = wall; workPauseGaps.clear(); pauseStartWall = null
-        return st to end
-    }
-
-    private fun RuntimeSnapshot.takeGapsIfWork(): List<LongArray> {
-        if (phase != Phase.WORK) return emptyList()
-        val g = workPauseGaps.toList(); workPauseGaps.clear(); pauseStartWall = null
-        return g
+    /** 结算窗口:起点取快照持久化的 sessionStartWall(缺失则退化为"现在"),终点=现在 */
+    private fun takeWindowIfWork(cur: RuntimeSnapshot): Pair<Long?, Long?> {
+        if (cur.phase != Phase.WORK) return null to null
+        return (cur.sessionStartWall ?: wall) to wall
     }
 
     fun reset() {
@@ -154,8 +145,8 @@ class TimerEngine(
             else if (cur.countUp) el else el.coerceAtMost(cur.endElapsed) // 正计时全额结算(可超 workMillis)
         val settle = cur.settleMillis(settleAt)
         val profileId = cur.profileId
-        val (sesStart, sesEnd) = takeWindowIfWork(cur.phase)
-        val gaps = cur.takeGapsIfWork()
+        val (sesStart, sesEnd) = takeWindowIfWork(cur)
+        val gaps = if (cur.phase == Phase.WORK) cur.pauseWindows() else emptyList()
         _snapshot.value = null
         save()
         emit(EngineEvent.Reset(settle, profileId, sesStart, sesEnd, gaps))
@@ -166,9 +157,8 @@ class TimerEngine(
         if (cur.status != EngineStatus.PAUSED) return
         val dur = if (countUp || cur.phase == Phase.WORK) workMillis else restMillis
         val e = el; val w = wall
-        val (sesStart, sesEnd) = takeWindowIfWork(cur.phase)
-        val gaps = cur.takeGapsIfWork()
-        if (countUp || cur.phase == Phase.WORK) workWinStart = w
+        val (sesStart, sesEnd) = takeWindowIfWork(cur)
+        val gaps = if (cur.phase == Phase.WORK) cur.pauseWindows() else emptyList()
         val next = if (countUp) Phase.WORK else cur.phase
         _snapshot.value = cur.toAdvancedSnapshot(profileId, workMillis, restMillis, next, EngineStatus.RUNNING, cur.cycleCount, e, dur, countUp, w)
         save()
@@ -181,9 +171,8 @@ class TimerEngine(
         val cycle = if (next == Phase.WORK) cur.cycleCount + 1 else cur.cycleCount
         val dur = if (next == Phase.WORK) cur.workMillis else cur.restMillis
         val e = el; val w = wall
-        val (sesStart, sesEnd) = takeWindowIfWork(cur.phase)
-        val gaps = cur.takeGapsIfWork()
-        if (next == Phase.WORK) workWinStart = w
+        val (sesStart, sesEnd) = takeWindowIfWork(cur)
+        val gaps = if (cur.phase == Phase.WORK) cur.pauseWindows() else emptyList()
         _snapshot.value = cur.toAdvancedSnapshot(cur.profileId, cur.workMillis, cur.restMillis, next, EngineStatus.RUNNING, cycle, e, dur, cur.countUp, w)
         save()
         emit(EngineEvent.PhaseFinished(cur.phase, settle, cur.profileId, next, auto, sesStart, sesEnd, gaps))

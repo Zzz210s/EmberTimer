@@ -108,6 +108,19 @@ class EngineCoordinatorTest {
         assertEquals(Phase.REST, g.engine.snapshot.value!!.phase)
     }
 
+    /** v1.12.1:检查点只推进游标,不单独累加当日合计(否则出现"合计 > 时间段之和") */
+    @Test fun checkpointDoesNotAddToDailyTotal() = runBlocking {
+        val g = graphFor("coord_ckpt")
+        g.coordinator.run(TimerCommand(ACTION_START, profileId = 1L, workMillis = 600_000L, restMillis = 60_000L))
+        g.engine.adoptRestored(
+            g.engine.snapshot.value!!.copy(startElapsed = g.time.elapsedRealtime() - 120_000L),
+        )
+        g.coordinator.flushCheckpoint(force = true)
+        val today = java.time.LocalDate.now().toString()
+        val sum = g.totalsRepo.breakdownByDate(today).sumOf { it.total }
+        assertEquals("检查点不得写当日合计(段落才是唯一来源)", 0L, sum)
+    }
+
     /** 检查点落账:锁内 flush 不抛异常且能推进累计 */
     @Test fun flushCheckpointWritesTotals() = runBlocking {
         val g = graphFor("coord_flush")

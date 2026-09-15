@@ -107,4 +107,55 @@ class EngineSessionWindowTest {
         assertEquals(1_075_000L, r.sessionEndWall)
         assertEquals(75_000L, r.settleMillis) // 全额结算
     }
+
+    /**
+     * v1.12.1 核心回归:窗口随快照持久化 —— 进程被杀/被系统回收后重启(新引擎 + 恢复快照),
+     * 再终止仍能落出完整时间段。此前窗口是内存字段,重启即丢 → 终止后该段不入账。
+     */
+    @Test fun sessionWindowSurvivesProcessRestart() = runTest {
+        val t1 = FT()
+        val e1 = engine(t1)
+        e1.restore(null)
+        e1.start(1, 500_000L, 100_000L)
+        t1.el += 30_000; t1.nowMs += 30_000
+        // 持久化形态(与 DataStore 相同的 codec 往返)
+        val persisted = com.embertimer.data.RuntimeStateCodec.fromMap(
+            com.embertimer.data.RuntimeStateCodec.toMap(e1.snapshot.value)
+        )
+        assertNotNull("快照应带出窗口起点", persisted!!.sessionStartWall)
+        // 新进程:新引擎 + 恢复快照,再终止
+        val t2 = FT(nowMs = t1.nowMs, el = t1.el)
+        val e2 = engine(t2)
+        e2.restore(persisted)
+        val seen = recordEvents(e2)
+        t2.el += 20_000; t2.nowMs += 20_000
+        e2.reset()
+        val r = seen.filterIsInstance<EngineEvent.Reset>().single()
+        assertEquals(1_000_000L, r.sessionStartWall)
+        assertEquals(1_050_000L, r.sessionEndWall)
+    }
+
+    /** 暂停空档同样随快照持久化(重启后仍能剔除暂停区间) */
+    @Test fun pauseGapsSurviveProcessRestart() = runTest {
+        val t1 = FT()
+        val e1 = engine(t1)
+        e1.restore(null)
+        e1.start(1, 500_000L, 100_000L)
+        t1.el += 10_000; t1.nowMs += 10_000
+        e1.pause()
+        t1.el += 60_000; t1.nowMs += 60_000
+        val persisted = com.embertimer.data.RuntimeStateCodec.fromMap(
+            com.embertimer.data.RuntimeStateCodec.toMap(e1.snapshot.value)
+        )!!
+        val t2 = FT(nowMs = t1.nowMs, el = t1.el)
+        val e2 = engine(t2)
+        e2.restore(persisted)
+        e2.resume()
+        val seen = recordEvents(e2)
+        t2.el += 10_000; t2.nowMs += 10_000
+        e2.reset()
+        val r = seen.filterIsInstance<EngineEvent.Reset>().single()
+        assertEquals(1, r.pauseWindows.size)
+        assertEquals(1_010_000L, r.pauseWindows[0][0]) // 暂停起点
+    }
 }

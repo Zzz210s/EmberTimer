@@ -23,6 +23,9 @@ object RuntimeStateCodec {
     private const val CKPT_DATE = "rt_ckpt_date"
     private const val CKPT_ACCUM = "rt_ckpt_accum"
     private const val COUNT_UP = "rt_count_up"
+    private const val SESS_START = "rt_session_start_wall"
+    private const val PAUSE_START = "rt_pause_start_wall"
+    private const val PAUSE_GAPS = "rt_pause_gaps"
 
     fun toMap(s: RuntimeSnapshot?): Map<String, String> {
         if (s == null) return emptyMap()
@@ -37,7 +40,11 @@ object RuntimeStateCodec {
             CKPT_ACCUM to s.ckptAccum.toString(),
         ) + (if (s.ckptDate != null) mapOf(CKPT_DATE to s.ckptDate) else emptyMap()) +
             // countUp 仅在 true 时写入:false 省略键,旧会话快照序列化逐字节不变,旧库解析缺省 false
-            (if (s.countUp) mapOf(COUNT_UP to "true") else emptyMap())
+            (if (s.countUp) mapOf(COUNT_UP to "true") else emptyMap()) +
+            // v1.12.1 专注窗口:仅在有效时写键,旧快照逐字节不变
+            (s.sessionStartWall?.let { mapOf(SESS_START to it.toString()) } ?: emptyMap()) +
+            (s.pauseStartWall?.let { mapOf(PAUSE_START to it.toString()) } ?: emptyMap()) +
+            (if (s.pauseGaps.isNotEmpty()) mapOf(PAUSE_GAPS to s.pauseGaps) else emptyMap())
     }
 
     fun fromMap(m: Map<String, String>): RuntimeSnapshot? {
@@ -60,6 +67,9 @@ object RuntimeStateCodec {
             ckptDate = m[CKPT_DATE],
             ckptAccum = m[CKPT_ACCUM]?.toLongOrNull() ?: 0,
             countUp = m[COUNT_UP]?.toBooleanStrictOrNull() ?: false,
+            sessionStartWall = m[SESS_START]?.toLongOrNull(),
+            pauseStartWall = m[PAUSE_START]?.toLongOrNull(),
+            pauseGaps = m[PAUSE_GAPS] ?: "",
         )
     }
 }

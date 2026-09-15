@@ -21,8 +21,10 @@ internal class TickLedger(private val graph: AppGraph) {
         val s = snap ?: return
         val today = LocalDate.now().toString()
         val f = Checkpointer.compute(s, nowElapsed, today)
+        // v1.12.1:检查点**只推进游标**,不再单独累加当日合计 ——
+        // 合计的唯一来源是段落(recomputeDay 由段落派生),这样"今日合计 == 各时间段之和"恒成立。
+        // 检查点的作用仅剩:进程被杀后重启时,快照里的 ckptAccum 让结算不重复计入。
         if (f.deltaMillis > 0 || (force && s.status == com.embertimer.timer.EngineStatus.RUNNING && s.phase == com.embertimer.timer.Phase.WORK)) {
-            graph.totalsRepo.addWork(f.date, s.profileId, f.deltaMillis)
             graph.engine.onCheckpointFlushed(f.date, f.newAccum)
         }
         lastFlushElapsed = nowElapsed

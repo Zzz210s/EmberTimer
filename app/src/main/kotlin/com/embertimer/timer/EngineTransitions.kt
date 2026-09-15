@@ -23,6 +23,9 @@ internal fun RuntimeSnapshot.toAdvancedSnapshot(
     cycleCount = cycle, startElapsed = e, endElapsed = e + dur, endWall = wall + dur,
     timeSpentPaused = 0, lastPauseTime = 0, timeAtPause = 0,
     savedAtWall = wall, savedAtElapsed = e, ckptDate = null, ckptAccum = 0, countUp = countUp,
+    // v1.12.1:进入 WORK 开启新窗口,进入 REST/结束清空(窗口随快照持久化)
+    sessionStartWall = if (phase == Phase.WORK) wall else null,
+    pauseStartWall = null, pauseGaps = "",
 )
 
 /** 工作阶段应落库增量 = 已流逝 - 已 flush 游标(仅 WORK) */

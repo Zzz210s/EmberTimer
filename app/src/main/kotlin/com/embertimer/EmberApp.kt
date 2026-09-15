@@ -40,6 +40,15 @@ open class EmberApp : Application() {
                 if (ok) prefs.edit().putBoolean("recomputed_v1108", true).apply()
             }
         }
+        // v1.12.1:一次性重算全部日期合计 —— 此前"检查点增量 + 段落"双份累加导致
+        // 合计 > 各时间段之和(真机实测 91.2 vs 57.8 分钟);现在合计唯一来源是段落,重算即自洽。
+        if (!prefs.getBoolean("recomputed_v1121", false)) {
+            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default).launch {
+                kotlinx.coroutines.delay(1_400)
+                val ok = runCatching { graph.totalsRepo.recomputeAllDays() }.isSuccess
+                if (ok) prefs.edit().putBoolean("recomputed_v1121", true).apply()
+            }
+        }
         // v1.11.1:时段规则改为数据层规则(<=3 分钟合并、合并后 <3 分钟删除)—— 一次性清洗历史行并重算合计。
         // 注意:只有**成功**才写标记 —— 启动瞬间 DB 可能被其它协程占用(SQLITE_BUSY),失败必须留待下次重试。
         if (!prefs.getBoolean("normalized_v1111", false)) {

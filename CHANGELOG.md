@@ -7,6 +7,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/); versions fol
 ## [Unreleased]
 - Trunk-based branch model + GitHub Actions CI (test gate + tag-driven release publishing).
 
+## [1.12.1] - 2026-09-15
+### Fixed (data issues found on a real device)
+- **Segments lost after stop/restart**: the focus window (segment start + pause gaps) lived in an in-memory
+  engine field, so when the process was reclaimed (or the alarm woke a fresh process) it was gone - the stopped
+  run never landed as a time segment. The window is now **persisted inside the snapshot** (DataStore round-trip),
+  so any process can write the complete segment.
+- **Totals did not match the segments**: checkpoint increments and segments were **both** accumulating (on a real
+  device: today's total 91.2 min vs 57.8 min of segments). Checkpoints now only advance the cursor and never add
+  to the daily total; the total derives from segments alone, so it always equals the sum of the time segments.
+  A one-time recompute on upgrade repairs existing data.
+- The segment gate now uses the **window duration** (it used the settle delta before: after a 60s checkpoint the
+  delta was 0 and the whole segment was skipped - same root cause).
+
 ## [1.12.0] - 2026-09-12
 ### Changed (timer module rework)
 - **Engine driving moved into a process-wide coordinator** (`EngineCoordinator`): the event subscription now lives

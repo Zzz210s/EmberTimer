@@ -51,10 +51,12 @@ internal class EventApplier(
         // 事件内携带(同次转换赋值,无跨线程竞态);settle>0 才记,防空段
         // v1.6 误触规则:整段 <1 分钟视为误触——不计入累计、不存储、不入库
         var ignoreMisTouch = false
-        if (ev.settleMillis() > 0) {
+        run {
             val ss = ev.sessionStart()
             val se = ev.sessionEnd()
             val pid = ev.profileIdOf()
+            // v1.12.1:门控看**窗口时长**(不再看结算增量 —— 检查点已不再单独累加合计,
+            // 否则一次 60s 检查点后 settle==0 会让整段不入账,正是"终止后无时间段"的根因)
             if (ss != null && se != null && se > ss && pid != null) {
                 if (se - ss < MIN_MIS_TOUCH_MS) ignoreMisTouch = true
                 else graph.totalsRepo.recordWorkSessionSplit(pid, ss, se, ev.pauseWindows())

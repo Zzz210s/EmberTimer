@@ -29,7 +29,26 @@ data class RuntimeSnapshot(
     val ckptAccum: Long,
     /** 正计时模式:phase 恒为 WORK 且永不到期(Task 6 / #10);缺省 false = 倒计时路径逐字节不变 */
     val countUp: Boolean = false,
+    /**
+     * v1.12.1:本阶段(仅 WORK)专注窗口的墙钟起点与暂停空档 —— **随快照持久化**。
+     * 此前保存在引擎内存字段里,进程被杀/重启(闹钟唤醒、系统回收)后就丢了,导致
+     * "终止后时间段不入账、合计与时间段对不上"。现在任何进程都能用同一窗口落段。
+     */
+    val sessionStartWall: Long? = null,
+    /** 进行中的暂停起点(墙钟);resume 时并入 [pauseGaps] */
+    val pauseStartWall: Long? = null,
+    /** 已完成空档编码 "start,end;start,end"(紧凑;空串=无) */
+    val pauseGaps: String = "",
 ) {
+    /** 空档解析(事件与落段共用) */
+    fun pauseWindows(): List<LongArray> = pauseGaps.split(';').mapNotNull { seg ->
+        val parts = seg.split(',')
+        if (parts.size != 2) return@mapNotNull null
+        val a = parts[0].toLongOrNull() ?: return@mapNotNull null
+        val b = parts[1].toLongOrNull() ?: return@mapNotNull null
+        longArrayOf(a, b)
+    }
+
     val durationMillis: Long get() = if (phase == Phase.WORK) workMillis else restMillis
 
     /** 剩余毫秒。countUp 无到期概念,恒 0(展示由 accruedWork 换算,不依赖本字段) */
