@@ -2,149 +2,85 @@ package com.embertimer.service
 
 import android.app.Service
 import android.content.Intent
+import android.content.pm.ServiceInfo
+import android.os.Build
 import android.util.Log
 import com.embertimer.EmberApp
 import com.embertimer.di.AppGraph
-import com.embertimer.service.TimerNotifications
-import com.embertimer.timer.EngineEvent
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.onSubscription
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 
 /**
- * 前台计时服务:唯一的引擎驱动者与通知/闹钟/落库反应方。replay=0 事件流用订阅握手
- * 保证顺序(5s 兜底);全部引擎驱动由 engineMutex 串行化。v1.3 拆分(纯搬移,行为不变):
- * 前台化/提醒 ServiceNotifier;检查点 TickLedger;事件反应 EventApplier;对账 DeathReconciler;
- * 到期轮询 TickDriver。前台化纪律:onStartCommand 在异步处理前同步 startForeground。
+ * 前台计时服务(v1.12.0 重写为**瘦宿主**):
+ * 职责只剩①前台化(把 [EngineCoordinator.notifier] 挂上 startForeground)②ticker 心跳
+ * ③生命周期收尾(空闲/停止后脱离前台 + 空闲常驻通知 + stopSelf)。
+ *
+ * 引擎驱动(命令/到期推进/事件反应/对账)全部下沉到进程级 [EngineCoordinator] ——
+ * 这样"闹钟响了但起不了前台服务"时,广播接收器仍能推进阶段,不再出现负秒不切换。
  */
 class TimerService : Service() {
     internal lateinit var g: AppGraph
-    private lateinit var notifier: ServiceNotifier
-    private lateinit var ledger: TickLedger
-    private lateinit var reconciler: DeathReconciler
+    internal lateinit var coordinator: EngineCoordinator
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
-    /** 订阅握手:事件收集器挂上订阅后完成一次;命令派发/ticker/对账先等它(replay=0) */
-    internal val eventsSubscribed = CompletableDeferred<Unit>()
-
-    /** 冷启动竞态门控:快照收集器等首个 onStartCommand 写完标志(否则 IDLE 兜底 stopSelf
-     *  落在 startForegroundService 5 秒窗口内被拉杀)。 */
+    /** 冷启动竞态门控:等首个 onStartCommand 再开始观察快照(否则 IDLE 兜底会落在
+     *  startForegroundService 的 5 秒窗口内被拉杀) */
     private val firstCommandReceived = CompletableDeferred<Unit>()
 
-    /** 串行化全部引擎驱动逻辑;落库辅助类由调用方持锁调用(勿嵌套加锁) */
-    private val engineMutex = Mutex()
-
-    /**
-     * START 命令已收到但引擎快照尚未落地期间,快照收集器不应因初始 null 拆除服务。
-     * 命令派发协程结束时清零。RESTART_PHASE 仅在 PAUSED(快照非空)时有意义。
-     */
+    /** START 已收到但快照未落地:观察者不应因初始 null 拆除 */
     @Volatile private var awaitingSnapshot = false
 
-    /**
-     * STOP 命令的排空等待(F3a):ACTION_STOP 派发协程在 reset 前创建,
-     * onEvent(Reset) 在 settle 落库后完成;派发协程限时等待后才允许拆除服务。
-     */
-    internal var stopDrained: CompletableDeferred<Unit>? = null
-
-    /**
-     * STOP 已派发、事件尚未排空期间(F3a)。置位于 engineMutex 内 reset() 之前:
-     * onSnapshot(null) 观察到 null 即能观察到本标志,据此让位(拆除由派发协程负责)。
-     */
-    private var stopDraining = false
+    /** STOP 排空中:拆除由命令协程负责,观察者让位 */
+    @Volatile private var stopDraining = false
 
     override fun onCreate() {
         super.onCreate()
         g = (application as EmberApp).graph
-        notifier = ServiceNotifier(this, g, scope)
-        ledger = TickLedger(g)
-        reconciler = DeathReconciler(
-            graph = g,
-            mutex = engineMutex,
-            isAwaitingStart = { awaitingSnapshot },
-            notifier = notifier,
-            onSelfStop = {
-                // v1.9.13 #41:恢复常驻 —— 脱离前台保留通知,换为空闲常驻(不撤,无闪断)
-                stopForeground(STOP_FOREGROUND_DETACH)
-                TimerNotifIdle.showIdle(this)
-                stopSelf()
-            },
-        )
+        coordinator = g.coordinator
+        coordinator.serviceAttached = true
+        coordinator.notifier.attachForeground { n -> startForegroundCompat(n) }
+        coordinator.onTeardown = { tearDownToIdle() }
         scope.launch {
             g.engine.awaitReady()
             launch {
                 firstCommandReceived.await()
                 g.engine.snapshot.collect { onSnapshot(it) }
             }
-            launch {
-                g.engine.events
-                    .onSubscription { eventsSubscribed.complete(Unit) }
-                    .collect { onEvent(it) }
-            }
-            // ticker 首轮即可能触发 onExpired,必须等订阅握手完成后再启动
-            awaitEventsSubscribed()
-            TickDriver(g, ledger, engineMutex).loop(scope)
+            coordinator.awaitReadyAndSubscribed()
+            // ticker 首轮即可能触发 onExpired,必须在订阅握手之后启动
+            TickDriver(g, coordinator.ledger, coordinator.mutex).loop(scope)
         }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val action0 = intent?.action
-        if (action0 == ACTION_ACK) {
-            // v1.10.11:通知"对号"确认 —— 只清除提醒通知,不改变计时状态
+        val action = intent?.action
+        if (action == ACTION_ACK) {
+            // 通知"对号"确认:只清除提醒通知,不改计时状态
             TimerNotifIdle.cancel(this)
             return START_STICKY
         }
-        if (action0 == ACTION_START) awaitingSnapshot = true
+        if (action == ACTION_START) awaitingSnapshot = true
         firstCommandReceived.complete(Unit)
-        // 同步前台化后再异步处理;null/intent-less(START_STICKY/ServiceLauncher)同走对账。
-        notifier.goForeground(g.engine.snapshot.value)
-        val action = intent?.action
-        if (action == null) {
-            scope.launch {
-                g.engine.awaitReady()
-                awaitEventsSubscribed()
-                reconciler.run()
-            }
-            return START_STICKY
-        }
-        val createsSnapshot = action == ACTION_START
+        // 前台化纪律:异步处理前先同步前台化(无快照时用最小通知)
+        startForegroundCompat(TimerNotifications.inProgressOrMinimal(this, g.engine.snapshot.value))
+
         scope.launch {
-            g.engine.awaitReady()
-            awaitEventsSubscribed()
+            coordinator.awaitReadyAndSubscribed()
+            if (action == null) {
+                // START_STICKY/ServiceLauncher:对账(过期推进/活跃重武装/空闲自停)
+                coordinator.reconcile(awaitingSnapshot)
+                return@launch
+            }
             try {
-                engineMutex.withLock {
-                    when (action) {
-                        ACTION_START -> g.engine.start(
-                            intent.getLongExtra(EXTRA_PROFILE_ID, -1),
-                            intent.getLongExtra(EXTRA_WORK_MILLIS, 0),
-                            intent.getLongExtra(EXTRA_REST_MILLIS, 0),
-                            countUp = intent.getBooleanExtra(EXTRA_COUNT_UP, false),
-                        )
-                        ACTION_PAUSE -> g.engine.pause()
-                        ACTION_RESUME -> g.engine.resume()
-                        ACTION_STOP -> {
-                            // F3a:排空标志锁内置位;onSnapshot(null) 让位,拆除由派发协程负责
-                            stopDraining = true
-                            stopDrained = CompletableDeferred()
-                            g.engine.reset()
-                        }
-                        ACTION_SKIP -> g.engine.skip()
-                        ACTION_RESTART_PHASE -> g.engine.restartPhase(
-                            intent.getLongExtra(EXTRA_PROFILE_ID, -1),
-                            intent.getLongExtra(EXTRA_WORK_MILLIS, 0),
-                            intent.getLongExtra(EXTRA_REST_MILLIS, 0),
-                            countUp = intent.getBooleanExtra(EXTRA_COUNT_UP, false),
-                        )
-                    }
-                }
+                if (action == ACTION_STOP) stopDraining = true
+                coordinator.run(intent.toTimerCommand(action))
                 if (action == ACTION_STOP) awaitStopDrainedAndTearDown()
             } finally {
-                if (createsSnapshot) awaitingSnapshot = false
+                if (action == ACTION_START) awaitingSnapshot = false
                 if (action == ACTION_STOP) stopDraining = false
             }
         }
@@ -153,42 +89,52 @@ class TimerService : Service() {
 
     override fun onDestroy() {
         scope.cancel()
+        if (coordinator.serviceAttached) {
+            coordinator.serviceAttached = false
+            coordinator.notifier.attachForeground(null)
+            coordinator.onTeardown = null
+        }
         super.onDestroy()
     }
 
     override fun onBind(intent: Intent?) = null
 
+    /** 快照观察:活跃 → 前台化;空闲 → 脱离前台并保留空闲常驻通知后自停 */
     private fun onSnapshot(snap: com.embertimer.timer.RuntimeSnapshot?) {
-        // F4:快照收集器不允许异常杀死(杀死后服务失去前台化/拆除反应)
         runCatching {
             when {
-                snap != null -> notifier.goForeground(snap)
-                awaitingSnapshot -> {} // START 在途:初始 null 不是终态,勿拆除
-                // F3a:STOP 排空中,拆除由 ACTION_STOP 派发协程在 settle 落库后负责
-                stopDraining -> {}
-                else -> {
-                    // v1.9.13 #41:恢复常驻 —— 脱离前台保留通知,换为空闲常驻
-                    stopForeground(STOP_FOREGROUND_DETACH)
-                    TimerNotifIdle.showIdle(this)
-                    stopSelf()
-                }
+                snap != null -> startForegroundCompat(TimerNotifications.inProgress(this, snap))
+                awaitingSnapshot || stopDraining -> Unit
+                else -> tearDownToIdle()
             }
         }.onFailure { Log.w(TAG, "snapshot handler failed for $snap", it) }
     }
 
-    private suspend fun onEvent(ev: EngineEvent) {
-        engineMutex.withLock {
-            // F4:单事件失败(如 Room 异常)不得杀死收集器(replay=0 下挂掉即后续事件静默丢);
-            // 不自动重试 flush(增量落库,盲目重试会重复计数)。
-            runCatching {
-                val resetSeen = EventApplier(g, ledger, notifier).apply(ev)
-                // F3a:Reset 事件的 settle 已(尝试)落库,派发协程据此继续拆除
-                if (resetSeen) stopDrained?.complete(Unit)
-            }.onFailure { Log.w(TAG, "event handler failed for $ev", it) }
+    private fun tearDownToIdle() {
+        stopForeground(STOP_FOREGROUND_DETACH)
+        TimerNotifIdle.showIdle(this)
+        stopSelf()
+    }
+
+    private fun startForegroundCompat(n: android.app.Notification) {
+        // FOREGROUND_SERVICE_TYPE_SPECIAL_USE 自 API 34 才有:34 以下传该类型会抛异常
+        if (Build.VERSION.SDK_INT >= 34) {
+            startForeground(TimerNotifications.ID_NOTIFY, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+        } else {
+            startForeground(TimerNotifications.ID_NOTIFY, n)
         }
     }
 
-    companion object {
-        private const val TAG = "TimerService"
+    private companion object {
+        const val TAG = "TimerService"
     }
 }
+
+/** Intent -> 命令载荷(纯数据,便于测试) */
+internal fun Intent.toTimerCommand(action: String) = TimerCommand(
+    action = action,
+    profileId = getLongExtra(EXTRA_PROFILE_ID, -1L),
+    workMillis = getLongExtra(EXTRA_WORK_MILLIS, 0L),
+    restMillis = getLongExtra(EXTRA_REST_MILLIS, 0L),
+    countUp = getBooleanExtra(EXTRA_COUNT_UP, false),
+)

@@ -44,6 +44,10 @@ object TimerNotifications {
     }
 
     /** 引擎快照未就绪的最小占位通知:onStartCommand 同步前台化先顶上 */
+    /** 有快照用计时通知,无快照用最小通知(服务同步前台化用) */
+    fun inProgressOrMinimal(context: android.content.Context, snap: com.embertimer.timer.RuntimeSnapshot?): Notification =
+        if (snap != null) inProgress(context, snap) else minimal(context)
+
     fun minimal(context: Context): Notification =
         NotificationCompat.Builder(context, CH_TIMER)
             .setSmallIcon(R.drawable.ic_notif_flame)

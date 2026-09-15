@@ -14,6 +14,8 @@ open class EmberApp : Application() {
         super.onCreate()
         graph = AppGraph(this)
         graph.bootstrapAsync()
+        // v1.12.0:协调器随图安装(事件订阅下沉到图;广播唤起的进程也能推进到期)
+        graph.coordinator.install()
         // v1.11.0 启动优化:渠道创建与报表闹钟武装都是 binder 调用,移到后台线程,
         // 不阻塞首帧(通知渠道在真正发通知前的路径上也会补建)。
         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default).launch {

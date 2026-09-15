@@ -66,7 +66,7 @@ internal class EventApplier(
             when (fx) {
                 // Settle 不再单独累加合计:recordWorkSessionSplit 已按段落重算当日合计(单一数据源)
                 is EventEffect.Settle -> Unit
-                is EventEffect.Arm -> graph.alarmScheduler.arm(fx.endElapsed)
+                is EventEffect.Arm -> graph.alarmScheduler.arm(graph.engine.snapshot.value)
                 EventEffect.CancelAlarm -> graph.alarmScheduler.cancel()
                 EventEffect.ForceCheckpoint -> ledger.flush(graph.engine.snapshot.value, graph.time.elapsedRealtime(), force = true)
                 is EventEffect.Remind -> notifier.remind(fx.workFinished)

@@ -63,6 +63,12 @@ class AppGraph(
     )
 
     val alarmScheduler = com.embertimer.service.AlarmScheduler(context, time)
+
+    /**
+     * v1.12.0:引擎协调器(进程级)。在 [EmberApp.onCreate] 里 [EngineCoordinator.install]
+     * —— 事件订阅随图建立,因此**只有闹钟广播唤起的进程**也能直接推进阶段(不依赖前台服务)。
+     */
+    val coordinator = com.embertimer.service.EngineCoordinator(this)
     val reminderPlayer = com.embertimer.service.ReminderPlayer(context)
 
     val vmFactory = viewModelFactory {

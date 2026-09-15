@@ -7,6 +7,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/); versions fol
 ## [Unreleased]
 - Trunk-based branch model + GitHub Actions CI (test gate + tag-driven release publishing).
 
+## [1.12.0] - 2026-09-12
+### Changed (timer module rework)
+- **Engine driving moved into a process-wide coordinator** (`EngineCoordinator`): the event subscription now lives
+  in the app graph, so a process started by the alarm broadcast alone (when the foreground service cannot start)
+  still advances the phase completely - settle-to-DB, reminder, next-phase notification and re-arming.
+  Previously this was tied to the foreground service, so a delivered alarm with a blocked service start lost the
+  advance: the notification countdown ran negative while the phase never switched.
+- **Dual redundant expiry alarms** (no `setAlarmClock`, so the status-bar icon is unchanged): primary at the
+  deadline, safety net at deadline +45s. Both go to the same receiver and the advance is idempotent, so an
+  OEM/Doze-swallowed primary still gets a second chance.
+- The service is now a thin host (foregrounding / ticker / lifecycle); `DeathReconciler` merged into the
+  coordinator; notification posting is Context-based (works with no service attached).
+- Expired snapshots keep rendering static `00:00` (no negative countdown).
+
 ## [1.11.3] - 2026-09-11
 ### Changed
 - **Span rules now live in the data layer** (not just display filtering): when a focus run ends, segments separated by

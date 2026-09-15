@@ -40,6 +40,8 @@ class ReportAlarmReceiverTest {
     private var graph: AppGraph? = null
 
     @Before fun setUp() {
+        // 同一 Robolectric JVM 内其它测试类会改默认 Locale,导致本类文案断言跨类不稳 —— 每用例钉住中文
+        java.util.Locale.setDefault(java.util.Locale.SIMPLIFIED_CHINESE)
         ctx = ApplicationProvider.getApplicationContext()
     }
 
@@ -100,8 +102,9 @@ class ReportAlarmReceiverTest {
             g.totalsRepo.addWork(today.toString(), 1L, 30 * 60_000L)
         }
         ReportAlarmReceiver().onReceive(ctx, Intent(ReportAlarmActions.WEEK))
-        awaitCond { posted().isNotEmpty() }
-        val n = posted().first()
+        // 断言取"带正文的那条"(同一 ID 上可能有其它通知残留/覆盖),避免跨类顺序导致的误判
+        awaitCond { posted().any { it.extras?.getString(android.app.Notification.EXTRA_TEXT) != null } }
+        val n = posted().first { it.extras?.getString(android.app.Notification.EXTRA_TEXT) != null }
         val txt = n.extras?.getString(android.app.Notification.EXTRA_TEXT)
         assertNotNull(txt)
         // Robolectric 默认 en-US:断言走 values-en(英文对照)

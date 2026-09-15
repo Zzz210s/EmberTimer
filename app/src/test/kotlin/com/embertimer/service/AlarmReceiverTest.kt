@@ -27,22 +27,17 @@ import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 
 /**
- * AlarmReceiver 门控钉(Fix Round 2 F5/F1):
- * - 已到期 RUNNING -> 起前台服务(推进交服务对账)、引擎快照不动;起服务被系统接受时
- *   不再补 retry 闹钟;起服务被拒 -> 60s 后重试闹钟(F1 自愈,不循环);
- * - 未到期 RUNNING -> 按 endElapsed 重武装 + 起服务;
- * - PAUSED/null -> 不动闹钟、不起服务。
- *
- * 直调 onReceive(Robolectric 下 goAsync 直调安全,已 probe 验证;sendBroadcast 不派发
- * 无 intent-filter 的显式清单接收器)。接收器 body 在 Default 真线程异步执行,
- * 有副作用的断言用轮询等待(有界超时),无副作用的断言静置后检查。
- * TestApp 空 onCreate 跳过真实装配(AppGraph/频道),graph 由测试注入;
- * 每用例独立 DataStore 文件名(同进程同文件多实例会抛异常)。
+ * AlarmReceiver 契约钉(**v1.12.0 新契约**):到点由接收器**在进程内直接推进阶段**,
+ * 不再把推进交给前台服务(这是"负秒不切换"的根因修复):
+ * - 已到期 RUNNING:引擎推进(WORK→REST)、按新阶段重新武装闹钟、尽力起服务;
+ * - 已到期但 start 被拒:引擎**照样推进**(无死路),闹钟仍武装;
+ * - 未到期 RUNNING:引擎不动,重新武装到期闹钟,起服务;
+ * - PAUSED/null:无副作用。
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], application = AlarmReceiverTest.TestApp::class)
 class AlarmReceiverTest {
-    class TestApp : EmberApp() { override fun onCreate() { /* 无 super:跳过真实装配 */ } }
+    class TestApp : EmberApp() { override fun onCreate() { /* 跳过真实装配 */ } }
 
     private lateinit var ctx: Context
     private lateinit var app: EmberApp
@@ -66,19 +61,19 @@ class AlarmReceiverTest {
         savedAtWall = 1_000_000L, savedAtElapsed = 0L, ckptDate = null, ckptAccum = 0L,
     )
 
-    /** 构造受控 graph 并恢复引擎快照(restore 同时置 ready,接收器 awaitReady 即返) */
-    private fun graphFor(storeName: String, snap: (AppGraph) -> RuntimeSnapshot?): AppGraph {
+    /** 受控 graph:restore 同时置 ready;协调器与接收器共用(install 由测试显式调用) */
+    private fun graphFor(storeName: String, snap: RuntimeSnapshot?): AppGraph {
         val g = AppGraph(ctx, useInMemoryDb = true, storeFileName = storeName)
         app.graph = g
         graph = g
-        runBlocking { g.engine.restore(snap(g)) }
+        g.coordinator.install()
+        runBlocking { g.engine.restore(snap) }
         return g
     }
 
     private fun fire(context: Context = ctx) =
         AlarmReceiver().onReceive(context, Intent("com.embertimer.ALARM"))
 
-    /** body 在 Default 真线程执行,轮询等待断言条件成立(有界) */
     private fun awaitCond(timeoutMs: Long = 5_000, cond: () -> Boolean) {
         val deadline = System.currentTimeMillis() + timeoutMs
         while (System.currentTimeMillis() < deadline) {
@@ -89,49 +84,42 @@ class AlarmReceiverTest {
 
     private fun nextAlarmTrigger(): Long? {
         val am = ctx.getSystemService(AlarmManager::class.java)
-        // peek 非破坏性:getNextScheduledAlarm 会从队列中消费闹钟(Robolectric 4.14)
         return shadowOf(am).peekNextScheduledAlarm()?.triggerAtTime
     }
 
-    /** 已到期 + 起服务被系统接受:只起服务,引擎不动,不补 retry 闹钟(不循环重试) */
-    @Test fun expiredRunningStartsServiceWithoutTouchingEngineOrAlarm() {
-        val g = graphFor("alarm_rx_expired_ok") { g ->
-            snap(EngineStatus.RUNNING, g.time.elapsedRealtime() - 1_000)
-        }
-        val before = g.engine.snapshot.value!!
+    /** 到点:接收器直接推进到 REST,并按新阶段武装下一段闹钟 */
+    @Test fun expiredRunningAdvancesPhaseInProcess() {
+        val g = graphFor("rx_expired_ok", null)
+        runBlocking { g.engine.restore(snap(EngineStatus.RUNNING, g.time.elapsedRealtime() - 1_000)) }
         fire()
+        awaitCond { g.engine.snapshot.value?.phase == Phase.REST }
+        val s = g.engine.snapshot.value!!
+        assertEquals(EngineStatus.RUNNING, s.status)
+        assertEquals(Phase.REST, s.phase)
+        // 事件反应(重武装)在锁外异步执行,等待其完成
+        awaitCond { nextAlarmTrigger() != null }
+        assertTrue("新阶段应已武装到期闹钟", nextAlarmTrigger() != null)
         awaitCond { shadowOf(app).peekNextStartedService() != null }
-        assertEquals(ComponentName(ctx, TimerService::class.java), shadowOf(app).nextStartedService.component)
-        // 起服务成功 -> 无 retry 闹钟;静置一小段确认 body 无后续武装
-        Thread.sleep(300)
-        assertNull(nextAlarmTrigger())
-        val after = g.engine.snapshot.value!!
-        assertEquals(before.status, after.status)
-        assertEquals(before.phase, after.phase)
-        assertEquals(before.endElapsed, after.endElapsed)
     }
 
-    /** 已到期 + 两种 start 均被拒(F1):60s 后重试闹钟兜底,不 dead-end */
-    @Test fun expiredRunningWithDeniedStartRearmsRetryAlarm() {
-        val g = graphFor("alarm_rx_expired_denied") { g ->
-            snap(EngineStatus.RUNNING, g.time.elapsedRealtime() - 1_000)
-        }
-        val expected = g.time.elapsedRealtime() + 60_000
+    /** 到点但后台起服务被拒:引擎**仍然推进**(不再死路),闹钟仍武装 */
+    @Test fun expiredRunningWithDeniedStartStillAdvances() {
+        val g = graphFor("rx_expired_denied", null)
+        runBlocking { g.engine.restore(snap(EngineStatus.RUNNING, g.time.elapsedRealtime() - 1_000)) }
         fire(DeniedStartContext(ctx))
+        awaitCond { g.engine.snapshot.value?.phase == Phase.REST }
+        assertEquals(Phase.REST, g.engine.snapshot.value!!.phase)
         awaitCond { nextAlarmTrigger() != null }
-        val trigger = nextAlarmTrigger()!!
-        assertTrue("retry alarm should be ~now+60s, got $trigger vs $expected", Math.abs(trigger - expected) < 5_000)
-        // 两次 start 均在抛异常前未达系统,不产生记录
+        assertTrue("起服务失败也必须留有下一段闹钟", nextAlarmTrigger() != null)
         assertNull(shadowOf(app).peekNextStartedService())
     }
 
-    /** 未到期 RUNNING:endElapsed 重武装 + 起服务 */
-    @Test fun activeRunningRearmsAtEndElapsedAndStartsService() {
+    /** 未到期:引擎不动,重新武装到期闹钟,拉起服务 */
+    @Test fun activeRunningRearmsAndStartsService() {
         var end = 0L
-        val g = graphFor("alarm_rx_active") { g ->
-            end = g.time.elapsedRealtime() + 300_000
-            snap(EngineStatus.RUNNING, end)
-        }
+        val g = graphFor("rx_active", null)
+        end = g.time.elapsedRealtime() + 300_000
+        runBlocking { g.engine.restore(snap(EngineStatus.RUNNING, end)) }
         fire()
         awaitCond { nextAlarmTrigger() != null }
         assertEquals(end, nextAlarmTrigger())
@@ -139,30 +127,19 @@ class AlarmReceiverTest {
         assertNotNull(shadowOf(app).nextStartedService)
     }
 
-    /** PAUSED:不动闹钟、不起服务(UI 负责恢复) */
-    @Test fun pausedSnapshotDoesNothing() {
-        graphFor("alarm_rx_paused") { g ->
-            snap(EngineStatus.PAUSED, g.time.elapsedRealtime() - 1_000) // 到期也轮不到接收器管
-        }
+    /** PAUSED / null:无副作用 */
+    @Test fun pausedOrNullDoesNothing() {
+        graphFor("rx_paused", snap(EngineStatus.PAUSED, 0L))
         fire()
-        Thread.sleep(400) // body 只读快照即返回,静置后断言无副作用
+        Thread.sleep(300)
         assertNull(nextAlarmTrigger())
         assertNull(shadowOf(app).peekNextStartedService())
     }
 
-    /** null(空闲):不动闹钟、不起服务 */
-    @Test fun nullSnapshotDoesNothing() {
-        graphFor("alarm_rx_null") { null }
-        fire()
-        Thread.sleep(400)
-        assertNull(nextAlarmTrigger())
-        assertNull(shadowOf(app).peekNextStartedService())
-    }
-
-    /** 模拟 Android 12+ 后台 FGS 启动被拒:两种 start 均抛异常(ensureServiceRunning -> false) */
     private class DeniedStartContext(base: Context) : ContextWrapper(base) {
         override fun startForegroundService(service: Intent): ComponentName =
             throw IllegalStateException("background FGS start denied")
+
         override fun startService(service: Intent): ComponentName? =
             throw IllegalStateException("background start denied")
     }

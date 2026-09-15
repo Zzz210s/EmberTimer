@@ -1,0 +1,143 @@
+package com.embertimer.service
+
+import android.util.Log
+import com.embertimer.di.AppGraph
+import com.embertimer.timer.EngineEvent
+import com.embertimer.timer.EngineStatus
+import com.embertimer.timer.ReconcileAction
+import com.embertimer.timer.Reconciler
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.flow.onSubscription
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
+
+/** 命令载荷(与 Intent 解耦,可纯 JVM 测试) */
+data class TimerCommand(
+    val action: String,
+    val profileId: Long = -1L,
+    val workMillis: Long = 0L,
+    val restMillis: Long = 0L,
+    val countUp: Boolean = false,
+)
+
+/**
+ * v1.12.0 **计时模块协调器** —— 引擎的唯一驱动者,进程级(随 AppGraph 建立)。
+ *
+ * 为什么要有它:此前引擎驱动绑在**前台服务**上(事件订阅、命令、对账都在 TimerService),
+ * 于是"闹钟响了但起不了前台服务"时推进就丢了 —— 表现为通知倒计时进入负秒而阶段不切。
+ * 现在事件订阅与推进都在图里,任何进程启动(哪怕是**只有广播唤起的进程**)都能推进:
+ *
+ *   闹钟送达 → AlarmReceiver → coordinator.advanceIfExpired()  ← 不依赖前台服务
+ *
+ * 服务只保留前台化/ticker/生命周期;所有引擎驱动经同一把 [mutex] 串行。
+ */
+class EngineCoordinator(private val graph: AppGraph) {
+    private val scope = graph.appScope
+    private val context = graph.appContext
+    val notifier = ServiceNotifier(context, graph, scope)
+    internal val ledger = TickLedger(graph)
+    private val applier = EventApplier(graph, ledger, notifier)
+
+    /** 引擎驱动串行化(命令/事件/到期推进/ticker 共用) */
+    val mutex = Mutex()
+
+    private val eventsSubscribed = CompletableDeferred<Unit>()
+
+    /** STOP 的 Reset 事件排空信号(拆除握手用) */
+    @Volatile var stopDrained: CompletableDeferred<Unit>? = null
+
+    /** 服务是否挂载(决定通知是 startForeground 还是普通 notify) */
+    @Volatile var serviceAttached = false
+
+    /** 服务拆除回调(空闲自停/停止后收尾由服务注入) */
+    @Volatile var onTeardown: (() -> Unit)? = null
+
+    /** 图建立时安装:事件订阅 + 无服务时的通知发布 */
+    fun install() {
+        scope.launch {
+            graph.engine.awaitReady()
+            launch {
+                graph.engine.events
+                    .onSubscription { eventsSubscribed.complete(Unit) }
+                    .collect { dispatch(it) }
+            }
+            launch {
+                graph.engine.snapshot.collect { if (!serviceAttached) notifier.post(it) }
+            }
+        }
+    }
+
+    /** 事件反应(锁内,异常不杀收集器) */
+    private suspend fun dispatch(ev: EngineEvent) {
+        mutex.withLock {
+            runCatching {
+                val resetSeen = applier.apply(ev)
+                if (resetSeen) stopDrained?.complete(Unit)
+            }.onFailure { Log.w(TAG, "event handler failed for $ev", it) }
+        }
+    }
+
+    /** 握手等待:5s 兜底(超时降级为无订阅者,事件将静默丢弃) */
+    suspend fun awaitReadyAndSubscribed() {
+        if (withTimeoutOrNull(5_000) { graph.engine.awaitReady(); eventsSubscribed.await() } == null) {
+            Log.w(TAG, "events subscriber handshake timed out; engine events will be dropped")
+        }
+    }
+
+    /**
+     * **到期推进**(闹钟接收器/服务/UI 共用)。仅"运行中 + 倒计时 + 已到期"才动作;
+     * 返回是否真的推进了。幂等:主闹钟与安全网闹钟先后送达不会重复推进。
+     */
+    suspend fun advanceIfExpired(): Boolean = mutex.withLock {
+        val s = graph.engine.snapshot.value
+        if (s == null || s.status != EngineStatus.RUNNING || s.countUp) return@withLock false
+        if (s.endElapsed > graph.time.elapsedRealtime()) return@withLock false
+        graph.engine.onExpired()
+        true
+    }
+
+    /** 进程启动/服务启动/开机对账 */
+    suspend fun reconcile(awaitingStart: Boolean) = mutex.withLock {
+        when (Reconciler.decide(graph.engine.snapshot.value, graph.time.elapsedRealtime())) {
+            ReconcileAction.STOP_SELF -> if (!awaitingStart) teardown()
+            ReconcileAction.FINISH_EXPIRED -> graph.engine.onExpired()
+            ReconcileAction.RESUME_ACTIVE, ReconcileAction.SHOW_PAUSED -> {
+                val s = graph.engine.snapshot.value
+                notifier.post(s)
+                // 活跃态重新武装到期闹钟(服务死后闹钟可能已被系统清理)
+                graph.alarmScheduler.arm(s)
+            }
+        }
+    }
+
+    /** 执行命令(服务 onStartCommand 与测试共用) */
+    suspend fun run(cmd: TimerCommand) = mutex.withLock {
+        when (cmd.action) {
+            ACTION_START -> graph.engine.start(cmd.profileId, cmd.workMillis, cmd.restMillis, cmd.countUp)
+            ACTION_PAUSE -> graph.engine.pause()
+            ACTION_RESUME -> graph.engine.resume()
+            ACTION_STOP -> {
+                stopDrained = CompletableDeferred()
+                graph.engine.reset()
+            }
+            ACTION_SKIP -> graph.engine.skip()
+            ACTION_RESTART_PHASE -> graph.engine.restartPhase(cmd.profileId, cmd.workMillis, cmd.restMillis, cmd.countUp)
+        }
+    }
+
+    /** 检查点落账(ticker/阶段切换),锁内 */
+    suspend fun flushCheckpoint(force: Boolean) = mutex.withLock {
+        ledger.flush(graph.engine.snapshot.value, graph.time.elapsedRealtime(), force)
+    }
+
+    /** 空闲/停止收尾:交给服务(脱离前台 + 空闲常驻通知 + stopSelf) */
+    fun teardown() {
+        onTeardown?.invoke()
+    }
+
+    private companion object {
+        const val TAG = "EngineCoordinator"
+    }
+}
