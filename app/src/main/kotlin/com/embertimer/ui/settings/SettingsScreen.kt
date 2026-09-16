@@ -28,6 +28,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import com.embertimer.diag.DiagnosticsSection
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -119,6 +120,11 @@ fun SettingsScreen(
                         AutoBackupSection(vm)
                     }
                 }
+            }
+
+            // 诊断(仅 debug 构建显示;正式版此区块不渲染)
+            item {
+                DiagnosticsSection(serviceAliveFlag = { com.embertimer.diag.DiagState.serviceAlive })
             }
 
             // 提醒强度

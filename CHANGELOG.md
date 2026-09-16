@@ -7,6 +7,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/); versions fol
 ## [Unreleased]
 - Trunk-based branch model + GitHub Actions CI (test gate + tag-driven release publishing).
 
+## [1.12.2] - 2026-09-16
+### Added (debug builds only)
+- **In-app diagnostics panel**: a "Diagnostics (debug)" card in Settings showing
+  (1) notification state (is our notification posted, ongoing / foreground-service flag, channel, post time),
+  (2) background state (is the in-app service alive, is the app foregrounded),
+  (3) a rolling log of key events (process start, foreground/background transitions, service
+  onCreate/onDestroy, expiry alarm delivery, phase advance, commands, engine events, notification posts) -
+  an 80-entry in-memory ring buffer, never persisted or uploaded.
+  Release builds render nothing and pay nothing (gated by `FLAG_DEBUGGABLE`).
+- Build flag `-PreleaseSignDebug=true`: the debug variant is signed with the **release key**, so it can be
+  installed over an existing release build **without losing data** (debug and release signatures differ, which
+  normally forces an uninstall).
+
 ## [1.12.1] - 2026-09-15
 ### Fixed (data issues found on a real device)
 - **Segments lost after stop/restart**: the focus window (segment start + pause gaps) lived in an in-memory

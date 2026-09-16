@@ -42,6 +42,8 @@ class TimerService : Service() {
         g = (application as EmberApp).graph
         coordinator = g.coordinator
         coordinator.serviceAttached = true
+        com.embertimer.diag.DiagState.serviceAlive = true
+        com.embertimer.diag.DiagLog.add("Svc", "onCreate：服务启动")
         coordinator.notifier.attachForeground { n -> startForegroundCompat(n) }
         coordinator.onTeardown = { tearDownToIdle() }
         scope.launch {
@@ -63,6 +65,7 @@ class TimerService : Service() {
             TimerNotifIdle.cancel(this)
             return START_STICKY
         }
+        com.embertimer.diag.DiagLog.add("Svc", "onStartCommand action=${action ?: "null(对账)"}")
         if (action == ACTION_START) awaitingSnapshot = true
         firstCommandReceived.complete(Unit)
         // 前台化纪律:异步处理前先同步前台化(无快照时用最小通知)
@@ -89,6 +92,8 @@ class TimerService : Service() {
 
     override fun onDestroy() {
         scope.cancel()
+        com.embertimer.diag.DiagState.serviceAlive = false
+        com.embertimer.diag.DiagLog.add("Svc", "onDestroy：服务结束（通知可能随之消失）")
         if (coordinator.serviceAttached) {
             coordinator.serviceAttached = false
             coordinator.notifier.attachForeground(null)
@@ -111,6 +116,7 @@ class TimerService : Service() {
     }
 
     private fun tearDownToIdle() {
+        com.embertimer.diag.DiagLog.add("Svc", "空闲收尾：脱离前台 + 空闲通知 + stopSelf")
         stopForeground(STOP_FOREGROUND_DETACH)
         TimerNotifIdle.showIdle(this)
         stopSelf()

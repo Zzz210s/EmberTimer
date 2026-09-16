@@ -16,8 +16,8 @@ android {
         applicationId = "com.embertimer"
         minSdk = 26
         targetSdk = 35
-        versionCode = 60
-        versionName = "1.12.1"
+        versionCode = 61
+        versionName = "1.12.2"
     }
     val keystoreProps = rootProject.file("local.properties").let { f ->
         if (f.exists()) Properties().apply { f.inputStream().use { load(it) } } else null
@@ -34,6 +34,16 @@ android {
         }
     }
     buildTypes {
+        /**
+         * v1.12.2:本机诊断用 —— `-PreleaseSignDebug=true` 时 debug 变体使用**正式签名**,
+         * 因此可以直接覆盖已安装的正式版而**不丢数据**(debug keystore 与正式不一致,默认必须卸载)。
+         * 默认(false)行为不变:debug 仍用 debug 签名。
+         */
+        debug {
+            if (project.hasProperty("releaseSignDebug") && storeFilePath != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
         release {
             // v1.11.0:重新启用 R8(minify + 资源收缩)。此前关闭是因为误判
             // (真机闪退实际源于 notification_actions.xml 的 RemoteViews 非法属性,已修);

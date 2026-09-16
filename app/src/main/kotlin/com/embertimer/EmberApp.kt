@@ -13,6 +13,23 @@ open class EmberApp : Application() {
     override fun onCreate() {
         super.onCreate()
         graph = AppGraph(this)
+        com.embertimer.diag.DiagLog.markEnabled(this)
+        com.embertimer.diag.DiagLog.add("App", "onCreate（进程启动）")
+        registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
+            override fun onActivityStarted(a: android.app.Activity) {
+                com.embertimer.diag.DiagState.appForeground = true
+                com.embertimer.diag.DiagLog.add("App", "进入前台")
+            }
+            override fun onActivityStopped(a: android.app.Activity) {
+                com.embertimer.diag.DiagState.appForeground = false
+                com.embertimer.diag.DiagLog.add("App", "退到后台")
+            }
+            override fun onActivityCreated(a: android.app.Activity, b: android.os.Bundle?) = Unit
+            override fun onActivityResumed(a: android.app.Activity) = Unit
+            override fun onActivityPaused(a: android.app.Activity) = Unit
+            override fun onActivitySaveInstanceState(a: android.app.Activity, b: android.os.Bundle) = Unit
+            override fun onActivityDestroyed(a: android.app.Activity) = Unit
+        })
         graph.bootstrapAsync()
         // v1.12.0:协调器随图安装(事件订阅下沉到图;广播唤起的进程也能推进到期)
         graph.coordinator.install()

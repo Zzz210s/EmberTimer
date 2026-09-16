@@ -73,6 +73,7 @@ class EngineCoordinator(private val graph: AppGraph) {
     private suspend fun dispatch(ev: EngineEvent) {
         mutex.withLock {
             runCatching {
+                com.embertimer.diag.DiagLog.add("Eng", "事件 ${ev::class.simpleName}")
                 val resetSeen = applier.apply(ev)
                 if (resetSeen) stopDrained?.complete(Unit)
             }.onFailure { Log.w(TAG, "event handler failed for $ev", it) }
@@ -95,6 +96,7 @@ class EngineCoordinator(private val graph: AppGraph) {
         if (s == null || s.status != EngineStatus.RUNNING || s.countUp) return@withLock false
         if (s.endElapsed > graph.time.elapsedRealtime()) return@withLock false
         graph.engine.onExpired()
+        com.embertimer.diag.DiagLog.add("Eng", "到期推进：${graph.engine.snapshot.value?.phase} 循环${graph.engine.snapshot.value?.cycleCount}")
         true
     }
 
@@ -114,6 +116,7 @@ class EngineCoordinator(private val graph: AppGraph) {
 
     /** 执行命令(服务 onStartCommand 与测试共用) */
     suspend fun run(cmd: TimerCommand) = mutex.withLock {
+        com.embertimer.diag.DiagLog.add("Eng", "命令 ${cmd.action.substringAfterLast('.')}")
         when (cmd.action) {
             ACTION_START -> graph.engine.start(cmd.profileId, cmd.workMillis, cmd.restMillis, cmd.countUp)
             ACTION_PAUSE -> graph.engine.pause()

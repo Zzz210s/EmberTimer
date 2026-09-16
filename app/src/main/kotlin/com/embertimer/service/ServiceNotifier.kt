@@ -36,6 +36,7 @@ class ServiceNotifier(
             context.getSystemService(android.app.NotificationManager::class.java)
                 ?.notify(TimerNotifications.ID_NOTIFY, n)
         }
+        com.embertimer.diag.DiagLog.add("Notif", "发布通知 有快照=${snap != null} 前台化=${foregroundSink != null}")
         foregroundSink?.invoke(n)
     }
 
